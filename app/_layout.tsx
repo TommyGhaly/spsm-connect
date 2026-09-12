@@ -40,8 +40,15 @@ function RootStack() {
         contentStyle: { backgroundColor: theme.color.paper },
       }}
     >
-      {/* The tab group draws its own headers; two stacked would be two titles. */}
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      {/*
+        * The drawer group, which is everything with a tab bar or a menu behind
+        * it. Its screens draw their own headers; two stacked would be two
+        * titles — and until this said `(drawer)` rather than `(tabs)`, that is
+        * exactly what it was: a bar reading "(drawer)" above every real one,
+        * because a screen this stack does not name gets a default header
+        * titled after its own route segment.
+        */}
+      <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
       <Stack.Screen name="uploads" options={{ title: 'Sending' }} />
       <Stack.Screen name="sign-in" options={{ title: 'Sign in', presentation: 'modal' }} />
     </Stack>

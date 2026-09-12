@@ -182,6 +182,33 @@ const ICONS = {
       <Circle cx="15" cy="18" r="1.5" />
     </G>
   ),
+
+  /* ---- native only --------------------------------------------------------
+   *
+   * The three below have no counterpart in the website's set, and that is not
+   * an omission to be corrected there. Each names an affordance a web page does
+   * not have: a tab bar's centre action, a tab for the shop, and the button
+   * that opens a drawer. There is nothing for them to drift from, so the rule at
+   * the top of this file — copy the geometry, change both together — does not
+   * bite. Anything that *does* appear on both must still be copied verbatim.
+   * ---------------------------------------------------------------------- */
+
+  /** The centre button. Sending a photograph is what this app is for. */
+  camera: (
+    <>
+      <Path d="M3.5 8.5A1.5 1.5 0 0 1 5 7h2.2l1.3-2h7l1.3 2H19a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z" />
+      <Circle cx="12" cy="12.5" r="3.5" />
+    </>
+  ),
+  /** The bookstore. A shop bag rather than a trolley — the parish sells books. */
+  bag: (
+    <>
+      <Path d="M5 7.5h14l-1 12H6z" />
+      <Path d="M9 10V6.5a3 3 0 0 1 6 0V10" />
+    </>
+  ),
+  /** Opens the drawer. Three rules, the one shape nobody has to be taught. */
+  menu: <Path d="M4 7h16M4 12h16M4 17h16" />,
 } satisfies Record<string, ReactElement>;
 
 export type IconName = keyof typeof ICONS;
