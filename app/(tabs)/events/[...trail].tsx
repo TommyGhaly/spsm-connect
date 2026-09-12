@@ -25,7 +25,7 @@
  * level would be a fan-out that grows with the parish's history, on a screen a
  * parishioner opens first.
  */
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
 import {
@@ -276,9 +276,19 @@ function Breadcrumb({ level }: { level: Level }) {
   if (!node) return null;
 
   const ancestors = trailOf(tree, node.id).slice(0, -1);
-  const hops: { label: string; href: string }[] = [
+
+  /*
+   * `Href` rather than `string`, and named so the `.map` below can be annotated
+   * too. `typedRoutes` checks a template literal against the route union only
+   * when it has a contextual type to check against — a `.map` callback infers
+   * its own return first, so the annotation has to be on the callback as well
+   * as on the array, or the widened `string` comes back.
+   */
+  type Hop = { label: string; href: Href };
+
+  const hops: Hop[] = [
     { label: program.name, href: `/events/${program.slug}` },
-    ...ancestors.map((one, index) => ({
+    ...ancestors.map((one, index): Hop => ({
       label: one.title,
       href: `/events/${program.slug}/${ancestors
         .slice(0, index + 1)
@@ -290,7 +300,12 @@ function Breadcrumb({ level }: { level: Level }) {
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: theme.space.xs }}>
       {hops.map((hop, index) => (
-        <View key={hop.href} style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.xs }}>
+        /*
+         * `String`, because `Href` admits an object form and a key must be a
+         * string. Every href here is a template literal, so this is the path
+         * itself — the cast is to satisfy the union, not to paper over a shape.
+         */
+        <View key={String(hop.href)} style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.xs }}>
           {index > 0 ? <Small color={theme.color.inkFaint}>·</Small> : null}
           <Pressable
             onPress={() => router.push(hop.href)}
@@ -327,7 +342,7 @@ function ChildCard({
   const router = useRouter();
 
   const slugs = trailOf(level.tree, child.id).map((one) => one.slug);
-  const href = `/events/${level.program.slug}/${slugs.join('/')}`;
+  const href: Href = `/events/${level.program.slug}/${slugs.join('/')}`;
 
   return (
     <Pressable
