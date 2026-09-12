@@ -107,8 +107,16 @@ const config: ExpoConfig = {
      * **15 MB, uncompressed.** Every invocation the parish has is physical — a
      * tag by a door, a code on a printed card — and physical invocations do not
      * get the larger budget iOS 17 added for links tapped in Safari or Messages.
-     * `deploymentTarget: '16.0'` is what buys 15 rather than the 10 MB an
-     * iOS 15 floor would allow, and is the only reason it is set.
+     * An iOS 16 floor is what buys 15 rather than the 10 MB an iOS 15 floor
+     * would allow, and is the only reason it is set at all.
+     *
+     * It reads 16.4 rather than 16.0 because expo-modules-core requires 16.4
+     * and the clip's AppDelegate imports Expo — at 16.0 the target does not
+     * compile: "module 'Expo' has a minimum deployment target of iOS 16.4".
+     * The budget is untouched by that. Apple's tier is "iOS 16 or later", so
+     * 16.4 sits in the same 15 MB band 16.0 did; what it costs is devices on
+     * 16.0-16.3, which lose the clip and fall back to the website page every
+     * tag already carries.
      */
     /*
      * Listed BEFORE 'react-native-app-clip', which looks backwards and is not.
@@ -126,7 +134,7 @@ const config: ExpoConfig = {
         // "Clip", which makes the bundle id org.spsm.connect.Clip.
         bundleIdSuffix: 'Clip',
         targetSuffix: 'Clip',
-        deploymentTarget: '16.0',
+        deploymentTarget: '16.4',
         /*
          * Shared container, so a photograph taken in the clip can be handed to
          * the full app if the person installs it rather than being lost with

@@ -1,8 +1,8 @@
 /**
- * The three things the App Clip target needs that `react-native-app-clip`
+ * The four things the App Clip target needs that `react-native-app-clip`
  * does not give it.
  *
- * All three were found by generating the project and reading it, and each one
+ * All four were found by generating the project and reading it, and each one
  * would break the clip in a way that looks like something else:
  *
  *   1. **Its own JS entry.** Without it the clip bundles expo-router, and the
@@ -21,6 +21,15 @@
  *
  *   3. **A `GoogleService-Info.plist`.** The clip target ships none at all, so
  *      React Native Firebase cannot initialise and nothing else can be tested.
+ *
+ *   4. **A bridging header.** `@react-native-firebase/app-check`'s prebuild mod
+ *      writes `RNFBAppCheckModule.sharedInstance()` into *every* AppDelegate it
+ *      finds, the clip's included, but creates the bridging header that puts
+ *      that Objective-C class in Swift scope for the app target only. The clip
+ *      then fails to compile with `cannot find 'RNFBAppCheckModule' in scope` —
+ *      a message that reads like a missing pod, when the pod is linked and it
+ *      is only Swift that cannot see it. Deleting the generated block is not
+ *      the way out: it carries `FirebaseApp.configure()` with it.
  *
  * On (3), which is the whole question the spike exists to answer: the file
  * copied in is the **parent app's**, whose `BUNDLE_ID` says `org.spsm.connect`
@@ -66,12 +75,14 @@ module.exports = function withClipTarget(config, { targetSuffix = 'Clip' } = {})
   const project = withXcodeProject(config, (mod) => {
     setEntryFile(mod.modResults, targetSuffix);
     referenceGoogleService(mod, mod.modResults, targetSuffix);
+    setBridgingHeader(mod, mod.modResults, targetSuffix);
     return mod;
   });
 
   return withInfoPlist(project, (mod) => {
     addAppAttest(mod, targetSuffix);
     copyGoogleService(mod, targetSuffix);
+    writeBridgingHeader(mod, targetSuffix);
     return mod;
   });
 };
@@ -249,6 +260,65 @@ function copyGoogleService(mod, targetSuffix) {
   if (!fs.existsSync(from)) return;
 
   fs.copyFileSync(from, clipFile(mod, targetSuffix, 'GoogleService-Info.plist'));
+}
+
+/* -------------------------------------------------------------------------- */
+/* 4. Bridging header                                                         */
+/* -------------------------------------------------------------------------- */
+
+/** Xcode resolves this setting relative to the .xcodeproj's directory. */
+function bridgingHeaderPath(mod, targetSuffix) {
+  const target = clipTargetName(mod, targetSuffix);
+  return `${target}/${target}-Bridging-Header.h`;
+}
+
+/**
+ * Point the clip's build configurations at a bridging header of its own.
+ *
+ * Matched on the bundle id rather than the target name, for the same reason
+ * setEntryFile does: the configuration objects carry the id, and it is the one
+ * field that distinguishes the clip's Debug and Release from the app's.
+ */
+function setBridgingHeader(mod, project, targetSuffix) {
+  const header = bridgingHeaderPath(mod, targetSuffix);
+  const configurations = project.pbxXCBuildConfigurationSection();
+  let touched = 0;
+
+  for (const key of Object.keys(configurations)) {
+    const entry = configurations[key];
+    if (!entry || typeof entry !== 'object' || !entry.buildSettings) continue;
+
+    const bundleId = String(entry.buildSettings.PRODUCT_BUNDLE_IDENTIFIER ?? '').replace(/"/g, '');
+    if (!bundleId.endsWith(`.${targetSuffix}`)) continue;
+
+    entry.buildSettings.SWIFT_OBJC_BRIDGING_HEADER = `"${header}"`;
+    touched += 1;
+  }
+
+  if (touched === 0) throw new Error(missing(targetSuffix, 'build configuration'));
+}
+
+/**
+ * Mirror the app target's bridging header rather than naming its contents here.
+ *
+ * Same reasoning as addAppAttest: the app's header is written by whichever
+ * config plugins need Objective-C in Swift scope, and that set will change. A
+ * copy tracks it; a hardcoded `#import "RNFBAppCheckModule.h"` would be correct
+ * today and silently wrong the first time another plugin adds a second import.
+ *
+ * If the app has no bridging header there is nothing to mirror and nothing to
+ * fix — the generated block that needs one is not there either.
+ */
+function writeBridgingHeader(mod, targetSuffix) {
+  const app = mod.modRequest.projectName;
+  const from = path.join(mod.modRequest.platformProjectRoot, app, `${app}-Bridging-Header.h`);
+  if (!fs.existsSync(from)) return;
+
+  const to = clipFile(mod, targetSuffix, `${clipTargetName(mod, targetSuffix)}-Bridging-Header.h`);
+  const contents = fs.readFileSync(from, 'utf8');
+
+  if (fs.existsSync(to) && fs.readFileSync(to, 'utf8') === contents) return;
+  fs.writeFileSync(to, contents);
 }
 
 /* -------------------------------------------------------------------------- */
