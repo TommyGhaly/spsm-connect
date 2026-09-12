@@ -44,10 +44,59 @@ export function apiUrl(path: string): string {
  * embed URL is itself a bearer credential).
  */
 export async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(apiUrl(path));
+  return getJson<T>(path, null);
+}
+
+/**
+ * The same GET, carrying an ID token.
+ *
+ * One endpoint needs this: `/api/calendar?scope=servants`, which answers the
+ * servants' rota and refuses without a session. Kept separate from `apiGet`
+ * rather than made an option on it, because the distinction is the point — a
+ * parishioner's calendar must never quietly become an authenticated request
+ * that fails when the token expires.
+ *
+ * No App Check header. `apiPost` sends one everywhere so that enforcement can
+ * be switched on later without a change here, but these are reads the website
+ * makes anonymously from a browser, and attaching an attestation to them would
+ * claim a guarantee the endpoint does not ask for.
+ *
+ * A missing token is not an error here. The caller asked for a scope it may not
+ * hold, the Function answers 401 or 403, and `denied` is an ordinary outcome
+ * with its own sentence — see ScheduleResult in the website's calendar reader.
+ */
+export async function apiGetAuthed<T>(path: string): Promise<T> {
+  const idToken = await uploadIdToken();
+  return getJson<T>(path, idToken);
+}
+
+async function getJson<T>(path: string, idToken: string | null): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (idToken) headers.Authorization = `Bearer ${idToken}`;
+
+  const response = await fetch(apiUrl(path), { headers });
+
   if (!response.ok) {
-    throw new ApiError(response.status, `${path} failed: ${response.status}`);
+    /*
+     * The Function's own words, for the same reason apiPost prefers them: these
+     * endpoints answer `{ error: "..." }` with copy written to be read. A
+     * calendar that says "you are not a servant" is more use than one that says
+     * 403.
+     */
+    let message = `${path} failed: ${response.status}`;
+    let code: string | null = null;
+    try {
+      const problem = (await response.json()) as { error?: unknown };
+      if (typeof problem.error === 'string' && problem.error !== '') {
+        message = problem.error;
+        code = problem.error;
+      }
+    } catch {
+      // Not JSON. A proxy's own 502 page is an ordinary shape for a failure.
+    }
+    throw new ApiError(response.status, message, code);
   }
+
   return (await response.json()) as T;
 }
 

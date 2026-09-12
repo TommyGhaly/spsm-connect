@@ -1,11 +1,13 @@
-import { Unbuilt } from '@/components/Unbuilt';
+import { CalendarScreen } from '@/calendar/CalendarScreen';
 
 /**
- * Phase 3. `GET /api/calendar` already answers with everything this needs, and
- * `calendarView.ts` in @spsm/shared does the merging of Breeze occurrences,
- * bulletin events, one-off events and schedule entries — so what is left here
- * is the week and month layout, not the logic.
+ * A wrapper, and that is the rule rather than this file being unfinished.
+ *
+ * Anything with logic in a route file is unreachable from the App Clip, which
+ * resolves `index.clip.ts` and never imports expo-router. `/calendar` is one of
+ * the nine invocation URLs, so the screen has to be a component in `src/` that
+ * the clip can render without a router. `src/gallery/` already works this way.
  */
 export default function CalendarTab() {
-  return <Unbuilt what="The parish calendar" />;
+  return <CalendarScreen />;
 }
