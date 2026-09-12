@@ -1,6 +1,23 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "strict": true
-  }
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    /*
+     * No DOM.
+     *
+     * The Website's tsconfig.base.json has "DOM" in `lib` because the site runs
+     * in a browser. Here it would let `window`, `document`, `localStorage` or a
+     * `File` typecheck cleanly and then crash at runtime on a phone. Leaving it
+     * out makes the compiler the thing that catches a web-only API, rather than
+     * a parishioner.
+     */
+    "lib": ["ES2022"],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
+  "exclude": ["node_modules"]
 }

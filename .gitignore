@@ -39,3 +39,16 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Environment. .env holds only public values, but the Website repo gitignores
+# its own .env and these two files must not drift on that habit. .env.example
+# is the committed, values-free copy.
+.env
+!.env.example
+
+# Firebase native config, downloaded from the console per platform. Not secret,
+# but they pin a specific Firebase project and should be supplied per build
+# (EAS file secrets) rather than committed.
+google-services.json
+GoogleService-Info.plist
+
