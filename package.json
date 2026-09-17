@@ -22,7 +22,9 @@
     "screenshots": "npm run screenshots:ios && npm run screenshots:android",
     "screenshots:ios": "bash scripts/capture-screenshots.sh",
     "screenshots:android": "bash scripts/capture-screenshots-android.sh",
-    "store": "node scripts/make-store-assets.mjs"
+    "store": "node scripts/make-store-assets.mjs",
+    "//clip-cards": "The eight App Clip card images, 1800x1200, into store/clip-cards/. Uploaded by hand in App Store Connect -> Advanced App Clip Experiences, one per experience. Checks its slugs against src/clip/experiences.ts.",
+    "clip-cards": "node scripts/make-clip-cards.mjs"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",

@@ -27,6 +27,28 @@ npm run store          # draws the Play artwork, conforms store/raw/ -> store/sc
 Everything needs `../Website` checked out beside this repo — that is where the
 seal and `sharp` both come from. See the header of `scripts/brand.mjs`.
 
+## The App Clip cards
+
+`clip-cards/` holds eight **1800x1200** images, one per App Clip experience.
+They are not part of either store listing: each is uploaded in App Store
+Connect under **Advanced App Clip Experiences**, against the experience whose
+invocation URL is `https://www.spsmwayland.org/c/<slug>` — so `give.png` goes on
+the `/c/give` experience and so on down.
+
+The card is what somebody sees when they hold a phone over a tag by a door, and
+for most people it is the only part of this app they will ever look at. The
+composition is deliberately Taksis's, in this church's colours, so that the
+parish's two apps look related to the people holding both — see the header of
+`scripts/make-clip-cards.mjs`.
+
+```bash
+npm run clip-cards
+```
+
+It fails if the eight slugs have drifted from `src/clip/experiences.ts`, which
+is the table the URLs, the fallback pages and the association file all come
+from.
+
 ## What goes where
 
 ### Google Play
