@@ -1,5 +1,5 @@
-import { Unbuilt } from '@/components/Unbuilt';
+import { LivestreamScreen } from '@/livestream/LivestreamScreen';
 
 export default function Screen() {
-  return <Unbuilt what="The livestream" />;
+  return <LivestreamScreen />;
 }

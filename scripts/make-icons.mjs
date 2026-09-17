@@ -1,158 +1,177 @@
 #!/usr/bin/env node
 /**
- * Build the app's icons from the parish seal.
+ * Build the app's icons from the church seal, and the splash banner from the
+ * app's name.
  *
  * Run by hand, rarely — `npm run icons`. The outputs are committed; this exists
  * so that *how* they were made is recorded, and so the next person changing the
  * background colour does not have to redraw anything.
  *
- * ## Why these colours cannot come from the theme at runtime
- *
- * Everything else in this app reads `config/theme`, so the parish can restyle
- * itself without a release. An icon cannot: it is baked into the binary by the
- * OS installer, and a splash screen is drawn before any JavaScript has run.
- * `app.config.ts` already carries two documented literal-colour exceptions for
- * exactly this reason, and `BACKGROUND` below is the same exception — it must
- * stay equal to the `deep` token in `packages/shared/src/schema/theme.ts`.
- *
- * ## Why `deep` and not one of the other reds
- *
- * The seal's own arch is **#81171c**. `accentStrong` is #731d16 — near enough
- * identical that the arch, and the white lettering on it, dissolve into the
- * background. `accent` (#992a21) is lighter than the arch, which inverts the
- * figure/ground the seal was drawn with. `deep` (#481010) is darker than the
- * arch, so the arch still reads as a shape, and it is already the colour of the
- * app's navigation bar.
- *
- * ## Sharp comes from the Website repo
- *
- * Deliberately not a dependency of this app: it is a large native module needed
- * by one script that runs by hand. README.md already makes `../Website` a hard
- * environmental assumption, and `functions/` there uses sharp to transcode
- * every photograph the parish receives, so it is always present.
+ * The seal, the type and the two baked colours come from `brand.mjs`, which
+ * make-store-assets.mjs shares. What lives here is only what an *icon* has to
+ * decide: how much of its canvas the seal fills, and how the splash lockup is
+ * stacked.
  */
-import { createRequire } from 'node:module';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { execFile } from 'node:child_process';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { promisify } from 'node:util';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
-const run = promisify(execFile);
-const here = dirname(fileURLToPath(import.meta.url));
-const root = resolve(here, '..');
-const websiteRoot = resolve(root, '../Website');
+import {
+  BACKGROUND,
+  SIZE,
+  blank,
+  plate,
+  root,
+  seal,
+  sharp,
+  typeInk,
+} from './brand.mjs';
 
-const require = createRequire(join(websiteRoot, 'package.json'));
-let sharp;
-try {
-  sharp = require('sharp');
-} catch {
-  console.error(
-    'Could not load sharp from ../Website/node_modules.\n' +
-      'This script needs the Website repo checked out beside this one, with its\n' +
-      'dependencies installed. See README.md.',
-  );
-  process.exit(1);
-}
+const OUT = join(root, 'assets');
 
-/** The master artwork. One file, in the Website repo, for both frontends. */
-const LOGO_SVG = resolve(websiteRoot, 'assets/St Philopater & St. Mena Logo.svg');
+/**
+ * The type half of the splash screen: the app's name, set above the seal.
+ *
+ * The splash was the seal on its own, and the seal on its own is not much of a
+ * greeting. A launch image is up for a few hundred milliseconds before the
+ * first frame of JS, and full-colour artwork — two saints, a camel, a horse
+ * and two rings of lettering — does not resolve into any of that in that long;
+ * what it says in a flash is "a red circle". The name is the thing a launch
+ * screen can actually get across, and the seal is what the church is. So the
+ * splash is both, the name above the seal, and `LOCKUP` below is what sets the
+ * two relative to one another.
+ *
+ * ## Why an image of type rather than text
+ *
+ * `expo-splash-screen` takes an `image` and a `backgroundColor` and nothing
+ * else — there is no text option, and there cannot be one: on iOS the splash
+ * is a storyboard and on Android a themed window background, both drawn by the
+ * OS before any JavaScript exists to lay out a `<Text>`. So the wordmark is
+ * baked. The face and tracking are `DISPLAY` in brand.mjs.
+ */
+const WORDMARK = { text: 'SPSM Connect', fontSize: 400 };
 
-/** `deep` in packages/shared/src/schema/theme.ts. Keep the two in step. */
-const BACKGROUND = process.env.ICON_BACKGROUND ?? '#481010';
+/**
+ * Where the name sits relative to the seal, as fractions of the canvas width.
+ *
+ * Composited here rather than laid out on the phone because
+ * `expo-splash-screen` takes exactly one image — see the note above WORDMARK.
+ *
+ * The seal takes the full width and the name is inset from it, which is the
+ * way round it has to be. The seal is an arch: its widest points are the tails
+ * of the banner across its middle, and type set to the measure of those tails
+ * overhangs the arch above them and reads as wider than the artwork it belongs
+ * to. 0.92 lines the name up with the arch instead.
+ *
+ * The gap is real space rather than leading: both halves are trimmed to their
+ * own ink, so it is measured from the baseline of the type to the topmost
+ * pixel of the seal. 0.07 was tried first and is too tight — the top of the
+ * seal is a white dome, and a baseline that close to it reads as the type
+ * resting on the artwork rather than standing above it.
+ */
+const LOCKUP = { seal: 1, wordmark: 0.92, gap: 0.1 };
 
-const OUT = resolve(root, 'assets');
-const SIZE = 1024;
+/**
+ * How big the splash is drawn on screen, in points. `imageWidth` in
+ * app.config.ts must equal this; nothing enforces it, so keep the two in step.
+ *
+ * Read it as the side of a square rather than as a width. `expo-splash-screen`
+ * pads whatever it is handed out to `imageWidth` x `imageWidth` — confirmed in
+ * the generated ios/SPSMConnect/Images.xcassets/SplashScreenLogo.imageset,
+ * where a 2860x291 wordmark came out 260x260 — and the storyboard aspect-fits
+ * that square. So the longer side of the lockup is what binds, and with the
+ * name stacked on top of it the lockup is slightly taller than it is wide.
+ *
+ * 240 puts the seal at 224pt — a shade over the 200pt it had when it was the
+ * whole splash screen — and the name above it at a cap height of 21pt, which
+ * is a little over the theme's `heading`. `npm run icons` prints both,
+ * measured, so change this and read what it says rather than predicting it.
+ */
+const SPLASH_WIDTH_POINTS = 240;
 
 /**
  * How much of the canvas the seal fills, per output.
  *
- * iOS masks the icon to a squircle whose corners cut about 22% in, so 78% would
- * be touching. Android's adaptive icon is harsher still: the launcher may crop
- * to a circle of 66% diameter and animates within that, so anything outside the
- * inner two-thirds can be shaved off at any moment.
- */
-const FILL = { ios: 0.74, androidForeground: 0.62, splash: 0.86 };
-
-/**
- * The logo's first path is a **full-canvas white rectangle** — a background
- * plate, not artwork. Rendered as-is the seal comes out as a white sticker,
- * which on a dark red ground is worse than not having an icon at all.
+ * Measured on the **trimmed** seal — see `sealPixels()` in brand.mjs, which
+ * crops the render to the artwork's own bounding box first. That matters when
+ * comparing these to the numbers that were here before: the logo carries about
+ * 4% slack at its sides and 8% above and below, and the old fills were of the
+ * render including that slack. 0.74 of the canvas was 0.71 of actual seal
+ * across and only 0.62 of it down, which is where the wide red border came
+ * from.
  *
- * It is removed rather than worked around. Making white transparent after the
- * fact is not available: the seal has 39 other near-white paths in it — the
- * saints' robes, the highlights, the lettering — and a colour-keyed knockout
- * would eat them.
+ * The trimmed seal is 1.14:1, so width is always the binding dimension and
+ * these are width fractions; the height that falls out is 1/1.14 of them.
  *
- * Identified by the one coordinate only the plate has (it extends past the
- * viewBox), and the count is asserted. If the logo is ever redrawn and this
- * stops matching, this fails loudly rather than silently shipping the sticker.
- * `apps/website/public/brand/seal-*.png` are the same artwork already stripped,
- * which is the other way to confirm the plate is not meant to be there.
+ * iOS masks the icon to a squircle. Its corners cut roughly 22% in, but they
+ * cut *corners* — at 0.90 across, the seal's own corners sit at (51, 106) from
+ * the canvas edge, comfortably inside the curve, and they are transparent
+ * anyway because the seal is an arch. The full-width points are the banner's
+ * tails at mid-height, where the mask takes nothing.
+ *
+ * Android's adaptive icon is the harsh one and is deliberately left where it
+ * was: the launcher may crop to a circle of 66% diameter and animates within
+ * that, so anything outside the inner two-thirds can be shaved off at any
+ * moment. 0.59 is already past what a *rectangle* may claim there (a 1.14:1
+ * box only fits that circle up to 0.50) and survives solely because the seal's
+ * corners are empty. There is no room above it.
  */
-const BACKGROUND_PLATE = /<path[^>]*?fill="#fdfdfd"[^>]*?\/>/g;
-
-async function transparentSvg() {
-  const original = await readFile(LOGO_SVG, 'utf8');
-  const plates = (original.match(BACKGROUND_PLATE) ?? []).filter((path) =>
-    path.includes('1441.985'),
-  );
-
-  if (plates.length !== 1) {
-    throw new Error(
-      `Expected exactly one full-canvas background plate in the logo, found ${plates.length}. ` +
-        'The artwork has changed; check what is behind the seal before trusting this script.',
-    );
-  }
-
-  const stripped = original.replace(plates[0], '');
-  const file = join(tmpdir(), 'spsm-seal-transparent.svg');
-  await writeFile(file, stripped);
-  return file;
-}
-
-let transparentLogo = null;
-
-async function seal(fraction) {
-  transparentLogo ??= await transparentSvg();
-  const width = Math.round(SIZE * fraction);
-  // rsvg-convert rather than sharp's own SVG support: this file uses a
-  // clipPath, and librsvg renders it faithfully where resvg has historically
-  // not. The parish's logo is not the place to discover a rendering difference.
-  // No `-o`: rsvg-convert writes to stdout by default, and naming /dev/stdout
-  // explicitly fails with "Error truncating file" because it tries to open it
-  // for writing rather than inheriting the pipe.
-  const { stdout } = await run('rsvg-convert', ['-w', String(width), transparentLogo], {
-    encoding: 'buffer',
-    maxBuffer: 64 * 1024 * 1024,
-  });
-  return sharp(stdout);
-}
+const FILL = { ios: 0.9, androidForeground: 0.59, splash: 0.86 };
 
 /**
  * The seal centred on a transparent square, as a finished PNG buffer.
- *
- * A buffer rather than a sharp instance, and that is not a style choice. Sharp
- * applies operations in a **fixed pipeline order**, not call order: a `resize`
- * runs before a `composite` however it was chained. So
- * `centred(0.92).resize(48, 48)` shrinks the canvas to 48px first and then
- * tries to paste a 942px seal onto it — "Image to composite must have same
- * dimensions or smaller", about a composite the code never asked for second.
- * Returning a buffer forces a new pipeline for whatever the caller does next.
  */
 async function centred(fraction) {
   const logo = await seal(fraction);
-  return sharp({
-    create: {
-      width: SIZE,
-      height: SIZE,
-      channels: 4,
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    },
-  })
-    .composite([{ input: await logo.png().toBuffer(), gravity: 'centre' }])
+  return blank(SIZE, SIZE)
+    .composite([{ input: logo, gravity: 'centre' }])
+    .png()
+    .toBuffer();
+}
+
+/**
+ * The splash screen: the name, a gap, and the seal, on one transparent canvas.
+ *
+ * Transparent rather than drawn on `BACKGROUND`, like every other output here:
+ * `expo-splash-screen` paints its own `backgroundColor` behind this, and a
+ * baked-in ground would show as a hard square edge over it.
+ *
+ * Composited at `SIZE` across, which is more than the 720 device pixels the
+ * widest phone asks for at `SPLASH_WIDTH_POINTS`, so both halves are scaled
+ * down by the OS rather than up. The height falls out of the two pieces and
+ * the gap rather than being chosen — see LOCKUP.
+ */
+async function splashBanner() {
+  const sealPng = await seal(LOCKUP.seal);
+  const sealBox = await sharp(sealPng).metadata();
+
+  const namePng = await sharp(await typeInk(WORDMARK.text, { fontSize: WORDMARK.fontSize }))
+    .resize({ width: Math.round(SIZE * LOCKUP.wordmark) })
+    .png()
+    .toBuffer();
+  const nameBox = await sharp(namePng).metadata();
+
+  const gap = Math.round(SIZE * LOCKUP.gap);
+  const height = nameBox.height + gap + sealBox.height;
+
+  /*
+   * What `imageWidth` actually buys, measured rather than predicted, because
+   * it is the number somebody changing SPLASH_WIDTH_POINTS wants and there is
+   * no way to see it on the phone — the splash is gone before it can be read.
+   * `max` because the OS aspect-fits the lockup into a square of that side, so
+   * whichever dimension is longer is the one that binds.
+   */
+  const scale = SPLASH_WIDTH_POINTS / Math.max(SIZE, height);
+  console.log(
+    `Splash lockup: ${SIZE}x${height}. At imageWidth ${SPLASH_WIDTH_POINTS} the seal is ` +
+      `${Math.round(sealBox.width * scale)}pt wide and the name has a cap height of ` +
+      `${Math.round(nameBox.height * scale)}pt.`,
+  );
+
+  return blank(SIZE, height)
+    .composite([
+      { input: namePng, top: 0, left: Math.round((SIZE - nameBox.width) / 2) },
+      { input: sealPng, top: nameBox.height + gap, left: Math.round((SIZE - sealBox.width) / 2) },
+    ])
     .png()
     .toBuffer();
 }
@@ -178,16 +197,17 @@ async function main() {
    */
   await writeFile(join(OUT, 'splash-icon.png'), await centred(FILL.splash));
 
+  /*
+   * The splash screen: the same seal with the app's name above it. See
+   * WORDMARK for why the name is baked into an image at all.
+   */
+  await writeFile(join(OUT, 'splash-banner.png'), await splashBanner());
+
   // Android draws the foreground over the background layer, so this is
   // transparent and pulled well inside the safe zone.
   await writeFile(join(OUT, 'android-icon-foreground.png'), await centred(FILL.androidForeground));
 
-  await writeFile(
-    join(OUT, 'android-icon-background.png'),
-    await sharp({ create: { width: SIZE, height: SIZE, channels: 3, background: BACKGROUND } })
-      .png()
-      .toBuffer(),
-  );
+  await writeFile(join(OUT, 'android-icon-background.png'), await plate(SIZE, SIZE));
 
   // The web favicon, which is the only one that wants the seal small and plain.
   await writeFile(
@@ -199,10 +219,46 @@ async function main() {
       .toBuffer(),
   );
 
+  /*
+   * The Android notification icon, and the reason it is not just another size
+   * of the seal.
+   *
+   * Android draws the small status-bar icon as a **silhouette**: it keeps the
+   * alpha channel and throws the colours away, filling every opaque pixel with
+   * the tint from `expo-notifications`' `color` option. So the seal — two
+   * saints, a camel, a horse and two rings of lettering, all of it opaque —
+   * arrives as a solid white blob, which is the single most common way this
+   * goes wrong and it only shows up on a real Android device.
+   *
+   * What works is artwork that is already *mostly transparent*, carrying its
+   * meaning in the holes. This is the same problem as the themed launcher icon
+   * that is deliberately not generated below, and it has the same honest
+   * answer: this seal does not reduce to one colour. So rather than ship a
+   * white square, this writes the seal's alpha as-is at 96px and leaves the
+   * note — if the parish wants a proper notification glyph it needs drawing by
+   * hand, most likely just the cross.
+   *
+   * 96px because that is the xxhdpi size Android asks for and the largest it
+   * uses; it downscales for the rest.
+   */
+  await writeFile(
+    join(OUT, 'notification-icon.png'),
+    await sharp(await seal(1))
+      .resize(96, 96, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .png()
+      .toBuffer(),
+  );
+
   console.log(`Icons written to assets/ on ${BACKGROUND}.`);
+  console.log(
+    `If SPLASH_WIDTH_POINTS changed, app.config.ts wants imageWidth: ${SPLASH_WIDTH_POINTS}.`,
+  );
   console.log('Note: android-icon-monochrome.png is NOT generated — a themed');
   console.log('icon is a single-colour silhouette, and this seal has no');
   console.log('meaningful one. It needs drawing by hand or dropping.');
+  console.log('Note: notification-icon.png IS generated, but Android renders it');
+  console.log('as a flat silhouette — check it on a device. See the note in this');
+  console.log('script; a hand-drawn cross would read far better than the seal.');
 }
 
 await main();

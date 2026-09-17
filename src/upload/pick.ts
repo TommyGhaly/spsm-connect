@@ -78,7 +78,7 @@ export async function pickAndQueue(options: PickOptions): Promise<PickOutcome> {
     mediaTypes: ['images', 'videos'],
     allowsMultipleSelection: true,
     selectionLimit: MAX_FILES_PER_BATCH,
-    // Never `allowsEditing`. It forces a crop on iOS, and a parishioner who
+    // Never `allowsEditing`. It forces a crop on iOS, and somebody who
     // wanted the whole photograph has no way back to it.
     quality: 1,
   });
@@ -107,19 +107,62 @@ export async function captureAndQueue(options: PickOptions): Promise<PickOutcome
   return queueAssets(result.assets, options);
 }
 
+/**
+ * One thing to send, named and typed, with the picker taken out of it.
+ *
+ * The camera does not produce `ImagePickerAsset`s — `CameraView.takePictureAsync`
+ * returns a `{ uri, width, height }` and `recordAsync` returns a bare
+ * `{ uri }` with no mime type at all — so the queueing half of this file is
+ * expressed over this instead. Everything below `queueFiles` is identical for
+ * both sources, which is the point: there is one answer to "what does prepared
+ * mean", and it is not allowed to depend on where the file came from.
+ */
+export interface PickedFile {
+  uri: string;
+  contentType: string;
+  /** For the refusal line, if this one is refused. */
+  name: string;
+}
+
+/**
+ * Queue one thing the camera just captured.
+ *
+ * Same ladder, same ceilings, same queue as a picked file. The outcome shape is
+ * shared too, so the preview screen reports a refusal in `condense`'s own words
+ * exactly as the library path does — a clip over the ceiling says how to act on
+ * it whether it was recorded here or chosen from the roll.
+ */
+export async function queueCapture(
+  file: PickedFile,
+  options: PickOptions,
+): Promise<PickOutcome> {
+  return queueFiles([file], options);
+}
+
 async function queueAssets(
   assets: readonly ImagePicker.ImagePickerAsset[],
+  options: PickOptions,
+): Promise<PickOutcome> {
+  return queueFiles(
+    assets.map((asset) => ({
+      uri: asset.uri,
+      contentType: contentTypeOf(asset),
+      name: asset.fileName ?? (asset.type === 'video' ? 'A video' : 'A photograph'),
+    })),
+    options,
+  );
+}
+
+async function queueFiles(
+  files: readonly PickedFile[],
   { programId, programEventId, isProgramAdmin }: PickOptions,
 ): Promise<PickOutcome> {
   const refused: Refusal[] = [];
   let queued = 0;
 
-  for (const asset of assets) {
-    const name = asset.fileName ?? (asset.type === 'video' ? 'A video' : 'A photograph');
-    const contentType = contentTypeOf(asset);
-
+  for (const { uri, contentType, name } of files) {
     try {
-      const condensed = await condense(asset.uri, contentType, { isProgramAdmin });
+      const condensed = await condense(uri, contentType, { isProgramAdmin });
       await enqueue({
         localUri: condensed.uri,
         contentType: condensed.contentType,

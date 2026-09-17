@@ -27,7 +27,7 @@ export interface Session {
   /** Null when signed out. An anonymous user is NOT null — see `isPerson`. */
   user: User | null;
   /**
-   * Signed in as a real person from the parish tenant.
+   * Signed in as a real person from the church tenant.
    *
    * The distinction matters more than it looks. Every uploader holds a token,
    * because an anonymous session is what attributes an upload for quota

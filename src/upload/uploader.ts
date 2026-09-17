@@ -96,7 +96,7 @@ async function send(row: QueueRow, reservation: Reservation): Promise<void> {
 
   /*
    * A non-2xx resolves rather than throwing, so it has to be checked by hand.
-   * GCS answers XML here, not JSON, and its text is not for a parishioner —
+   * GCS answers XML here, not JSON, and its text is not for somebody using the app —
    * explainUploadFailure turns the status into words worth reading.
    */
   if (result.status < 200 || result.status >= 300) {

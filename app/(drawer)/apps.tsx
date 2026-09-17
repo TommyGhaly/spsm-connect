@@ -1,5 +1,5 @@
-import { Unbuilt } from '@/components/Unbuilt';
+import { AppsScreen } from '@/apps/AppsScreen';
 
 export default function Screen() {
-  return <Unbuilt what="The parish's apps" />;
+  return <AppsScreen />;
 }

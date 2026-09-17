@@ -1,8 +1,8 @@
 /**
- * The four things the App Clip target needs that `react-native-app-clip`
+ * The five things the App Clip target needs that `react-native-app-clip`
  * does not give it.
  *
- * All four were found by generating the project and reading it, and each one
+ * All five were found by generating the project and reading it, and each one
  * would break the clip in a way that looks like something else:
  *
  *   1. **Its own JS entry.** Without it the clip bundles expo-router, and the
@@ -30,6 +30,18 @@
  *      a message that reads like a missing pod, when the pod is linked and it
  *      is only Swift that cannot see it. Deleting the generated block is not
  *      the way out: it carries `FirebaseApp.configure()` with it.
+ *
+ *   5. **A bundle phase that can find `@expo/cli`.** The clip plugin's own
+ *      phase resolves it as a bare `require.resolve('@expo/cli')`, which only
+ *      works when npm happens to hoist that package to the top-level
+ *      `node_modules`. Here it does not — it sits under
+ *      `node_modules/expo/node_modules/@expo/cli` — so the resolve throws,
+ *      `CLI_PATH` never gets set, and react-native-xcode.sh falls back to
+ *      `@react-native-community/cli`, which this project does not depend on.
+ *      **This breaks Release builds of the whole app, not just the clip**:
+ *      the app target embeds the clip, so the clip's failure takes the app's
+ *      `.app` down with it and the only thing on screen is a suggestion to
+ *      add a CLI to devDependencies that nothing here should need.
  *
  * On (3), which is the whole question the spike exists to answer: the file
  * copied in is the **parent app's**, whose `BUNDLE_ID` says `org.spsm.connect`
@@ -74,6 +86,7 @@ module.exports = function withClipTarget(config, { targetSuffix = 'Clip' } = {})
    */
   const project = withXcodeProject(config, (mod) => {
     setEntryFile(mod.modResults, targetSuffix);
+    fixClipBundlePhase(mod.modResults);
     referenceGoogleService(mod, mod.modResults, targetSuffix);
     setBridgingHeader(mod, mod.modResults, targetSuffix);
     return mod;
@@ -118,6 +131,68 @@ function setEntryFile(project, targetSuffix) {
   }
 
   if (touched === 0) throw new Error(missing(targetSuffix, 'build configuration'));
+}
+
+/* -------------------------------------------------------------------------- */
+/* 1b. CLI_PATH in the clip's bundle phase                                    */
+/* -------------------------------------------------------------------------- */
+
+/** What the clip plugin writes, and what it should have written. */
+const BARE_RESOLVE = "require.resolve('@expo/cli')";
+const ANCHORED_RESOLVE =
+  "require.resolve('@expo/cli', { paths: [require.resolve('expo/package.json')] })";
+
+/**
+ * Resolve `@expo/cli` from `expo` rather than from the current directory.
+ *
+ * The app target's own bundle phase — written by Expo's prebuild — already
+ * does it this way, and the difference matters because `@expo/cli` is a
+ * dependency of `expo`, not of this project. Whether it lands in the top-level
+ * `node_modules` is entirely up to npm's hoisting, and here it does not: it is
+ * at `node_modules/expo/node_modules/@expo/cli`, so a bare resolve throws.
+ *
+ * What makes that expensive to diagnose is where the error surfaces. The
+ * resolve runs inside `$(...)`, so its failure is discarded, `CLI_PATH` is
+ * left empty, and react-native-xcode.sh quietly takes its non-Expo path and
+ * shells out to `@react-native-community/cli`. The build then fails with that
+ * package's "not installed" notice, advising a devDependency — so the visible
+ * error names a CLI this project has never used and says nothing about
+ * `@expo/cli`, hoisting, or the clip.
+ *
+ * Anchoring to `expo/package.json` is hoist-proof in both directions: node
+ * looks in `expo`'s own `node_modules` first and walks up to the top level
+ * anyway, so this keeps working if a future install does hoist it.
+ *
+ * Matched on the script's text rather than on a phase name or a target uuid.
+ * The clip's phase and the app's are both called `Bundle React Native code and
+ * images`, and the app's is already correct — but it is also already anchored,
+ * so it does not contain the bare form and is left alone by construction. The
+ * count is asserted: if react-native-app-clip ever fixes this upstream there
+ * will be nothing to replace, and that should be noticed rather than silently
+ * passed over.
+ */
+function fixClipBundlePhase(project) {
+  const phases = project.hash?.project?.objects?.PBXShellScriptBuildPhase ?? {};
+  let touched = 0;
+
+  for (const key of Object.keys(phases)) {
+    const phase = phases[key];
+    if (!phase || typeof phase !== 'object' || typeof phase.shellScript !== 'string') continue;
+    if (!phase.shellScript.includes(BARE_RESOLVE)) continue;
+
+    phase.shellScript = phase.shellScript.split(BARE_RESOLVE).join(ANCHORED_RESOLVE);
+    touched += 1;
+  }
+
+  if (touched === 0) {
+    throw new Error(
+      'withClipTarget: found no bundle phase resolving @expo/cli the unhoisted way. ' +
+        'react-native-app-clip may have fixed this upstream — if so, delete ' +
+        'fixClipBundlePhase() and this check. Do not ignore it: the symptom if it is ' +
+        'genuinely missing is a Release build failing with a @react-native-community/cli ' +
+        'notice that says nothing about the real cause.',
+    );
+  }
 }
 
 /* -------------------------------------------------------------------------- */

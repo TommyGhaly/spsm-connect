@@ -1,5 +1,5 @@
 /**
- * The parish's icons, ported from the website's `components/Icon.tsx`.
+ * The church's icons, ported from the website's `components/Icon.tsx`.
  *
  * Same viewBox, same paths, same 1.6 stroke — because an icon that is a
  * slightly different shape in the app than on the website is exactly the kind
@@ -11,7 +11,7 @@
  *
  * This is why `react-native-svg` is a dependency. An icon font would be a
  * second set of glyphs to keep in step, and `@expo/vector-icons` would be a
- * third party's drawing of a calendar next to the parish's own drawing of one.
+ * third party's drawing of a calendar next to the church's own drawing of one.
  *
  * One difference that is not cosmetic: RN SVG has no `currentColor`, so colour
  * is a prop rather than inherited. Every caller must pass one from the theme —
@@ -50,7 +50,7 @@ const ICONS = {
       <Path d="M10 8.5l6 3.5-6 3.5z" />
     </>
   ),
-  /** The parish calendar. */
+  /** The church calendar. */
   calendar: (
     <>
       <Rect x="3.5" y="5" width="17" height="15" rx="2" />
@@ -142,7 +142,7 @@ const ICONS = {
   phone: (
     <Path d="M6.5 3h3l1.5 4-2 1.5a12 12 0 0 0 6.5 6.5l1.5-2 4 1.5v3a2 2 0 0 1-2.2 2A17 17 0 0 1 4.5 5.2 2 2 0 0 1 6.5 3z" />
   ),
-  /** Writing to the parish. An open flap, not a sealed one. */
+  /** Writing to the church. An open flap, not a sealed one. */
   mail: (
     <>
       <Rect x="3" y="5" width="18" height="14" rx="2" />
@@ -185,12 +185,16 @@ const ICONS = {
 
   /* ---- native only --------------------------------------------------------
    *
-   * The three below have no counterpart in the website's set, and that is not
-   * an omission to be corrected there. Each names an affordance a web page does
-   * not have: a tab bar's centre action, a tab for the shop, and the button
-   * that opens a drawer. There is nothing for them to drift from, so the rule at
-   * the top of this file — copy the geometry, change both together — does not
-   * bite. Anything that *does* appear on both must still be copied verbatim.
+   * The glyphs below have no counterpart in the website's set, and that is not
+   * an omission to be corrected there. The first three name an affordance a web
+   * page does not have: a tab bar's centre action, a tab for the shop, and the
+   * button that opens a drawer. The rest name *subjects* — the church, the
+   * congregation, the faith, a saint — that the website prints as plain text
+   * links in a nav bar and this app has to fit in a 32pt tile. There is nothing
+   * for any of them to drift from, so the rule at the top of this file — copy
+   * the geometry, change both together — does not bite. Anything that *does*
+   * appear on both must still be copied verbatim, and if the website ever draws
+   * one of these, the copy goes the other way: paths from here to there.
    * ---------------------------------------------------------------------- */
 
   /** The centre button. Sending a photograph is what this app is for. */
@@ -200,15 +204,183 @@ const ICONS = {
       <Circle cx="12" cy="12.5" r="3.5" />
     </>
   ),
-  /** The bookstore. A shop bag rather than a trolley — the parish sells books. */
+  /**
+   * The flash, lit. A bolt, because every camera on earth draws one.
+   *
+   * Not on the website and not expected to be — see the note above about the
+   * glyphs this app draws alone.
+   */
+  flash: <Path d="M13 2.5L5.5 13.5H11l-1 8 7.5-11H12z" />,
+  /** The flash, off. The same bolt, struck through. */
+  flashOff: (
+    <>
+      <Path d="M13 2.5L5.5 13.5H11l-1 8 7.5-11H12z" />
+      <Path d="M4 4l16 16" />
+    </>
+  ),
+  /**
+   * Swap which camera is looking.
+   *
+   * Two arcs chasing each other with a head on each, rather than a phone with
+   * arrows around it: the second reads as "rotate the screen" at 20pt.
+   */
+  flip: (
+    <>
+      <Path d="M20 12a8 8 0 0 1-8 8 8 8 0 0 1-6.93-4" />
+      <Path d="M4 12a8 8 0 0 1 8-8 8 8 0 0 1 6.93 4" />
+      <Path d="M19 4v4h-4" />
+      <Path d="M5 20v-4h4" />
+    </>
+  ),
+  /** The bookstore. A shop bag rather than a trolley — the church sells books. */
   bag: (
     <>
       <Path d="M5 7.5h14l-1 12H6z" />
       <Path d="M9 10V6.5a3 3 0 0 1 6 0V10" />
     </>
   ),
+  /**
+   * The church itself. An arch under a cross, with a door in it.
+   *
+   * The arch is the seal's own shape — see scripts/make-icons.mjs, which spends
+   * a paragraph on the fact that the seal is an arch and that its corners are
+   * empty because of it. A generic steepled church would be a different
+   * building; this is the one on the masthead, reduced to four strokes.
+   */
+  church: (
+    <>
+      <Path d="M4 20.5h16" />
+      <Path d="M6.5 20.5V11a5.5 5.5 0 0 1 11 0v9.5" />
+      <Path d="M12 5.5V2M10.3 3.4h3.4" />
+      <Path d="M10 20.5v-4.5a2 2 0 0 1 4 0v4.5" />
+    </>
+  ),
+  /** The congregation — "who we are". Two figures, the second behind. */
+  people: (
+    <>
+      <Circle cx="9.5" cy="8" r="3.2" />
+      <Path d="M3.5 19.5a6 6 0 0 1 12 0" />
+      <Path d="M16.5 5.3a3.2 3.2 0 0 1 0 5.4" />
+      <Path d="M17.5 13.9a6 6 0 0 1 3 5.6" />
+    </>
+  ),
+  /**
+   * What the church believes. A processional cross, bar set high.
+   *
+   * High rather than centred: an equal-armed cross at this weight reads as a
+   * plus sign, which is `plus`, which in this app means "add pictures".
+   */
+  cross: <Path d="M12 3v18M5.5 9h13" />,
+  /**
+   * A saint. A halo above a head and shoulders.
+   *
+   * **This was two concentric circles** — a halo ring with the head inside it —
+   * and at 20pt it read as a dot in a circle, which is a user avatar and not a
+   * saint. The gap between r=4.5 and r=2.3 is 2.2 units, and 1.6 of stroke
+   * either side closes it.
+   *
+   * A disc seen edge-on was the next attempt and was worse: `ry` of 1.6 units
+   * is 1.3pt at this size, which is less than the stroke drawn around it, so
+   * the halo rendered as a solid dot sitting on the head.
+   *
+   * What works is an arc, and it has to be a deep one. Struck on a radius of
+   * 8 against a chord of 10 it rises only 1.8 units, which at 20pt is a line
+   * over the head — an eyebrow, or the brim of a hat. A radius of 6 against a
+   * chord of 11 rises 3.6 and reads as a ring seen from below, which is what
+   * it is. The three pieces must not touch: the arc crests at 2.9 and ends at
+   * 6.5, the head spans 7.6 to 13.4, and the shoulders crest at 14.
+   */
+  saint: (
+    <>
+      <Path d="M6.5 6.5a6 6 0 0 1 11 0" />
+      <Circle cx="12" cy="10.5" r="2.9" />
+      <Path d="M5.5 20.5a6.5 6.5 0 0 1 13 0" />
+    </>
+  ),
+  /**
+   * Somebody new. A person with a plus beside them.
+   *
+   * Not `door`, which was here and is the website's welcome glyph: an arrow
+   * going into a doorway is the near-universal *sign out* mark, and at this
+   * size in a list that is what it reads as. The plus is the one addition
+   * everybody already parses as "a new one of these".
+   */
+  newcomer: (
+    <>
+      <Circle cx="9.5" cy="8" r="3.3" />
+      <Path d="M3 19.5a6.5 6.5 0 0 1 13 0" />
+      <Path d="M18.5 8v5M16 10.5h5" />
+    </>
+  ),
+  /**
+   * What is being built next. An arch drawn on a sheet.
+   *
+   * Two earlier attempts are worth recording because both are the obvious ones.
+   * A church *and* a plus put the plus in the corner at a third of the height,
+   * where it reads as a superscript and the arch beside it reads as a bell. A
+   * full blueprint — sheet, baseline, elevation, spire — is four shapes inside
+   * 20pt and they merge into a smudge.
+   *
+   * A sheet with one arch rising off its bottom edge is two shapes, and the
+   * frame is what turns the arch from a building into a *drawing* of one.
+   */
+  plans: (
+    <>
+      <Rect x="3" y="4" width="18" height="16" rx="2" />
+      <Path d="M8.5 20v-6a3.5 3.5 0 0 1 7 0v6" />
+    </>
+  ),
+  /**
+   * The church's other apps. Four tiles.
+   *
+   * Not `grip`, which was here: two columns of dots is a drag handle, and this
+   * app already uses it as one. A 2×2 of rounded squares is the launcher grid
+   * every phone draws, and it means "apps" and nothing else.
+   */
+  apps: (
+    <>
+      <Rect x="4" y="4" width="6.5" height="6.5" rx="1.6" />
+      <Rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6" />
+      <Rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6" />
+      <Rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6" />
+    </>
+  ),
+  /**
+   * Privacy. A padlock, shackle closed.
+   *
+   * Not `file`, which was here and says only "a document" — which is true of
+   * the privacy notice and true of eleven other screens. The padlock is the one
+   * mark that names the subject rather than the format.
+   */
+  lock: (
+    <>
+      <Rect x="4.5" y="10" width="15" height="10.5" rx="2" />
+      <Path d="M8 10V7a4 4 0 0 1 8 0v3" />
+    </>
+  ),
   /** Opens the drawer. Three rules, the one shape nobody has to be taught. */
   menu: <Path d="M4 7h16M4 12h16M4 17h16" />,
+
+  /**
+   * The week's notices, waiting to be read.
+   *
+   * A bell rather than the `megaphone` the website puts over the same list, and
+   * the difference is the surface rather than a drift. On the homepage the
+   * announcements are *already on screen* and the glyph is a heading ornament;
+   * here they are folded away behind a control in the corner, and the one mark
+   * a phone has taught everybody to read as "there is something to open" is the
+   * bell. A megaphone in a tab bar's corner reads as "broadcast", which is what
+   * the church is doing, not what the reader is being offered.
+   *
+   * The clapper is a separate path so it keeps the 1.6 stroke rather than
+   * becoming a filled dot at small sizes.
+   */
+  bell: (
+    <>
+      <Path d="M6.5 9.5a5.5 5.5 0 0 1 11 0c0 4 1.5 5.5 1.5 5.5H5s1.5-1.5 1.5-5.5z" />
+      <Path d="M10 18a2 2 0 0 0 4 0" />
+    </>
+  ),
 } satisfies Record<string, ReactElement>;
 
 export type IconName = keyof typeof ICONS;

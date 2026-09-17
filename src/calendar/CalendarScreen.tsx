@@ -1,19 +1,30 @@
 /**
- * The parish calendar: this week.
+ * The church calendar: this week, or this month.
  *
- * The website's `ChurchCalendar.tsx` opens on the month, because a month grid
- * is the orienting view for somebody arriving without a specific question. A
- * phone cannot draw that grid — the website's own `MonthView` is a table with
- * hover-to-expand, and there is no touch equivalent of hover — so this opens on
- * the week and steps by weeks. The month view arrives when there is a design
- * for it that is not a shrunken table.
+ * ---------------------------------------------------------------------------
+ * It opens on the week. The website opens on the month.
+ *
+ * That is the one deliberate difference between the two surfaces, and it is
+ * about how big the thing in your hand is rather than about taste. A month grid
+ * is the orienting view for somebody arriving at a *page* without a specific
+ * question — thirty-five cells, and the shape of the month reads at a glance.
+ * Thirty-five cells on a phone are forty-eight points wide: enough to say "this
+ * Saturday is busy" and not enough to say what with, so every answer costs a
+ * second gesture. The week is the view a phone can actually finish a question
+ * in, and it is what somebody standing in the narthex on a Tuesday wants.
+ *
+ * The month is still here, one tap away, and it is a real month rather than a
+ * shrunken table — dots by kind in the cells, and the day you tap opened in
+ * full below the grid. That is the website's own narrow-screen behaviour
+ * (`MonthView`'s `DayPanel`), not an invention for this app.
+ * ---------------------------------------------------------------------------
  *
  * ## What is shared, and what is not
  *
  * Everything that decides *what* is on the calendar is in `@spsm/shared` and is
- * not re-decided here: `weekRange` and `step` do the arithmetic,
+ * not re-decided here: `rangeFor` and `step` do the arithmetic,
  * `mergeCalendarSources` reconciles four descriptions of the same week,
- * `applyCalendarDetails` lays the parish's annotations over the survivors, and
+ * `applyCalendarDetails` lays the church's annotations over the survivors, and
  * `groupByDay` buckets the result. This file is layout and state.
  *
  * That division is the whole reason the package exists. The bulletin and Breeze
@@ -28,45 +39,73 @@
  * same service keeps its id. Annotating first would put the note on the copy
  * that loses.
  *
- * **A refused servants request falls back to the parish calendar**, not to
+ * **A refused servants request falls back to the church calendar**, not to
  * nothing. The token disagreed with what this screen believed — a grant
- * changed, or the session outlived it — and the parish schedule is still the
+ * changed, or the session outlived it — and the church schedule is still the
  * right thing to be looking at.
+ *
+ * ## The one thing this screen cannot do for itself
+ *
+ * Navigate. `src/calendar/` is rendered by the App Clip as well as by the tab,
+ * and the clip never imports expo-router — see the wrapper at
+ * `app/(drawer)/(tabs)/calendar.tsx`. So "read more about this" arrives as
+ * `onOpenPage` from whoever is hosting the screen, and is simply absent for a
+ * host with nowhere to send anybody.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import {
+  ACCOUNT_SUBJECT_VALUE,
   PARISH_TIME_ZONE,
   applyCalendarDetails,
-  dayParts,
-  formatClock,
   groupByDay,
   kindOf,
   mergeCalendarSources,
+  rangeFor,
   step,
   todayIn,
-  weekRange,
   type CalendarDetail,
   type CalendarOccurrence,
+  type CalendarView,
   type OccurrenceKind,
 } from '@spsm/shared';
 
-import { Card, Screen } from '@/components/Surface';
-import { Body, Label, Small, Subheading, Title } from '@/components/Type';
+import { Button, Card, Screen } from '@/components/Surface';
+import { Body, Heading, Label, Micro, Small } from '@/components/Type';
+import { signInWithMicrosoft } from '@/firebase/auth';
+import { mayAdminScreen } from '@/firebase/grants';
 import { useSession } from '@/session/SessionProvider';
 import { useTheme } from '@/theme/ThemeProvider';
 
-import {
-  getBulletinOccurrences,
-  getFeatureOccurrences,
-  getSchedule,
-  getStaffLayers,
-  type ScheduleResult,
-} from './data';
+import { AddEntry } from './AddEntry';
+import { useBulletin } from './BulletinProvider';
+import { EventSheet } from './EventSheet';
+import { DaySchedule } from './DaySchedule';
+import { DayWheel } from './DayWheel';
+import { MonthGrid } from './MonthGrid';
+/*
+ * The chrome the App Clip's `/c/schedule` draws too — the view switch, the
+ * stepper, the busy rule, the legend, and the "this week / 3 weeks ago" label.
+ * It was private to this file until the clip needed it; see `ViewControls.tsx`
+ * for why importing this screen instead was not an option.
+ */
+import { BusyRule, Legend, Stepper, ViewSwitch, whereLabel } from './ViewControls';
+import { getFeatureOccurrences, getSchedule, getStaffLayers, type ScheduleResult } from './data';
 
-export function CalendarScreen() {
+export function CalendarScreen({
+  onOpenPage,
+}: {
+  /** Opens a feature event's own page. Absent in the App Clip, which has none. */
+  onOpenPage?: (href: string) => void;
+}) {
   const theme = useTheme();
-  const { isPerson } = useSession();
+  const { isPerson, grants, loading: sessionLoading } = useSession();
+
+  /**
+   * Week first. See the header for why this is the one place the two surfaces
+   * disagree on purpose.
+   */
+  const [view, setView] = useState<CalendarView>('week');
 
   /*
    * Initialised straight away, unlike the website's, which holds `null` until
@@ -79,12 +118,28 @@ export function CalendarScreen() {
   const [anchor, setAnchor] = useState(() => todayIn(PARISH_TIME_ZONE));
   const today = useMemo(() => todayIn(PARISH_TIME_ZONE), []);
 
-  const range = useMemo(() => weekRange(anchor), [anchor]);
+  const range = useMemo(() => rangeFor(view, anchor), [view, anchor]);
+
+  /**
+   * Bumped by the Today button, so the wheel re-centres even when the week did
+   * not change. See the prop of the same name on `DayWheel`.
+   */
+  const [recentre, setRecentre] = useState(0);
+
+  /**
+   * The day the week view is reading, which the wheel picks and the schedule
+   * below it renders.
+   *
+   * Held here rather than inside the wheel because two things need it and they
+   * are siblings, not parent and child — which is the arrangement that got the
+   * entries out of the wheel and the wheel out of the page's scroll view.
+   */
+  const [picked, setPicked] = useState(() => todayIn(PARISH_TIME_ZONE));
 
   /* ---- who is reading ---------------------------------------------------- */
 
   /*
-   * Sign-in is Microsoft-only and restricted to the parish's Entra directory,
+   * Sign-in is Microsoft-only and restricted to the church's Entra directory,
    * so having a session *is* being on the rota — the same reasoning
    * `servantEvents` uses in firestore.rules, where the check is `signedIn()`
    * and nothing finer. `isPerson` excludes the anonymous session the upload
@@ -93,6 +148,16 @@ export function CalendarScreen() {
   const isServant = isPerson;
   const [wantServants, setWantServants] = useState(true);
   const [deniedNote, setDeniedNote] = useState<string | null>(null);
+
+  /*
+   * Whether to draw the edit controls — the `events` grant, and not a role.
+   *
+   * The same screen `firestore.rules` names on `scheduleEntries` and
+   * `calendarDetails`, which is what makes this a hint rather than a boundary:
+   * somebody who patched this check out of their own build still cannot write,
+   * because the rules read the grant and not the button.
+   */
+  const mayEdit = mayAdminScreen(grants, 'events');
 
   /*
    * Signing in or out clears the note, because it is about a calendar nobody is
@@ -110,31 +175,71 @@ export function CalendarScreen() {
     setDeniedNote(null);
   }
 
+  /*
+   * A day from last week must not stay picked into this one, and the day a new
+   * week opens on is today when today is in it.
+   *
+   * Adjusted during render rather than in an effect — React's own documented
+   * shape for "reset state when a value changes", and the same pattern the
+   * denied note above uses. In an effect this would render one frame of next
+   * week's wheel sitting on a day that is not in it.
+   */
+  const opensOn = today >= range.from && today <= range.to ? today : range.from;
+  const [pickedFor, setPickedFor] = useState(range.from);
+  if (pickedFor !== range.from) {
+    setPickedFor(range.from);
+    setPicked(opensOn);
+  }
+
   const askingForServants = isServant && wantServants;
 
-  /* ---- the three quiet sources, each fetched once ------------------------- */
+  /* ---- the three quiet sources ------------------------------------------- */
 
-  const [bulletin, setBulletin] = useState<CalendarOccurrence[]>([]);
+  /*
+   * The bulletin is read by a provider rather than by this screen, because the
+   * announcements bell is header chrome on every tab now and five screens
+   * firing their own `/api/bulletin` would be five reads of another Firebase
+   * project for one document that changes weekly. Its default is an empty
+   * bulletin rather than a throw, so the App Clip can still render this screen
+   * without mounting the provider — see `BulletinProvider`.
+   */
+  const bulletin = useBulletin();
   const [features, setFeatures] = useState<CalendarOccurrence[]>([]);
   const [layers, setLayers] = useState<{
     entries: CalendarOccurrence[];
     details: Map<string, CalendarDetail>;
   }>({ entries: [], details: new Map() });
 
+  /**
+   * Bumped after any staff write, so the layers re-read.
+   *
+   * A listener would be live without it, but it would also hold a Firestore
+   * subscription open on a screen most people read once — and the only
+   * writer is the person looking at it, who does not need to be told about
+   * their own edit by the server.
+   */
+  const [reload, setReload] = useState(0);
+
   useEffect(() => {
     let live = true;
-    void getBulletinOccurrences().then((next) => live && setBulletin(next));
     void getFeatureOccurrences().then((next) => live && setFeatures(next));
-    void getStaffLayers().then((next) => live && setLayers(next));
     return () => {
       live = false;
     };
   }, []);
 
+  useEffect(() => {
+    let live = true;
+    void getStaffLayers().then((next) => live && setLayers(next));
+    return () => {
+      live = false;
+    };
+  }, [reload]);
+
   /* ---- the schedule ------------------------------------------------------- */
 
   /**
-   * The answer, and which week it answers for.
+   * The answer, and which range it answers for.
    *
    * Stored together rather than as a result plus a pending counter, because
    * `CalendarFeed` already carries `from` and `to` — echoed back, its own
@@ -146,7 +251,7 @@ export function CalendarScreen() {
   const [answer, setAnswer] = useState<{ key: string; result: ScheduleResult } | null>(null);
   const latest = useRef(0);
 
-  const key = `${range.from}..${range.to}:${askingForServants ? 'servants' : 'parish'}`;
+  const key = `${range.from}..${range.to}:${askingForServants ? 'servants' : 'church'}`;
 
   useEffect(() => {
     latest.current += 1;
@@ -190,41 +295,158 @@ export function CalendarScreen() {
         mergeCalendarSources([
           inRange(layers.entries),
           inRange(features),
-          inRange(bulletin),
+          inRange(bulletin.occurrences),
           schedule,
         ]),
         layers.details,
       ),
     );
-  }, [result, features, bulletin, layers, range]);
+  }, [result, features, bulletin.occurrences, layers, range]);
 
   const includesServants = result?.kind === 'ok' && result.feed.includesServants;
-  const goto = useCallback((delta: number) => setAnchor((at) => step('week', at, delta)), []);
+
+  /**
+   * Which kinds are on the calendar in front of the reader.
+   *
+   * The key used to name all three every time. A key is read off the thing it
+   * explains, so a row for "Classes & studies" in a week with no class in it is
+   * a colour the reader then goes looking for — and in the month view, where
+   * three lines of it sit under a grid of dots, it was the largest block of
+   * text on the screen explaining the smallest marks.
+   *
+   * Through `kindOf`, the way every other tint in this screen is decided.
+   */
+  const kindsShown = useMemo(() => {
+    const seen = new Set<OccurrenceKind>();
+    for (const entries of byDay.values()) {
+      for (const occurrence of entries) seen.add(kindOf(occurrence));
+    }
+    return seen;
+  }, [byDay]);
+
+  const goto = useCallback(
+    (delta: number) => setAnchor((at) => step(view, at, delta)),
+    [view],
+  );
+
+  /** The occurrence the sheet is showing, and which of its days was tapped. */
+  const [opened, setOpened] = useState<{ occurrence: CalendarOccurrence; day: string } | null>(null);
+
+  /*
+   * Re-read from `byDay` rather than kept as the object that was tapped, so
+   * that saving a detail updates the open sheet instead of leaving it showing
+   * what was true a moment ago.
+   */
+  const openedNow =
+    opened === null
+      ? null
+      : ((byDay.get(opened.day) ?? []).find((entry) => entry.id === opened.occurrence.id) ??
+        opened.occurrence);
+
+  /*
+   * Whether today is in the range on screen. Read twice: `Stepper` decides
+   * whether Today has anything left to do (its own prop says when), and
+   * `AddEntry` uses it to pick the day its form opens on.
+   */
+  const todayIsHere = today >= range.from && today <= range.to;
+
+  /*
+   * The week view is laid out to fit the window; the month view scrolls.
+   *
+   * That difference is the whole answer to two scroll views stacked in one
+   * column. In the week the page is fixed — header, wheel, the day's schedule
+   * in whatever height is left, the key and the switch at the foot — so the
+   * only things that scroll are the wheel and the list, side by side in
+   * separate parts of the screen. The month has nothing in it that scrolls of
+   * its own: a grid is a grid, and the day panel it opens is as long as the day
+   * is, so the page is the right thing to move.
+   */
+  const fixed = view === 'week';
 
   return (
-    <Screen>
-      <View style={{ gap: theme.space.xs }}>
-        <Title>{range.label}</Title>
-        <View style={{ flexDirection: 'row', gap: theme.space.xs, alignItems: 'center' }}>
-          <Step label="‹" hint="Previous week" onPress={() => goto(-1)} />
-          <Step label="Today" onPress={() => setAnchor(today)} />
-          <Step label="›" hint="Next week" onPress={() => goto(1)} />
-          {busy ? <Small color={theme.color.inkFaint}>Updating…</Small> : null}
+    <Screen
+      scroll={!fixed}
+      gap={theme.space.sm}
+      padBottom={fixed ? theme.space.gutter : undefined}
+    >
+      <View style={{ gap: theme.space.sm }}>
+        {/*
+          Where this week sits relative to the one the reader is in, and then
+          which week it actually is.
+
+          The eyebrow is the fix for a question the screen could not answer:
+          "September 7–13, 2026" is a fact about a range and says nothing about
+          *now*, so three taps of the forward arrow left the reader holding a
+          date they had to work out for themselves. Today being marked in the
+          wheel only helps on the weeks that contain it — which are exactly the
+          weeks the reader was not lost on.
+
+          The announcements bell used to live in this row; it is header chrome
+          on every tab now — `src/navigation/AnnouncementsButton.tsx`, wired
+          into the tabs' `screenOptions` — which is where a mark that is about
+          the whole week rather than about the calendar belongs.
+        */}
+        <Label color={todayIsHere ? theme.color.accent : theme.color.inkFaint}>
+          {whereLabel(view, range, today)}
+        </Label>
+        {/*
+          `Heading` and not `Title`, alone among this app's screens.
+
+          The week view is laid out to fit the window, so every point the header
+          takes is a point off the day being read — and at `title` the range ran
+          to twenty-eight points of serif for a line nobody has to read twice.
+          The eyebrow above it is what the reader is actually orienting by.
+        */}
+        <Heading>{range.label}</Heading>
+
+        <BusyRule busy={busy} />
+
+        {/*
+          Two groups of controls and nothing in between, which is the whole
+          reason the working state became a rule above rather than the word
+          "Updating…" in the gap. Five separately outlined boxes in one row
+          gave no clue which of them belonged together, and the slack between
+          them was carrying a message.
+        */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.sm }}>
+          <ViewSwitch view={view} onPick={setView} />
+
+          <View style={{ flex: 1 }} />
+
+          {/*
+            The add control sits with the calendar rather than on a screen of
+            its own — the programme's settled pattern, and it earns it here:
+            whoever is adding a service is looking at the week they are adding
+            it to. It defaults to the day in view, so adding something to the
+            week you are reading is one field shorter.
+          */}
+          {mayEdit ? (
+            <AddEntry
+              compact
+              defaultDay={fixed ? picked : todayIsHere ? today : range.from}
+              onAdded={() => setReload((count) => count + 1)}
+            />
+          ) : null}
+
+          <Stepper
+            view={view}
+            onStep={goto}
+            onToday={() => {
+              setAnchor(today);
+              setRecentre((count) => count + 1);
+            }}
+            todayIsHere={todayIsHere}
+          />
         </View>
       </View>
 
-      {isServant ? (
-        <ServantSwitch
-          on={askingForServants}
-          included={includesServants}
-          onToggle={() => setWantServants((was) => !was)}
-        />
-      ) : null}
-
       {deniedNote ? (
         <Card>
-          <Label>The servants schedule</Label>
+          <Label>The servants schedule was not available</Label>
           <Body color={theme.color.inkSoft}>{deniedNote}</Body>
+          <Small color={theme.color.inkFaint}>
+            The rest of the calendar below is the church schedule, which is unaffected.
+          </Small>
         </Card>
       ) : null}
 
@@ -232,12 +454,17 @@ export function CalendarScreen() {
         <Card>
           <Label>Not set up yet</Label>
           <Body color={theme.color.inkSoft}>
-            The parish has not connected a calendar yet. Nothing is missing from the parish — only
+            The church has not connected a calendar yet. Nothing is missing from the church — only
             from this app.
           </Body>
         </Card>
       ) : null}
 
+      {/*
+        The grid is still drawn under this, and that is the point: the church's
+        own events and the bulletin are already in `byDay`, so an unreachable
+        Breeze costs the reader the liturgies and not the screen.
+      */}
       {result?.kind === 'error' && result.message !== '' ? (
         <Card>
           <Label>The calendar could not be read</Label>
@@ -245,53 +472,94 @@ export function CalendarScreen() {
         </Card>
       ) : null}
 
-      {range.days.map((day) => (
-        <Day
-          key={day}
-          day={day}
+      {fixed ? (
+        <>
+          <DayWheel
+            range={range}
+            byDay={byDay}
+            today={today}
+            picked={picked}
+            onPick={setPicked}
+            recentre={recentre}
+          />
+          {/*
+            The rules over and under the day's schedule.
+
+            It scrolls in a fixed band between the wheel and the foot, so a
+            long day meets both edges mid-row. A card sliced off against
+            nothing reads as a card that failed to draw; against a line it
+            reads as a list going on past the edge of its pane, which is what
+            it is. The pair is also what tells the reader there are two
+            scrollable things here and where one ends — the complaint that
+            started all of this was not being able to tell.
+          */}
+          <View style={{ height: 1, backgroundColor: theme.color.rule }} />
+
+          <DaySchedule
+            day={picked}
+            entries={byDay.get(picked) ?? []}
+            loading={busy}
+            onOpen={(occurrence, day) => setOpened({ occurrence, day })}
+          />
+        </>
+      ) : (
+        <MonthGrid
+          range={range}
+          byDay={byDay}
           today={today}
-          occurrences={byDay.get(day) ?? []}
           loading={busy}
+          onOpen={(occurrence, day) => setOpened({ occurrence, day })}
         />
-      ))}
+      )}
+
+      {/* The other half of the pair; see the note on the first. */}
+      {fixed ? <View style={{ height: 1, backgroundColor: theme.color.rule }} /> : null}
+
+      <Legend kinds={kindsShown} showServants={includesServants} />
+
+      {/*
+        The servants switch sits at the foot rather than above the calendar.
+
+        It is a control a few dozen people touch once, and above the grid it was
+        the first thing between the stepper and the week — a band explaining a
+        distinction to somebody who had come to find out when the Liturgy is.
+        Down here it is still the first thing a servant looks for, because it is
+        the only outlined thing on the screen.
+      */}
+      {isServant ? (
+        <ServantSwitch
+          on={askingForServants}
+          included={includesServants}
+          onToggle={() => {
+            setDeniedNote(null);
+            setWantServants((was) => !was);
+          }}
+        />
+      ) : sessionLoading ? null : (
+        <SignInOffer onOpenPage={onOpenPage} />
+      )}
+
+      <EventSheet
+        occurrence={openedNow}
+        day={opened?.day ?? null}
+        detail={openedNow ? (layers.details.get(openedNow.id) ?? null) : null}
+        mayEdit={mayEdit}
+        onOpenPage={onOpenPage}
+        onClose={() => setOpened(null)}
+        onChanged={() => setReload((count) => count + 1)}
+      />
     </Screen>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-
-function Step({ label, hint, onPress }: { label: string; hint?: string; onPress: () => void }) {
-  const theme = useTheme();
-
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={hint ?? label}
-      style={({ pressed }) => ({
-        borderColor: theme.color.rule,
-        borderWidth: 1,
-        borderRadius: theme.radius.sm,
-        paddingVertical: theme.space.xs,
-        paddingHorizontal: theme.space.sm,
-        backgroundColor: pressed ? theme.color.accentSoft : 'transparent',
-        minHeight: 44,
-        minWidth: 44,
-        alignItems: 'center',
-        justifyContent: 'center',
-      })}
-    >
-      <Small>{label}</Small>
-    </Pressable>
   );
 }
 
 /**
  * The servants switch.
  *
- * A switch rather than nothing at all, because a servant is also a parishioner:
- * "what is the parish doing this week" and "what am I on the hook for" are
- * different questions, and the internal entries are noise against the first.
+ * A switch rather than nothing at all, because a servant is also an ordinary member of the congregation:
+ * "what is the church doing this week" and "what am I on the hook for" are
+ * different questions, and the internal entries — tentative plans, which van is
+ * out, blocked-off prep days — are noise against the first one. Off, this
+ * screen is exactly what everybody else sees.
  *
  * `included` is read from the feed rather than inferred from the occurrences,
  * because "no servants entries this week" and "you were not shown the servants
@@ -308,134 +576,154 @@ function ServantSwitch({
 }) {
   const theme = useTheme();
 
+  /*
+   * One line, and the state on the right.
+   *
+   * It was a padded card with a label over a sentence of instruction — "Tap to
+   * include what you are serving" — which is three lines of chrome under a
+   * calendar to say what the control's own two words say. A switch does not
+   * need to be told it can be tapped; what it needs to say is whether it is on,
+   * and that is now the word on the right rather than a paraphrase underneath.
+   *
+   * The one state worth more than a word is `on` without `included`: the rota
+   * has been asked for and has not arrived. "Asking…" is that, and it is the
+   * only reason this reads the feed rather than the toggle.
+   */
+  const state = on ? (included ? 'Shown' : 'Asking…') : 'Hidden';
+
   return (
     <Pressable
       onPress={onToggle}
       accessibilityRole="switch"
       accessibilityState={{ checked: on }}
       style={({ pressed }) => ({
-        backgroundColor: pressed ? theme.color.accentSoft : theme.color.paperRaised,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.space.sm,
+        backgroundColor: pressed
+          ? theme.color.paperSunken
+          : on
+            ? theme.color.accentSoft
+            : theme.color.paperRaised,
         borderColor: on ? theme.color.accent : theme.color.rule,
         borderWidth: 1,
-        borderRadius: theme.radius.md,
-        padding: theme.space.md,
-        gap: theme.space.xs,
+        borderRadius: theme.radius.full,
+        paddingVertical: theme.space.sm,
+        paddingHorizontal: theme.space.md,
         minHeight: 44,
       })}
     >
-      <Label>{on ? 'Showing the servants schedule' : 'Parish schedule only'}</Label>
-      <Small color={theme.color.inkSoft}>
-        {on && included
-          ? 'Your rota is included below. Tap to hide it.'
-          : on
-            ? 'Asking for your rota.'
-            : 'Tap to include what you are serving.'}
-      </Small>
+      {/* The same dashed ring the key uses for a servants entry, so the switch
+          and the thing it switches on are marked alike. */}
+      <View
+        style={{
+          width: 10,
+          height: 10,
+          borderRadius: theme.radius.full,
+          borderWidth: 1,
+          borderStyle: 'dashed',
+          borderColor: on ? theme.color.accent : theme.color.inkFaint,
+        }}
+      />
+      <Small>Servants schedule</Small>
+      <View style={{ flex: 1 }} />
+      <Small color={on ? theme.color.accent : theme.color.inkFaint}>{state}</Small>
     </Pressable>
   );
 }
 
 /**
- * One day, and everything on it.
+ * The signed-out half of the servants switch, in the place the switch occupies
+ * for somebody who has signed in.
  *
- * Empty days are drawn rather than skipped. A week with Tuesday missing reads
- * as a rendering fault; a week with an empty Tuesday reads as a quiet Tuesday,
- * which is the true thing.
+ * ---------------------------------------------------------------------------
+ * Deliberately quiet, and much shorter than the website's.
+ *
+ * /calendar carries three columns of it: how to sign in, what to do when it
+ * refuses you, and how to be given an account — because on the web the sign-in
+ * control is a circle at the top of a page and the failure is somebody's
+ * personal Outlook address being turned away by a single-tenant directory.
+ *
+ * Here the button is right there and it opens Microsoft itself, so two of those
+ * three columns have nothing to explain. What survives is the refusal, because
+ * it is the one thing nobody works out on their own: a personal Microsoft,
+ * Outlook or Hotmail address is not broken, it is not a church account. Asking
+ * for an account is what /contact is for, on both surfaces.
+ * ---------------------------------------------------------------------------
  */
-function Day({
-  day,
-  today,
-  occurrences,
-  loading,
-}: {
-  day: string;
-  today: string;
-  occurrences: CalendarOccurrence[];
-  /** Suppresses "Nothing on", which would be a lie before the answer lands. */
-  loading: boolean;
-}) {
+function SignInOffer({ onOpenPage }: { onOpenPage?: (href: string) => void }) {
   const theme = useTheme();
-  const parts = dayParts(day);
-  const isToday = day === today;
+  const { refresh } = useSession();
 
-  return (
-    <View style={{ gap: theme.space.xs }}>
-      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: theme.space.xs }}>
-        <Subheading color={isToday ? theme.color.accent : theme.color.ink}>
-          {parts.weekday}
-        </Subheading>
-        <Small color={theme.color.inkFaint}>
-          {parts.month} {parts.dayOfMonth}
-        </Small>
-        {isToday ? <Small color={theme.color.accent}>Today</Small> : null}
-      </View>
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
 
-      {occurrences.length === 0 ? (
-        loading ? null : <Small color={theme.color.inkFaint}>Nothing on</Small>
-      ) : (
-        occurrences.map((occurrence) => (
-          <Entry key={`${occurrence.source}:${occurrence.id}`} occurrence={occurrence} />
-        ))
-      )}
-    </View>
-  );
-}
-
-/** The four kinds, as the parish's own colours. Never a literal. */
-function tintFor(kind: OccurrenceKind, theme: ReturnType<typeof useTheme>): string {
-  switch (kind) {
-    case 'liturgy':
-      return theme.color.accent;
-    case 'study':
-      return theme.color.inkSoft;
-    case 'gathering':
-      return theme.color.accentStrong;
-    default:
-      return theme.color.rule;
+  async function go() {
+    setBusy(true);
+    setProblem(null);
+    try {
+      await signInWithMicrosoft();
+      await refresh();
+    } catch (error) {
+      /*
+       * Includes the ordinary case of somebody closing the Microsoft sheet,
+       * which is not worth an alarming word. The provider's own message is
+       * shown because it distinguishes "you cancelled" from "that account is
+       * not in this church's tenant", and the second one needs saying.
+       */
+      setProblem(error instanceof Error ? error.message : 'Signing in did not work.');
+    } finally {
+      setBusy(false);
+    }
   }
-}
-
-function Entry({ occurrence }: { occurrence: CalendarOccurrence }) {
-  const theme = useTheme();
-  // Through `kindOf`, never off `.kind` directly — it is null for everything
-  // read from Breeze or the bulletin, where the title is all there is.
-  const kind = kindOf(occurrence);
-
-  const when = occurrence.allDay
-    ? 'All day'
-    : [formatClock(occurrence.startTime), formatClock(occurrence.endTime)]
-        .filter((part) => part !== '')
-        .join(' – ');
 
   return (
-    <Card gap={theme.space.xs}>
-      <View style={{ flexDirection: 'row', gap: theme.space.sm }}>
-        <View
-          style={{
-            width: 3,
-            borderRadius: 2,
-            backgroundColor: tintFor(kind, theme),
-          }}
-        />
-        <View style={{ flex: 1, gap: 2 }}>
-          <Small color={theme.color.inkFaint}>{when}</Small>
-          <Body>{occurrence.title}</Body>
+    <View style={{ gap: theme.space.sm }}>
+      <Small color={theme.color.inkSoft}>
+        Serving? Sign in and your rota appears in the calendar above, marked.
+      </Small>
+      <Button
+        label={busy ? 'Opening Microsoft…' : 'Sign in with Microsoft'}
+        tone="quiet"
+        onPress={() => void go()}
+        busy={busy}
+      />
+      {/*
+        The refusal, and only once there has been one.
 
-          {occurrence.location !== '' ? (
-            <Small color={theme.color.inkSoft}>{occurrence.location}</Small>
-          ) : null}
-          {occurrence.description !== '' ? (
-            <Small color={theme.color.inkSoft}>{occurrence.description}</Small>
-          ) : null}
-          {occurrence.contact ? (
-            <Small color={theme.color.inkSoft}>{occurrence.contact}</Small>
-          ) : null}
+        It used to be printed under the button on every visit, which put a
+        paragraph about Hotmail addresses at the foot of the church calendar for
+        the several hundred readers who will never press the button. It is the
+        one thing nobody works out on their own — so it is still said, at the
+        moment it explains something that has just happened to the reader.
+      */}
+      {problem ? (
+        <View style={{ gap: theme.space.xs }}>
+          <Small color={theme.color.accent}>{problem}</Small>
+          <Micro color={theme.color.inkFaint}>
+            A personal Microsoft, Outlook or Hotmail address is refused: only accounts in the
+            church&rsquo;s own directory can sign in.
+          </Micro>
+          {/*
+            The third of the website's three columns, which used to have nowhere
+            to go: asking for an account is what the contact form is for, and it
+            now exists in the app. `about` opens it on the right subject, so
+            nobody has to work out which of the eight this is — the value is the
+            one `@spsm/shared` names, not a string spelled out here.
 
-          {occurrence.source === 'servants' ? (
-            <Small color={theme.color.accent}>Servants</Small>
+            Through `onOpenPage` rather than a router, because this screen is
+            also the App Clip's and the clip has no routes. A host with nowhere
+            to send anybody simply does not get the button.
+          */}
+          {onOpenPage ? (
+            <Button
+              label="Ask the office for an account"
+              tone="quiet"
+              onPress={() => onOpenPage(`/forms/contact?about=${ACCOUNT_SUBJECT_VALUE}`)}
+            />
           ) : null}
         </View>
-      </View>
-    </Card>
+      ) : null}
+    </View>
   );
 }

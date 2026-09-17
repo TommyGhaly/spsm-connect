@@ -46,7 +46,7 @@ TaskManager.defineTask(DRAIN_TASK, async () => {
     /*
      * Unregister once the queue is empty. Left registered, this wakes the app
      * on a schedule forever to discover there is nothing to do — a battery cost
-     * paid by every parishioner who ever sent one photograph. `syncDrainTask`
+     * paid by everybody who ever sent one photograph. `syncDrainTask`
      * puts it back the moment something is enqueued.
      */
     if ((await pending()).length === 0) await stopDrainTask();

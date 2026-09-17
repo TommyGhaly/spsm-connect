@@ -1,5 +1,5 @@
 /**
- * The parish's design tokens, resolved for this device.
+ * The church's design tokens, resolved for this device.
  *
  * `config/theme` in Firestore is the source of truth, and it is world-readable
  * precisely so a client can fetch it without an account. The website does the
@@ -11,7 +11,7 @@
  *   > store design intent as unitless numbers. Never a CSS string.
  *
  * The corollary here: never write a literal colour or type size anywhere in
- * this app. A hardcoded #992a21 is a value the parish cannot change, and one
+ * this app. A hardcoded #992a21 is a value the church cannot change, and one
  * the two frontends will eventually disagree on.
  */
 import {
@@ -74,7 +74,7 @@ export async function fetchTheme(): Promise<ThemeTokens> {
    * declaring a `minClientVersion` newer than this binary is discarded whole.
    *
    * That last one is the escape hatch that makes a shipped binary safe — the
-   * parish can publish a theme this version cannot render and know that this
+   * church can publish a theme this version cannot render and know that this
    * version will ignore it rather than draw something broken. It only works if
    * THEME_SCHEMA_VERSION is passed honestly, so pass it and never fake it.
    */

@@ -3,7 +3,7 @@
  *
  * The website's `/events`, which it calls "Our activities". Route and label
  * differ on purpose and the reason is in `(tabs)/_layout.tsx`: the path has to
- * match the site's for a universal link to land here, and the word a parishioner
+ * match the site's for a universal link to land here, and the word somebody
  * reads is a separate decision.
  *
  * ## Why each ministry is a photograph and not a row
@@ -20,12 +20,12 @@
  */
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable } from 'react-native';
 import { hasRenderableFile } from '@spsm/shared';
 
 import { Card, Screen } from '@/components/Surface';
 import { Body, Label, Lede, Small, Title } from '@/components/Type';
-import { Picture } from '@/gallery/Picture';
+import { NoPictures, Picture } from '@/gallery/Picture';
 import {
   getProgramMedia,
   listPrograms,
@@ -66,7 +66,7 @@ export default function Directory() {
       if (programs.length === 0) {
         // Empty and unreadable are different answers and this screen gives
         // different words for them, so the read failing has to be told apart
-        // from the parish having published nothing. `listPrograms` swallows its
+        // from the church having published nothing. `listPrograms` swallows its
         // own errors, so the only signal left is that it is a cold empty list —
         // which is why the distinction is drawn here and stays coarse.
         setTiles([]);
@@ -75,7 +75,7 @@ export default function Directory() {
 
       /*
        * One read per ministry, in parallel. That is a fan-out, and it is bounded
-       * by the number of ministries the parish runs — four — rather than by its
+       * by the number of ministries the church runs — four — rather than by its
        * history. The alternative, one query across every program, cannot be
        * ordered and capped per ministry, so a single prolific camp would fill
        * the window and the other three would show no covers at all.
@@ -103,7 +103,7 @@ export default function Directory() {
         <Card>
           <Label>Not loaded</Label>
           <Body color={theme.color.inkSoft}>
-            The parish&rsquo;s photographs could not be fetched. They are on the website, and this
+            The church&rsquo;s photographs could not be fetched. They are on the website, and this
             screen will show them again when the connection is back.
           </Body>
         </Card>
@@ -114,7 +114,7 @@ export default function Directory() {
   if (tiles === null) {
     return (
       <Screen>
-        <Lede color={theme.color.inkSoft}>Finding the parish&rsquo;s ministries…</Lede>
+        <Lede color={theme.color.inkSoft}>Finding our ministries…</Lede>
       </Screen>
     );
   }
@@ -125,7 +125,7 @@ export default function Directory() {
         <Card>
           <Label>Nothing yet</Label>
           <Body color={theme.color.inkSoft}>
-            The parish has not published any ministries here yet.
+            Nothing has been published here yet.
           </Body>
         </Card>
       </Screen>
@@ -181,19 +181,9 @@ function ProgramTile({ tile }: { tile: Tile }) {
       accessibilityLabel={program.name}
       style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, gap: theme.space.xs })}
     >
-      {cover ? (
-        <Picture media={cover} height={200} />
-      ) : (
-        <View
-          style={{
-            height: 200,
-            borderRadius: theme.radius.sm,
-            backgroundColor: theme.color.paperRaised,
-            borderColor: theme.color.rule,
-            borderWidth: 1,
-          }}
-        />
-      )}
+      {/* `NoPictures` rather than an empty plate: see the note on it. The count
+          line below is what says the ministry has none of its own. */}
+      {cover ? <Picture media={cover} height={200} /> : <NoPictures height={200} />}
       <Body>{program.name}</Body>
       <Small color={theme.color.inkSoft}>{countLine(tile)}</Small>
     </Pressable>
@@ -201,7 +191,7 @@ function ProgramTile({ tile }: { tile: Tile }) {
 }
 
 /**
- * "214 photographs", "12 photographs and 2 clips", or the parish's own words for
+ * "214 photographs", "12 photographs and 2 clips", or the church's own words for
  * a ministry that has none yet.
  *
  * Written out rather than templated with a trailing "(s)", because this is the

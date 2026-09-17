@@ -19,8 +19,8 @@
  *
  * ## Every read here answers rather than throws
  *
- * `readOrEmpty` is the website's, and for its reason: these run in front of a
- * parishioner, where a throw unmounts the screen and leaves somebody looking at
+ * `readOrEmpty` is the website's, and for its reason: these run in front of
+ * somebody, where a throw unmounts the screen and leaves somebody looking at
  * nothing. The caller renders "this could not be loaded" instead. That is the
  * opposite of the website's *build-time* reads, which re-throw so a deploy fails
  * loudly — same error, different right answer, because the audience differs.
@@ -62,10 +62,23 @@ export interface ProgramRow {
   slug: string;
   name: string;
   description: string;
-  /** The parish's own word for what is inside — "Weeks", "Years". May be unset. */
+  /** The church's own word for what is inside — "Weeks", "Years". May be unset. */
   childLabel: string | null;
   /** The ministry's curated summary, in the order somebody chose. */
   featuredMediaIds: readonly string[];
+  /**
+   * Whether this ministry is still taking photographs.
+   *
+   * Governs the whole tree; `ProgramEvent.submissionsOpen` is deprecated in
+   * favour of it. Read here rather than only in `mainSection.ts` because the
+   * camera's destination sheet lists *every* ministry, and a closed one is a
+   * row whose every submission `firestore.rules` would refuse — an offer the
+   * app has no business making.
+   *
+   * Absent means open. A ministry created before the field existed is one the
+   * church never closed.
+   */
+  submissionsOpen: boolean;
 }
 
 /** One level of a ministry. Structural, and a `GalleryTreeNode` by construction. */
@@ -107,7 +120,7 @@ async function readOrEmpty<T>(what: string, run: () => Promise<T>, fallback: T):
   }
 }
 
-/** The ministries, published, in the order the parish set. */
+/** The ministries, published, in the order the church set. */
 export async function listPrograms(): Promise<ProgramRow[]> {
   return readOrEmpty(
     'programs',
@@ -154,8 +167,8 @@ export async function getProgram(slug: string): Promise<ProgramRow | null> {
  * The whole tree, not one generation, and not a convenience: a page here shows a
  * summary of everything beneath it and cannot know what that is from its
  * children alone. It is also the only shape that does not fan out with the
- * parish's history — a generation-at-a-time read is a query per level per page,
- * and it gets slower every year the parish runs camp.
+ * church's history — a generation-at-a-time read is a query per level per page,
+ * and it gets slower every year the church runs camp.
  *
  * The `orderBy` is what the index and the rules require, not the order anything
  * renders in: `buildGalleryTree` sorts by `compareNodes`, which reads the
@@ -211,7 +224,7 @@ const PROGRAM_WINDOW = 300;
  * week and its days — is one `in` query, exact and uncapped. Wider than that
  * falls back to one capped `programId` query filtered here, which is a genuine
  * approximation. The alternative to both was a query per node: a fan-out that
- * grows with the parish's history, on the screen somebody opens first.
+ * grows with the church's history, on the screen somebody opens first.
  */
 export async function getSubtreeMedia(
   programId: string,
@@ -311,6 +324,8 @@ function toProgram(snapshot: Snapshot): ProgramRow {
     description: str(data, 'description'),
     childLabel: typeof data?.['childLabel'] === 'string' ? data['childLabel'] : null,
     featuredMediaIds: Array.isArray(featured) ? featured.filter((id) => typeof id === 'string') : [],
+    // `!== false`, not `=== true`. Absent is open; only an explicit close closes.
+    submissionsOpen: data?.['submissionsOpen'] !== false,
   };
 }
 

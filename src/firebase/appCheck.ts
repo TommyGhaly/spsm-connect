@@ -48,7 +48,7 @@ export function startAppCheck(): AppCheck {
     apple: {
       /*
        * App Attest needs iOS 14+. The fallback keeps older devices working
-       * rather than locking a parishioner on an old iPhone out of the one
+       * rather than locking somebody on an old iPhone out of the one
        * feature this app exists for.
        */
       provider: __DEV__ ? 'debug' : 'appAttestWithDeviceCheckFallback',
@@ -78,5 +78,65 @@ export async function appCheckToken(): Promise<string | null> {
     return result?.token ?? null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * The same thing, but it says *why* it failed.
+ *
+ * ---------------------------------------------------------------------------
+ * For the App Clip spike, and for nothing else — `appCheckToken` above is what
+ * the upload path uses, and it is right to swallow this.
+ *
+ * The spike exists to answer one question, and a bare null cannot answer it. At
+ * least three quite different things produce a null in an App Clip, and they
+ * have three different remedies:
+ *
+ *   - **App Attest is unsupported in this process.** The SDK checks
+ *     `DCAppAttestService.isSupported` before anything else and rejects with
+ *     its own "unsupported attestation provider" error — see
+ *     `GACAppAttestProvider.m`'s `isAppAttestSupported`. If this is the answer,
+ *     no amount of Firebase configuration fixes it and the clip is read-only.
+ *
+ *   - **The attestation was refused by the Firebase backend**, which is what a
+ *     bundle identifier disagreement looks like. Apple builds the relying-party
+ *     identifier from the team id and *the bundle it is running in*, so a clip
+ *     attests as `org.spsm.connect.Clip` — while the plist it ships is the
+ *     parent app's and names `org.spsm.connect`. That is fixable: a second
+ *     Firebase iOS app for the clip's own bundle id, with its own plist and its
+ *     own App Attest registration.
+ *
+ *   - **Something ordinary** — no network, a clock far enough out to invalidate
+ *     the challenge, a missing entitlement.
+ *
+ * Returning the error rather than a boolean is what lets one run on one device
+ * tell those apart, instead of three runs guessing.
+ * ---------------------------------------------------------------------------
+ */
+export type AppCheckAttempt =
+  /*
+   * Discriminated on `ok` rather than on `token`, because `token: string` is
+   * not a literal type and so cannot narrow the union — TypeScript would refuse
+   * `attempt.reason` in the falsy branch of `attempt.token ? … : …`.
+   */
+  { ok: true; token: string } | { ok: false; reason: string };
+
+export async function appCheckTokenOrReason(): Promise<AppCheckAttempt> {
+  try {
+    const result = await getToken(startAppCheck());
+    if (result?.token) return { ok: true, token: result.token };
+    return { ok: false, reason: 'The SDK returned no token and no error.' };
+  } catch (cause) {
+    /*
+     * The message verbatim, plus the code when there is one. RNFB surfaces the
+     * native error's `code` (`app-check/unknown`, and so on) and the underlying
+     * description is where "unsupported attestation provider" actually appears.
+     */
+    const code =
+      typeof cause === 'object' && cause !== null && 'code' in cause
+        ? String((cause as { code: unknown }).code)
+        : '';
+    const message = cause instanceof Error ? cause.message : String(cause);
+    return { ok: false, reason: code ? `${code} — ${message}` : message };
   }
 }

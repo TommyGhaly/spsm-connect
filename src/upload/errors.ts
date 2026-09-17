@@ -22,7 +22,7 @@
  * suggesting a remedy that does not exist.
  */
 export const UNATTESTED =
-  'This copy of the app could not prove it is genuine, so the parish cannot accept photographs from it. ' +
+  'This copy of the app could not prove it is genuine, so the church cannot accept photographs from it. ' +
   'If you installed it from the App Store or Google Play, please report this — it is not something you can fix.';
 
 /**
@@ -50,7 +50,7 @@ export function explainUploadFailure(status: number, _body?: string): string {
     case 504:
       return 'The connection was too slow to finish sending that photograph. Please try again on a better signal.';
     case 429:
-      return 'The parish is receiving a great many photographs just now. Please try again in a few minutes.';
+      return 'The church is receiving a great many photographs just now. Please try again in a few minutes.';
     default:
       if (status >= 500) {
         return 'Something went wrong at the other end while sending that photograph. Please try it again.';
@@ -82,7 +82,7 @@ export function worthRetrying(status: number): boolean {
  * from "the network dropped". The retry button was therefore offered for every
  * failure including the two that can never succeed.
  *
- * The message stays the parishioner-readable one — this only preserves the
+ * The message stays the human-readable one — this only preserves the
  * number beside it.
  */
 export class UploadFailure extends Error {

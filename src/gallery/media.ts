@@ -5,7 +5,7 @@
  * for the reason that file gives at length: the bucket and the origin are
  * resolved in *one* place, because the last time they were not, the origin was
  * hardcoded to production and a site running entirely on emulators still
- * fetched every photograph from the parish's real bucket.
+ * fetched every photograph from the church's real bucket.
  *
  * `posterUrlFor` and `videoUrlFor` themselves are `@spsm/shared` — they take a
  * bucket and an origin precisely so this app can supply its own. Nothing here
@@ -29,12 +29,12 @@ export interface MediaLike {
 }
 
 /**
- * The parish's bucket.
+ * The church's bucket.
  *
  * Read through a helper rather than inline so the one `??` that decides what an
  * unset bucket means lives in one place. Empty rather than a throw: a missing
  * bucket makes every URL unloadable, which a gallery already has a state for
- * ("still processing"), and is a better outcome on a parishioner's phone than a
+ * ("still processing"), and is a better outcome on somebody's phone than a
  * screen that crashes on a misconfigured build.
  */
 function bucket(): string {

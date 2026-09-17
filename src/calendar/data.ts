@@ -2,7 +2,7 @@
  * Reading the schedule, on a phone.
  *
  * This mirrors the website's `features/calendar/data.ts` reader for reader, and
- * deliberately so: the two surfaces answer "what is the parish doing this week"
+ * deliberately so: the two surfaces answer "what is the church doing this week"
  * from the same Function, the same two Firestore collections and the same
  * bulletin, and the merge that reconciles them lives in `@spsm/shared`. What
  * differs here is only the transport — `apiGet`/`apiGetAuthed` instead of
@@ -45,7 +45,7 @@ export type ScheduleResult =
   | { kind: 'ok'; feed: CalendarFeed }
   /** Asked for the servants calendar without a session that carries it. */
   | { kind: 'denied'; message: string }
-  /** The parish has not configured a calendar yet. */
+  /** The church has not configured a calendar yet. */
   | { kind: 'unset' }
   | { kind: 'error'; message: string };
 
@@ -84,7 +84,7 @@ export async function getSchedule(
       if (error.status === 401 || error.status === 403) {
         return { kind: 'denied', message: error.message };
       }
-      // 503 is the parish not having configured a calendar, not a fault.
+      // 503 is the church not having configured a calendar, not a fault.
       if (error.status === 503) return { kind: 'unset' };
       return { kind: 'error', message: error.message };
     }
@@ -93,25 +93,97 @@ export async function getSchedule(
 }
 
 /**
- * This week's bulletin, as calendar occurrences.
+ * One notice off the week's sheet.
+ *
+ * Narrower than the shared `BulletinAnnouncement`, and deliberately: that type
+ * carries `image` and `addedAt`, and the tray draws neither. A notice in the
+ * tray is a sentence — "do not leave clothing in church" — and a thumbnail
+ * beside it would make the panel a page.
+ */
+export interface BulletinNotice {
+  id: string;
+  text: string;
+}
+
+/** Everything this app reads out of `/api/bulletin`, in one answer. */
+export interface BulletinRead {
+  occurrences: CalendarOccurrence[];
+  notices: BulletinNotice[];
+  /** As the editor typed it: "August 3, 2026". Empty when the sheet omits it. */
+  weekLabel: string;
+}
+
+const NO_BULLETIN: BulletinRead = { occurrences: [], notices: [], weekLabel: '' };
+
+/**
+ * This week's bulletin: the services on it, and the notices beside them.
  *
  * Fetched once rather than per range, because it covers exactly one week —
  * stepping to October does not need re-asking, since the answer for October is
  * "the bulletin has nothing to say".
  *
+ * **The two halves come back together because they are one read.** The notices
+ * were being fetched and discarded — this function used to return only the
+ * occurrences — and giving the tray its own `getAnnouncements()` would have
+ * meant a second request to the same endpoint for a field already in the first
+ * response. The Function behind it reads another Firebase project through a
+ * service account, so the cost is not hypothetical.
+ *
  * The JSON is used as-is rather than through `reviveBulletin`, matching the
  * website: that helper turns ISO strings back into `Date`s, and the only fields
  * it touches — `addedAt`, `publishedAt` — are ones nothing here reads.
  */
-export async function getBulletinOccurrences(): Promise<CalendarOccurrence[]> {
+export async function getBulletin(): Promise<BulletinRead> {
   try {
-    const body = await apiGet<{ bulletin?: BulletinLike | null }>('/api/bulletin');
-    if (!body.bulletin || !Array.isArray(body.bulletin.days)) return [];
-    return occurrencesOfBulletin(body.bulletin);
+    const body = await apiGet<{ bulletin?: BulletinJson | null }>('/api/bulletin');
+    const bulletin = body.bulletin;
+    if (!bulletin || !Array.isArray(bulletin.days)) return NO_BULLETIN;
+
+    return {
+      occurrences: occurrencesOfBulletin(bulletin),
+      notices: noticesOf(bulletin.announcements),
+      weekLabel: typeof bulletin.weekLabel === 'string' ? bulletin.weekLabel : '',
+    };
   } catch (error) {
     console.warn('[calendar] the bulletin could not be read; carrying on without it:', error);
-    return [];
+    return NO_BULLETIN;
   }
+}
+
+/**
+ * `BulletinLike` is what the merge needs; this is what comes over the wire.
+ *
+ * The extra two fields are `unknown` rather than typed from the shared
+ * `Bulletin`, because that interface describes the *parsed* document — dates as
+ * `Date`s, announcements already sifted — and this is raw JSON from a Function
+ * that read a Firestore project the church does not own. Declaring it as the
+ * parsed shape would be claiming a guarantee nobody made.
+ */
+type BulletinJson = BulletinLike & { announcements?: unknown; weekLabel?: unknown };
+
+/**
+ * The notices, sifted.
+ *
+ * Field by field rather than a cast, for the same reason `getFeatureOccurrences`
+ * gives below: this binary is on a phone and cannot be redeployed when a
+ * document turns out to be shaped unexpectedly. An entry without text is
+ * dropped rather than drawn as an empty row, and the index is the fallback key
+ * because two notices the source never gave ids to must not collide.
+ */
+function noticesOf(raw: unknown): BulletinNotice[] {
+  if (!Array.isArray(raw)) return [];
+
+  return raw.flatMap((entry, index) => {
+    if (typeof entry !== 'object' || entry === null) return [];
+    const item = entry as { sourceId?: unknown; text?: unknown };
+
+    const text = typeof item.text === 'string' ? item.text.trim() : '';
+    if (text === '') return [];
+
+    const id =
+      typeof item.sourceId === 'string' && item.sourceId !== '' ? item.sourceId : `notice-${index}`;
+    return [{ id, text }];
+  });
 }
 
 /**
@@ -163,10 +235,10 @@ export async function getStaffLayers(): Promise<{
 }
 
 /**
- * The parish's own authored event pages, as occurrences.
+ * The church's own authored event pages, as occurrences.
  *
  * The website gets these from its build and hands them down as a prop; a phone
- * has no build, so it reads them. Cheap — a parish authors a few dozen — and
+ * has no build, so it reads them. Cheap — a church authors a few dozen — and
  * worth having for the reason `occurrenceOfEvent` gives: a feature event is the
  * only source with somewhere to go.
  *
@@ -212,7 +284,7 @@ export async function getFeatureOccurrences(): Promise<CalendarOccurrence[]> {
       ];
     });
   } catch (error) {
-    console.warn('[calendar] could not read the parish events; carrying on without them:', error);
+    console.warn('[calendar] could not read the church events; carrying on without them:', error);
     return [];
   }
 }

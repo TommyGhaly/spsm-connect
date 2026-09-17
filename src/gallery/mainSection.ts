@@ -3,7 +3,7 @@
  *
  * One field on one document names one ministry, and it exists for the tags:
  * a plaque by the door cannot be reprogrammed every week, so it points at a
- * route, the route reads this, and the parish changes the answer here. That is
+ * route, the route reads this, and the church changes the answer here. That is
  * why this module exists in the app at all — it is the piece the App Clip and
  * the home screen both stand on.
  *
@@ -18,7 +18,7 @@
  * error message about a document id.
  *
  * So every return below is a well-formed answer. `null` means "there is nothing
- * to send to", and the caller shows the parish's own words rather than a fault.
+ * to send to", and the caller shows the church's own words rather than a fault.
  */
 import { collection, doc, getDoc, getDocs, getFirestore, orderBy, query, where } from '@react-native-firebase/firestore';
 import {

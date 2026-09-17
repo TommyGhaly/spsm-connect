@@ -11,9 +11,17 @@
      * in a browser. Here it would let `window`, `document`, `localStorage` or a
      * `File` typecheck cleanly and then crash at runtime on a phone. Leaving it
      * out makes the compiler the thing that catches a web-only API, rather than
-     * a parishioner.
+     * whoever opens the app.
      */
     "lib": ["ES2022"],
+    /*
+     * Jest's globals — `describe`, `it`, `expect`, `jest` — which are ambient
+     * and so have to be named here rather than imported. Naming `types` at all
+     * turns off the default "every @types package in node_modules" behaviour,
+     * which is why `node` is listed too: expo/tsconfig.base relies on it, and
+     * dropping it silently breaks `process` in the config files.
+     */
+    "types": ["jest", "node"],
     "paths": {
       "@/*": ["./src/*"]
     }

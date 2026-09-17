@@ -1,5 +1,5 @@
-import { Unbuilt } from '@/components/Unbuilt';
+import { ContactScreen } from '@/contact/ContactScreen';
 
 export default function Screen() {
-  return <Unbuilt what="Contact and service times" />;
+  return <ContactScreen />;
 }

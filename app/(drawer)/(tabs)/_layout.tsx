@@ -1,5 +1,5 @@
 /**
- * The tab bar: four places a parishioner goes, and the camera between them.
+ * The tab bar: four places somebody goes, and the camera between them.
  *
  * ## What changed, and what the old notes said
  *
@@ -31,7 +31,7 @@
  * cannot be a destination.
  *
  * The order around it is not alphabetical and not arbitrary. Calendar and Forms
- * are the parish asking you to turn up or to fill something in; Bookstore and
+ * are the church asking you to turn up or to fill something in; Bookstore and
  * Giving are the two that take a payment. Two of each, either side.
  *
  * ## The register
@@ -47,6 +47,12 @@
  *
  * The URL is the website's, not a convenience: `/admin/camp/attendance` is App
  * Clip experience #9 and a tag pointing at it has to land here.
+ *
+ * ## The header
+ *
+ * Menu on the left, announcements on the right — and not only on every tab.
+ * That is the header every navigator in the app draws now; it lives in
+ * `src/navigation/header.ts` and is spread into `screenOptions` below.
  */
 import { Tabs } from 'expo-router';
 /*
@@ -58,9 +64,10 @@ import { Tabs } from 'expo-router';
  */
 import type { BottomTabBarButtonProps } from 'expo-router/build/react-navigation/bottom-tabs';
 import { Pressable, View, type ColorValue } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon, type IconName } from '@/components/Icon';
-import { DrawerButton } from '@/navigation/DrawerButton';
+import { headerChrome, headerRoot } from '@/navigation/header';
 import { useCampWeek } from '@/camp/useCampWeek';
 import { mayAdminScreen } from '@/firebase/grants';
 import { useGrants } from '@/session/SessionProvider';
@@ -80,6 +87,7 @@ export const unstable_settings = {
 
 export default function TabLayout() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const grants = useGrants();
   const duringCamp = useCampWeek();
 
@@ -109,41 +117,94 @@ export default function TabLayout() {
           borderTopColor: theme.color.rule,
         },
         tabBarLabelStyle: { fontFamily: theme.fontFamily.ui },
-        headerStyle: { backgroundColor: theme.color.deep },
-        headerTintColor: theme.color.inkInverse,
-        headerTitleStyle: {
-          fontFamily: theme.fontFamily.ui,
-          fontSize: theme.fontSize.subheading,
-        },
         sceneStyle: { backgroundColor: theme.color.paper },
-        // On the right, matching the side the drawer opens from.
-        headerRight: DrawerButton,
+
+        /*
+         * The bar, and the two corners of it, from the one place they are
+         * described — every screen of every navigator in this app wears the
+         * same one. `headerRoot` because a tab is never pushed onto anything:
+         * there is no back button to give the left corner to.
+         *
+         * The reasoning for the pairing is in `src/navigation/header.ts`. The
+         * part worth repeating here is why the bell is a *header* control and
+         * not a calendar one: it was inside the calendar's own content until
+         * this redesign, which made the notices a fact about one screen. They
+         * are not — "the festival is on the 19th" is as true on Giving.
+         */
+        ...headerChrome(theme, insets.top),
+        ...headerRoot,
       }}
     >
       <Tabs.Screen name="calendar" options={{ title: 'Calendar', tabBarIcon: icon('calendar') }} />
-      <Tabs.Screen name="forms" options={{ title: 'Forms', tabBarIcon: icon('file') }} />
+      {/*
+        Forms is a stack — the hub, then whichever form was pressed — so it
+        draws its own headers and this one is turned off. Two dark bars, one
+        saying "Forms" and one saying "Contact the church office", is what
+        leaving it on looks like. The drawer button and the bell are put back
+        inside that stack; see `forms/_layout.tsx`.
+      */}
+      <Tabs.Screen
+        name="forms"
+        options={{ title: 'Forms', tabBarIcon: icon('file'), headerShown: false }}
+      />
 
+      {/*
+        The camera draws no header at all. Every other tab wears the parish's
+        dark bar with the menu and the bell in it; a viewfinder wearing one is
+        a photograph with a strip cut off the top of it, and the two controls
+        it carries are both reachable from the drawer that is one swipe away.
+        The screen puts its own chrome — the destination, the flash, the flip
+        — inside the preview, on scrims, where a camera's controls belong.
+      */}
       <Tabs.Screen
         name="index"
         options={{
           title: 'Send',
           tabBarLabel: () => null,
           tabBarButton: CameraButton,
+          headerShown: false,
         }}
       />
 
-      <Tabs.Screen name="bookstore" options={{ title: 'Bookstore', tabBarIcon: icon('bag') }} />
+      {/*
+        The bookstore is a stack too, for the same reason Forms is: the shop,
+        then its orders queue or its figures pushed on top. Editing the shop
+        happens on the shelf rather than on a screen of its own, so those two
+        are the whole of what the stack adds. See `bookstore/_layout.tsx`.
+      */}
+      <Tabs.Screen
+        name="bookstore"
+        options={{ title: 'Bookstore', tabBarIcon: icon('bag'), headerShown: false }}
+      />
       <Tabs.Screen name="giving" options={{ title: 'Giving', tabBarIcon: icon('gift') }} />
 
       <Tabs.Screen
         name="admin/camp/attendance"
         options={{
-          title: 'Register',
+          title: 'Attendance',
           tabBarIcon: icon('check'),
           href: registerInBar ? undefined : null,
         }}
       />
 
+      {/*
+        The camp's other two screens: never in the bar, at any time of year.
+
+        `href: null` unconditionally, which is not the same decision the
+        register's line above makes. The register is used all day, at a door, by
+        somebody whose thumb should not have to find it — that is what a tab is
+        for. These two are read: the front page once a season, to open or close
+        the servants' form, and the groups when somebody in the hall asks which
+        crew a child is in. Both are one press from the register's own nav and
+        from the drawer, and neither is worth a sixth slot in a bar that is
+        already at five.
+
+        They are declared here rather than left implicit because a file under a
+        `Tabs` directory *is* a tab: without these lines the navigator would
+        draw two more, labelled from their filenames, for everybody.
+      */}
+      <Tabs.Screen name="admin/camp/index" options={{ title: 'Camp', href: null }} />
+      <Tabs.Screen name="admin/camp/groups" options={{ title: 'Groups', href: null }} />
     </Tabs>
   );
 }
@@ -160,7 +221,7 @@ export default function TabLayout() {
  * avatars, clamped by the consumer". The lift is a spacing token. The diameter
  * and the glyph are plain numbers, like `minHeight: 44` in `Surface` and like
  * the website's own `<Icon size={20} />`: a touch target is a platform
- * minimum, not a thing the parish gets to restyle.
+ * minimum, not a thing the church gets to restyle.
  *
  * `onPress` is taken from the props the navigator supplies rather than routing
  * by hand — the navigator owns the tab's own press behaviour, including the

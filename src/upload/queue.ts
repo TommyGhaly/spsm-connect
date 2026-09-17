@@ -260,7 +260,7 @@ export async function remove(id: string): Promise<void> {
   await handle.runAsync(`DELETE FROM uploads WHERE id = ?`, [id]);
 }
 
-/** Tidy finished rows. The bytes are the parish's now, not the phone's. */
+/** Tidy finished rows. The bytes are the church's now, not the phone's. */
 export async function clearFinished(): Promise<void> {
   const handle = await db();
   await handle.runAsync(`DELETE FROM uploads WHERE state = 'done'`);

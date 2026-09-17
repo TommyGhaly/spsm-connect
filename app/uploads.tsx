@@ -41,7 +41,7 @@ export default function Uploads() {
         <Card>
           <Label>Nothing waiting</Label>
           <Body color={theme.color.inkSoft}>
-            Photographs you send appear here until the parish has them.
+            Photographs you send appear here until the church has them.
           </Body>
         </Card>
       </Screen>
@@ -95,7 +95,7 @@ function Row({
 
       {/*
         * The "we made this smaller" line, on the same rule the website uses —
-        * only when the saving is big enough to be worth a sentence. A parish
+        * only when the saving is big enough to be worth a sentence. A church
         * photograph that went from 9.8MB to 9.6MB is not news.
         */}
       {worthMentioning(row.originalBytes, row.byteSize) ? (

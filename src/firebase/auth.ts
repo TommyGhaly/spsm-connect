@@ -1,5 +1,5 @@
 /**
- * Sign-in, in the two flavours this parish has.
+ * Sign-in, in the two flavours this church has.
  *
  * MICROSOFT is the only real provider. The Firebase project has exactly one
  * `defaultSupportedIdpConfig` and it is `microsoft.com` — no Google, no Apple,
@@ -35,7 +35,7 @@ import { DEFAULT_CLAIMS, parseClaims, type SpsmClaims } from '@spsm/shared';
 
 export type User = FirebaseUser;
 
-/** Sign in with the parish's Microsoft tenant. */
+/** Sign in with the church's Microsoft tenant. */
 export async function signInWithMicrosoft(): Promise<User> {
   const tenant = process.env.EXPO_PUBLIC_AZURE_TENANT_ID;
   if (!tenant) throw new Error('The Microsoft tenant id is missing from the environment.');

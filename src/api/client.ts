@@ -1,5 +1,5 @@
 /**
- * Calling the parish's Cloud Functions.
+ * Calling the church's Cloud Functions.
  *
  * Every endpoint goes through the Firebase Hosting origin rather than a raw
  * cloudfunctions.net URL, so `firebase.json`'s rewrite table stays the one
@@ -52,8 +52,8 @@ export async function apiGet<T>(path: string): Promise<T> {
  *
  * One endpoint needs this: `/api/calendar?scope=servants`, which answers the
  * servants' rota and refuses without a session. Kept separate from `apiGet`
- * rather than made an option on it, because the distinction is the point — a
- * parishioner's calendar must never quietly become an authenticated request
+ * rather than made an option on it, because the distinction is the point — 
+ * somebody's calendar must never quietly become an authenticated request
  * that fails when the token expires.
  *
  * No App Check header. `apiPost` sends one everywhere so that enforcement can
@@ -101,6 +101,30 @@ async function getJson<T>(path: string, idToken: string | null): Promise<T> {
 }
 
 /**
+ * The headers every POST to a church Function carries.
+ *
+ * Exported because one caller cannot use `apiPost`: `formSubmit` answers
+ * `{ errors: [...] }` — plural, a form has a list of objections rather than one
+ * sentence — and the whole list has to survive the trip to the person filling
+ * the form in. That endpoint builds its own request and reads its own refusal,
+ * and this is the part it must not reinvent.
+ *
+ * The App Check token is fetched even for endpoints that do not check it, so
+ * that adding enforcement to one later needs no change at the call site. When
+ * attestation fails the header is simply absent.
+ */
+export async function postHeaders(): Promise<Record<string, string>> {
+  const [idToken, attestation] = await Promise.all([uploadIdToken(), appCheckToken()]);
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${idToken}`,
+  };
+  if (attestation) headers['X-Firebase-AppCheck'] = attestation;
+  return headers;
+}
+
+/**
  * A POST returning JSON, carrying an ID token and an App Check token.
  *
  * The App Check token is fetched even for endpoints that do not check it, so
@@ -109,17 +133,9 @@ async function getJson<T>(path: string, idToken: string | null): Promise<T> {
  * `unattested` — which is the honest outcome, and one the UI has words for.
  */
 export async function apiPost<T>(path: string, body: unknown): Promise<T> {
-  const [idToken, attestation] = await Promise.all([uploadIdToken(), appCheckToken()]);
-
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${idToken}`,
-  };
-  if (attestation) headers['X-Firebase-AppCheck'] = attestation;
-
   const response = await fetch(apiUrl(path), {
     method: 'POST',
-    headers,
+    headers: await postHeaders(),
     body: JSON.stringify(body),
   });
 

@@ -1,12 +1,12 @@
 /**
- * Text, at the parish's sizes.
+ * Text, at the church's sizes.
  *
  * Every one of these is three lines of style over `<Text>`, which looks like
  * ceremony until you write the fourth screen. RN needs `lineHeight` in absolute
  * points and `letterSpacing` in points, so *every* piece of styled text in this
  * app would otherwise carry the same two multiplications — and the first time
  * somebody writes `lineHeight: 24` instead of `lineHeightFor(theme, ...)` the
- * app has quietly stopped tracking the parish's own theme.
+ * app has quietly stopped tracking the church's own theme.
  *
  * The roles are the website's, from `ThemeTypeScale`: display, title, heading,
  * subheading, lede, body, small, micro. Nothing here invents a size, and there
@@ -35,7 +35,18 @@ const ROLES = {
   lede: { family: 'body', leading: 'relaxed' },
   body: { family: 'body', leading: 'normal' },
   small: { family: 'ui', leading: 'normal' },
-  micro: { family: 'ui', leading: 'normal' },
+  /*
+   * `tight`, alone among the small roles, because the only thing set at this
+   * size is a counter — one or two characters that will never wrap. Leading is
+   * the gap between lines, and 1.5 of it around a single line is half a line of
+   * dead space inside whatever the counter is drawn in: it made the
+   * announcements badge 25pt across on a 44pt bell.
+   *
+   * This does not touch `Label`, which is the other thing set in `micro` and is
+   * genuinely prose. It computes its own leading below rather than going
+   * through this table.
+   */
+  micro: { family: 'ui', leading: 'tight' },
 } as const satisfies Record<Role, { family: 'body' | 'ui' | 'display'; leading: 'tight' | 'snug' | 'normal' | 'relaxed' }>;
 
 export interface TypeProps extends Omit<TextProps, 'style'> {
@@ -75,6 +86,16 @@ export const Subheading = make('subheading');
 export const Lede = make('lede');
 export const Body = make('body');
 export const Small = make('small');
+
+/**
+ * The smallest size in the scale, in its own case.
+ *
+ * `Label` is the other consumer of `micro` and shouts — uppercase, tracked out.
+ * This is the same size read normally, for the one or two characters that have
+ * to fit inside something drawn rather than laid out: the count on the
+ * announcements bell. Anything with a sentence in it wants `Small`.
+ */
+export const Micro = make('micro');
 
 /**
  * The uppercase label above a card or a section — "FROM @SPSM/SHARED",

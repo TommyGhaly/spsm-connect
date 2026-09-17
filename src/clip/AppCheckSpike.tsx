@@ -19,21 +19,23 @@
  *
  * ## What to do with the answer
  *
- * PASS — the clip can upload, and the nine experiences are all buildable.
+ * PASS — the clip can upload, and all eight experiences are shippable.
  *
- * FAIL — the clip cannot write anything. That is not the end of it: a read-only
- * clip (see the gallery, read the schedule, then "Get the app" to send a
- * photograph) is still worth having, and the tags still work for everyone via
- * the website. But it is a different plan, and it is much cheaper to find out
- * here than after nine invocation URLs have been built.
+ * FAIL — `/c/forms` and `/c/photos` cannot write, and those two experiences do
+ * not get registered. The other six write nothing and are unaffected: the
+ * schedule, the tour, the plans, the apps list, giving and the bookstore card
+ * are all reads or handoffs. A read-only clip is still worth having, and every
+ * tag still works for everyone through the fallback page on the website.
  *
  * ## Why it must run on a real device
  *
  * App Attest refuses a simulator outright. A debug token registered in the
  * Firebase console makes the *simulator* pass while telling you nothing about
  * the real question — a debug provider does not go near App Attest, so it would
- * report PASS for a build that fails in a parishioner's hand. Run this on
- * hardware, in Release. See README.md.
+ * report PASS for a build that fails in somebody's hand. Run this on hardware,
+ * in Release, invoked at the unregistered URL `/c/appcheck` — `ClipRoot`
+ * recognises it, nothing is registered against it in App Store Connect, and it
+ * is printed on nothing. See README.md for the rest of the procedure.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { getApp } from '@react-native-firebase/app';
@@ -42,7 +44,7 @@ import { ScrollView, View } from 'react-native';
 import { ApiError, apiPost } from '@/api/client';
 import { Button, Card } from '@/components/Surface';
 import { Body, Label, Small, Title } from '@/components/Type';
-import { appCheckToken } from '@/firebase/appCheck';
+import { appCheckTokenOrReason } from '@/firebase/appCheck';
 import { uploadIdToken } from '@/firebase/auth';
 import { resolveMainSection } from '@/gallery/mainSection';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -86,7 +88,16 @@ export function AppCheckSpike() {
         results.push({
           name: 'Firebase initialised',
           verdict: 'pass',
-          detail: `${app.name} · ${app.options.projectId ?? 'no project id'}`,
+          /*
+           * The Firebase app's own bundle id is printed beside the project,
+           * because it is half of the disagreement this spike is about: this
+           * says `org.spsm.connect` while the process running it is
+           * `org.spsm.connect.Clip`, and seeing both on one screen is what
+           * turns the theory into an observation.
+           */
+          detail:
+            `${app.name} · ${app.options.projectId ?? 'no project id'}` +
+            ` · plist bundle ${app.options.iosBundleId ?? 'unknown'}`,
         });
       } catch (error) {
         results.push({
@@ -120,17 +131,41 @@ export function AppCheckSpike() {
        * 3. The question.
        *
        * `appCheckToken()` swallows its own errors and answers null, because the
-       * app's upload path wants to turn that into one sentence a parishioner can
+       * app's upload path wants to turn that into one sentence somebody can
        * read. Here null is the finding.
        */
-      const attestation = await appCheckToken();
+      const attestation = await appCheckTokenOrReason();
       results.push({
         name: 'App Check token',
-        verdict: attestation ? 'pass' : 'fail',
-        detail: attestation
-          ? `Minted, ${attestation.length} characters.`
-          : 'No token. App Attest would not vouch for this clip — see the note at the top of this file.',
+        verdict: attestation.ok ? 'pass' : 'fail',
+        detail: attestation.ok
+          ? `Minted, ${attestation.token.length} characters.`
+          : attestation.reason,
       });
+
+      /*
+       * What the failure means, spelled out on the screen.
+       *
+       * The point of coming here with a device at all is to leave with a
+       * decision, and a raw SDK error does not make one. `appCheckTokenOrReason`
+       * exists so this line can be written; its header has the full account of
+       * the three outcomes.
+       */
+      if (!attestation.ok) {
+        const unsupported = /unsupported|not supported|isSupported/i.test(attestation.reason);
+        results.push({
+          name: 'What that means',
+          verdict: 'fail',
+          detail: unsupported
+            ? 'App Attest is not available inside an App Clip at all. No Firebase configuration ' +
+              'changes this: /c/forms and /c/photos cannot write, and the clip ships read-only.'
+            : 'App Attest ran, and the exchange was refused — which is what a bundle identifier ' +
+              'disagreement looks like. The clip attests as org.spsm.connect.Clip while the plist ' +
+              'it ships names org.spsm.connect. Worth trying: a second Firebase iOS app for the ' +
+              'clip’s own bundle id, its own GoogleService-Info.plist, and App Attest registered ' +
+              'for it.',
+        });
+      }
 
       if (live) setChecks(results);
     };
@@ -145,7 +180,7 @@ export function AppCheckSpike() {
    * The end-to-end proof, behind a button rather than automatic.
    *
    * A successful reservation writes a real `galleryMedia` document against the
-   * parish's current main section and spends one of the day's quota. It cleans
+   * church's current main section and spends one of the day's quota. It cleans
    * itself up — `sweepUnuploadedSubmissions` deletes pending rows whose bytes
    * never arrived after an hour — but it is still a write to production, and
    * production writes should be somebody pressing a button rather than a screen
@@ -209,7 +244,7 @@ export function AppCheckSpike() {
       <Card gap={theme.space.sm}>
         <Label>The end-to-end test</Label>
         <Body color={theme.color.inkSoft}>
-          Asks galleryUploadUrl for a real reservation. Writes one pending row against the parish&rsquo;s
+          Asks galleryUploadUrl for a real reservation. Writes one pending row against the church&rsquo;s
           current main section, which is swept automatically after an hour.
         </Body>
         <Button label="Try a real reservation" onPress={() => void reserve()} busy={busy} />

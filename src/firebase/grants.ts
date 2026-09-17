@@ -78,7 +78,19 @@ export async function readGrants(): Promise<Grants> {
 
   const screenAdmin = parseScreenAdmin(data['screenAdmin']);
   const programAdmin = parseProgramAdmin(data['programAdmin']);
-  const finance = parseFinanceScopes(data['finance']);
+  /*
+   * `financeScopes`, and the field name is the whole of the bug that was here.
+   *
+   * This read `data['finance']`, which no document has ever carried — the
+   * website writes `financeScopes`, `firestore.rules` reads `financeScopes` in
+   * `hasFinance()`, and the Areas screen writes all three keys of it. An absent
+   * map reads as all three sources by design (see `FINANCE_SOURCES`), so the
+   * old key failed silently and in the permissive direction: every narrowing a
+   * superadmin had made on the website was ignored in the app, and a bookkeeper
+   * given the shop's books alone still passed `canSeeFinanceSource(...,
+   * 'bookstore')` because they passed it for everything.
+   */
+  const finance = parseFinanceScopes(data['financeScopes']);
 
   let claims = await claimsOf(user);
 

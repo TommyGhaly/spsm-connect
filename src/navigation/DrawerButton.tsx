@@ -14,6 +14,7 @@ import { useNavigation } from 'expo-router';
 import { Pressable } from 'react-native';
 
 import { Icon } from '@/components/Icon';
+import { HeaderCapsule, GLYPH, headerGlyphColor } from './HeaderCapsule';
 import { useTheme } from '@/theme/ThemeProvider';
 
 /**
@@ -50,10 +51,20 @@ export function DrawerButton() {
       onPress={() => openNearestDrawer(navigation)}
       accessibilityRole="button"
       accessibilityLabel="Open the menu"
-      hitSlop={12}
-      style={{ paddingHorizontal: theme.space.md, minHeight: 44, justifyContent: 'center' }}
+      /*
+       * The 44pt target is made of hit slop rather than padding now. Padding is
+       * what the glass capsule is sized from — it is drawn around whatever view
+       * UIKit is handed — so 16pt of it each side is what turned a circle into
+       * a lozenge. Slop is outside the view and invisible to the glass.
+       */
+      hitSlop={theme.space.sm}
+      style={{ justifyContent: 'center' }}
     >
-      <Icon name="menu" color={theme.color.inkInverse} size={22} />
+      {({ pressed }) => (
+        <HeaderCapsule pressed={pressed}>
+          <Icon name="menu" color={headerGlyphColor(theme)} size={GLYPH} />
+        </HeaderCapsule>
+      )}
     </Pressable>
   );
 }

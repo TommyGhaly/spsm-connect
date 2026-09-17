@@ -10,7 +10,7 @@
  * claim also means an **installed** app intercepts every one of those links,
  * including the ones whose screens land in phases 3 to 6.
  *
- * Without this, a parishioner who has the app taps a link to the parish
+ * Without this, somebody who has the app taps a link to the church
  * calendar and gets expo-router's developer 404 — worse than not having claimed
  * the link at all, because Safari would have shown them the real page.
  *
@@ -44,7 +44,7 @@ export default function NotFound() {
       <Card gap={theme.space.sm}>
         <Label>Not in the app yet</Label>
         <Body color={theme.color.inkSoft}>
-          This part of the parish site has not been built into the app. It is on the website, and
+          This part of the church site has not been built into the app. It is on the website, and
           this will open it there.
         </Body>
         <Button label="Open on the website" onPress={() => void WebBrowser.openBrowserAsync(onTheWeb)} />

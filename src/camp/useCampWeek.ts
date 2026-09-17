@@ -11,7 +11,7 @@
  * `config/camp` already holds `weekStarts` — the Monday each week begins on —
  * because the register needs to name its days. Nothing else has to be
  * maintained for this, and nothing can be left switched on by accident. A
- * "camp is running" toggle would be a second thing to remember, and the parish
+ * "camp is running" toggle would be a second thing to remember, and the church
  * would remember it in June and forget it in August.
  *
  * ## What counts as a camp week
@@ -28,7 +28,13 @@
  */
 import { useEffect, useState } from 'react';
 import { doc, getDoc, getFirestore } from '@react-native-firebase/firestore';
-import { CONFIG_DOC_CAMP, campDayKey, campDayDate, parseCampConfig } from '@spsm/shared';
+import {
+  COLLECTIONS,
+  CONFIG_DOC_CAMP,
+  campDayKey,
+  campDayDate,
+  parseCampConfig,
+} from '@spsm/shared';
 
 /** How far either side of the season the register stays to hand, in days. */
 const SHOULDER_DAYS = 2;
@@ -77,7 +83,23 @@ export function useCampWeek(): boolean {
 
     void (async () => {
       try {
-        const snapshot = await getDoc(doc(getFirestore(), CONFIG_DOC_CAMP));
+        /*
+         * `config/camp`, in two segments.
+         *
+         * This read `doc(getFirestore(), CONFIG_DOC_CAMP)` — one segment, which
+         * names a *collection*, so the SDK threw before it ever reached the
+         * network. The `catch` below then swallowed it, and the register's tab
+         * never appeared during the camp: the one week of the year this hook
+         * exists for was the one week it silently answered false.
+         *
+         * Worth keeping the shape of the mistake visible, because it is easy to
+         * make again: `CONFIG_DOC_CAMP` is `'camp'`, not `'config/camp'`, and
+         * the collection has to be named beside it exactly as `useCampConfig`
+         * does next door.
+         */
+        const snapshot = await getDoc(
+          doc(getFirestore(), COLLECTIONS.config, CONFIG_DOC_CAMP),
+        );
         const config = parseCampConfig(snapshot.data());
         if (live) setRunning(isCampWeek(config.weekStarts, config.weeks, new Date()));
       } catch {

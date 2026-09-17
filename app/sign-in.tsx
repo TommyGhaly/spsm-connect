@@ -1,12 +1,12 @@
 /**
- * Signing in, which for this parish means Microsoft and nothing else.
+ * Signing in, which for this church means Microsoft and nothing else.
  *
  * The Firebase project has exactly one identity provider configured, and the
  * Entra app registration behind it is **single-tenant — that is the security
  * control**, not a convenience. `servantEvents` is readable on `signedIn()`
  * alone, so being able to sign in at all is what grants the servants' rota.
  *
- * Worth being clear about what this screen is *not* for. A parishioner sending
+ * Worth being clear about what this screen is *not* for. Somebody sending
  * a photograph never comes here: the upload path signs in anonymously on its
  * own, because an anonymous session is what attributes an upload for quota
  * purposes. This is for the people who administer something.
@@ -47,7 +47,7 @@ export default function SignIn() {
        * Includes the ordinary case of somebody closing the Microsoft sheet,
        * which is not worth an alarming word. The provider's own message is
        * shown because it distinguishes "you cancelled" from "that account is
-       * not in this parish's tenant", and the second one needs saying.
+       * not in this church's tenant", and the second one needs saying.
        */
       setProblem(error instanceof Error ? error.message : 'Signing in did not work.');
     } finally {
@@ -60,7 +60,7 @@ export default function SignIn() {
       <Card gap={theme.space.sm}>
         <Label>For servants and staff</Label>
         <Body color={theme.color.inkSoft}>
-          Sign in with your parish Microsoft account to see the servants&rsquo; rota and anything
+          Sign in with your church Microsoft account to see the servants&rsquo; rota and anything
           you have been given to look after.
         </Body>
         <Button label="Sign in with Microsoft" onPress={() => void go()} busy={busy} />

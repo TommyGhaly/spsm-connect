@@ -22,8 +22,8 @@
  *
  * The whole tree and one window of media come back in two queries, and every
  * card, count and cover on the page is derived from those in memory. A read per
- * level would be a fan-out that grows with the parish's history, on a screen a
- * parishioner opens first.
+ * level would be a fan-out that grows with the church's history, on a screen
+ * somebody opens first.
  */
 import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -44,7 +44,13 @@ import {
 
 import { Card, Screen } from '@/components/Surface';
 import { Body, Heading, Label, Lede, Small, Title } from '@/components/Type';
-import { Picture } from '@/gallery/Picture';
+import { NoPictures, Picture } from '@/gallery/Picture';
+import {
+  SHELF_CLEARANCE,
+  SubgroupShelf,
+  shelfNote,
+  type ShelfItem,
+} from '@/gallery/SubgroupShelf';
 import {
   getProgram,
   getProgramNodes,
@@ -169,7 +175,7 @@ export default function GalleryLevel() {
           <Card>
             <Label>No such gallery</Label>
             <Body color={theme.color.inkSoft}>
-              This gallery has been moved or is no longer published. The parish&rsquo;s photographs
+              This gallery has been moved or is no longer published. The church&rsquo;s photographs
               are under Photos, and on the website.
             </Body>
           </Card>
@@ -213,17 +219,63 @@ function LevelView({ level }: { level: Level }) {
     [tree, node, media, program],
   );
 
-  // The parish's own word for what is inside this level — "Weeks", "Days" —
+  // The church's own word for what is inside this level — "Weeks", "Days" —
   // falling back to the ministry's, and then to something true of any of them.
   const childLabel = node?.childLabel ?? program.childLabel ?? 'Inside';
+
+  /*
+   * The same children the cards are built from, shaped for the side menu.
+   *
+   * Derived here rather than inside the shelf because everything it needs —
+   * the tree, the summaries, the trail each child resolves to — has already
+   * been computed for the cards. The shelf takes rows and knows nothing about
+   * galleries, which is what keeps it a menu rather than a second copy of this
+   * screen.
+   */
+  const shelf = useMemo(
+    (): ShelfItem[] =>
+      children.map((child) => {
+        const summary = summaries.get(child.id) ?? null;
+        const slugs = trailOf(tree, child.id).map((one) => one.slug);
+
+        return {
+          id: child.id,
+          label: child.title,
+          href: `/events/${program.slug}/${slugs.join('/')}` as Href,
+          cover: summary?.cover ?? null,
+          note: shelfNote({
+            children: summary?.children ?? 0,
+            photos: summary?.photos ?? 0,
+            videos: summary?.videos ?? 0,
+          }),
+        };
+      }),
+    [children, summaries, tree, program.slug],
+  );
 
   return (
     <>
       <Stack.Screen options={{ title }} />
       <Screen>
-        <Breadcrumb level={level} />
-        <Title>{title}</Title>
-        {description ? <Body color={theme.color.inkSoft}>{description}</Body> : null}
+        {/*
+          The band the pull tab is level with, held clear of it.
+
+          The tab is an overlay at the right edge and sits at the top of the
+          page now rather than the middle of it, which puts it across the title
+          and the first lines of the description — so the church's own prose
+          lost a word off the end of every line it was beside. Nothing in the
+          page can see an overlay, so the page is told: see `SHELF_CLEARANCE`.
+
+          Only this block, and only when there is a tab. The cards and the
+          photographs below start further down than the tab reaches, and paying
+          34 points of every row for furniture that is not there would narrow
+          the gallery on every leaf page in the app.
+        */}
+        <View style={{ gap: theme.space.md, paddingRight: shelf.length > 0 ? SHELF_CLEARANCE : 0 }}>
+          <Breadcrumb level={level} />
+          <Title>{title}</Title>
+          {description ? <Body color={theme.color.inkSoft}>{description}</Body> : null}
+        </View>
 
         {children.length > 0 ? (
           <View style={{ gap: theme.space.sm }}>
@@ -248,11 +300,23 @@ function LevelView({ level }: { level: Level }) {
           <Card>
             <Label>Nothing yet</Label>
             <Body color={theme.color.inkSoft}>
-              There are no photographs here yet. When the parish approves some, they appear here.
+              There are no photographs here yet. When the church approves some, they appear here.
             </Body>
           </Card>
         ) : null}
       </Screen>
+
+      {/*
+        The side menu, and a sibling of the page rather than something in it.
+
+        Outside `Screen` on purpose: it is an overlay at the right edge, so it
+        must not scroll with the gallery, and its own list must not be a
+        `ScrollView` inside another one. See the header of `SubgroupShelf`.
+
+        It draws nothing when this level has no parts, so the leaf pages — a day
+        of camp, which is where most of the photographs are — are untouched.
+      */}
+      <SubgroupShelf legend={childLabel} items={shelf} />
     </>
   );
 }
@@ -351,18 +415,13 @@ function ChildCard({
       accessibilityLabel={child.title}
       style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, gap: theme.space.xs })}
     >
+      {/* A level with nothing filed under it yet gets the same picture the
+          directory gives an empty ministry, rather than a blank plate. The line
+          below — "Nothing yet" — is what says so. See `NoPictures`. */}
       {summary?.cover ? (
         <Picture media={summary.cover} height={160} />
       ) : (
-        <View
-          style={{
-            height: 160,
-            borderRadius: theme.radius.sm,
-            backgroundColor: theme.color.paperRaised,
-            borderColor: theme.color.rule,
-            borderWidth: 1,
-          }}
-        />
+        <NoPictures height={160} />
       )}
       <Heading>{child.title}</Heading>
       <Small color={theme.color.inkSoft}>{insideLine(summary)}</Small>
@@ -440,7 +499,7 @@ function Canvas({ pictures }: { pictures: readonly MediaRow[] }) {
  * Bounded at both ends rather than taken from the ratio alone: a panorama would
  * otherwise be a 60-point stripe and a tall portrait would fill more than a
  * screen, so neither reads as a photograph. An unknown ratio gets 4:3, which is
- * the commonest shape a parish camera produces.
+ * the commonest shape a church camera produces.
  */
 function cellHeight(width: number, aspect: number | null): number {
   const ratio = aspect ?? 4 / 3;
