@@ -156,6 +156,27 @@ SETUP_LINE=$(grep -n "/\* \[CP\] Square In-App Payments SDK Setup \*/," "$PBX" |
 [ "$SETUP_LINE" -gt "$EMBED_LINE" ] \
   || fail "Square's setup phase runs BEFORE [CP] Embed Pods Frameworks (lines $SETUP_LINE vs $EMBED_LINE). withSquareSetupPhaseOrder did not apply, and the Release build will die at launch with no crash report."
 
+# ── Nothing excluded may have got into the clip ──────────────────────────────
+#
+# `excludedPackages` in app.config.ts is applied by react-native-app-clip to
+# Expo modules only; it hardcodes an empty list for React Native community
+# modules, so those were linked into the clip regardless.
+# plugins/withClipExclusions.js repairs that, and this checks the repair held.
+#
+# Square is the one that bites, because its framework ships nested frameworks
+# and the script that hoists them out is on the app target alone. The clip
+# therefore shipped them nested, and Apple refuses the upload — after the whole
+# archive has gone up:
+#
+#   Invalid Bundle … SquareInAppPaymentsSDK.framework contains disallowed
+#   nested bundles.  (90205 / 90206)
+CLIP_FRAMEWORKS="ios/Pods/Target Support Files/Pods-SPSMConnectClip/Pods-SPSMConnectClip-frameworks.sh"
+if [ -f "$CLIP_FRAMEWORKS" ]; then
+  grep -qi "square" "$CLIP_FRAMEWORKS" \
+    && fail "The App Clip embeds Square's framework. withClipExclusions did not apply, and App Store Connect will refuse the upload with 90205/90206 — after the entire archive has uploaded. See plugins/withClipExclusions.js."
+  echo "   ✓ clip embeds nothing from excludedPackages"
+fi
+
 # ── The clip's version must match the app's exactly ──────────────────────────
 #
 # App Store Connect rejects a clip whose version or build differs from its

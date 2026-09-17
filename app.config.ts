@@ -156,6 +156,33 @@ if (!Number.isInteger(BUILD) || BUILD < 1) {
   );
 }
 
+/**
+ * What the App Clip does not get, and the one thing that makes it true.
+ *
+ * Lifted out of the `react-native-app-clip` options so that
+ * `withClipExclusions` below can be given the *same* array. That plugin exists
+ * because react-native-app-clip applies this list to Expo modules only and
+ * hardcodes an empty list for React Native community modules — so five of these
+ * were being linked into the clip regardless, and it surfaced as an App Store
+ * Connect rejection after a full upload. Its header has the account.
+ *
+ * Two arrays would put the project one copy-paste away from that rejection
+ * again, which is why this is one.
+ */
+const CLIP_EXCLUDED = [
+  'expo-media-library',
+  'expo-background-task',
+  'expo-task-manager',
+  'expo-sqlite',
+  '@react-native-firebase/messaging',
+  'expo-notifications',
+  '@react-native-firebase/storage',
+  '@shopify/flash-list',
+  'react-native-webview',
+  'expo-sharing',
+  'react-native-square-in-app-payments',
+];
+
 const config: ExpoConfig = {
   name: IS_PRODUCTION ? 'SPSM Connect' : 'SPSM Connect (dev)',
   slug: 'spsm-connect',
@@ -363,6 +390,12 @@ const config: ExpoConfig = {
      * target exists, so it goes above.
      */
     './plugins/withClipTarget',
+    /*
+     * Also BEFORE 'react-native-app-clip', and for the same reason — mods
+     * compose by wrapping, so this runs after the Podfile block exists. It
+     * repairs an upstream bug that put Square inside the clip; see its header.
+     */
+    ['./plugins/withClipExclusions', { excludedPackages: CLIP_EXCLUDED }],
     [
       'react-native-app-clip',
       {
@@ -393,14 +426,8 @@ const config: ExpoConfig = {
          *               is push; a clip gets only the 8-hour ephemeral kind,
          *               which is a different API.
          *
-         *   Unused.     Storage, FlashList, WebView and Sharing are not reachable
-         *               from ClipRoot and are not planned to be.
-         *
-         *   Too big.    `react-native-square-in-app-payments` is Square's native
-         *               SDK, and this one is a real tension rather than an easy
-         *               call: docs/app-clip-experiences.md wants the bookstore
-         *               in the clip eventually, with Apple Pay, because physical
-         *               goods may not use IAP. This is the honest side of it
+         *   Unused.     Storage, FlashList, WebView and Shar        excludedPackages: CLIP_EXCLUDED,
+        *               goods may not use IAP. This is the honest side of it
          *               today — the clip enters at index.clip.ts, cannot reach
          *               checkout, and a framework it never calls is pure budget
          *               against 15 MB. Revisit with a measurement the day the
