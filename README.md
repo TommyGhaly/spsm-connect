@@ -407,6 +407,66 @@ EAS project id yet (`eas init` writes `extra.eas.projectId`), and `submit`'s
 **`production-simulator`** exists to feed `npm run screenshots` a Release build
 without a device.
 
+### Building for the stores locally, without EAS
+
+This is the path the project actually uses. `eas.json` stays as the record of
+what a build profile *means*, and three things it would have done have to be
+done by hand instead.
+
+**1. Square must be told, every time.**
+
+```bash
+SQUARE_ENV=production npx expo prebuild --platform ios --clean
+```
+
+It has to be set for the Xcode or Gradle step too, not only for prebuild —
+`extra.square` is embedded when Metro bundles, so archive from a terminal that
+has it exported. Forgetting it ships an app that only takes test cards;
+`app.config.ts` fails the build outright if the production ids are missing, so
+the half-configured case cannot ship silently.
+
+**2. `BUILD` in `app.config.ts` must be bumped by one for every upload.**
+
+`autoIncrement` was EAS's job. Locally there is nothing to increment it, and
+both stores refuse a build number they have already seen — on the *second*
+submission, after a full upload. Bump it for every build you send, including
+TestFlight builds and rejected ones.
+
+**3. Android needs the church's upload key.**
+
+The template signs the release with `debug.keystore`, whose password is the
+string `android` and which is committed here. Play refuses it, and if it did
+not the result would be worse: the first upload binds the package name to
+whatever key signed it forever. `plugins/withReleaseSigning.js` replaces that,
+and reads four properties from `~/.gradle/gradle.properties` — never from this
+repository:
+
+```
+SPSM_UPLOAD_STORE_FILE=/absolute/path/to/spsm-upload.jks
+SPSM_UPLOAD_KEY_ALIAS=spsm-upload
+SPSM_UPLOAD_STORE_PASSWORD=…
+SPSM_UPLOAD_KEY_PASSWORD=…
+```
+
+Generate the keystore once, keep it outside the repository, and back it up — a
+lost upload key can only be recovered through Play support, and only with Play
+App Signing enrolled:
+
+```bash
+keytool -genkeypair -v -keystore spsm-upload.jks -alias spsm-upload -keyalg RSA -keysize 2048 -validity 10000
+```
+
+Every release build prints which key it used. For the build that is actually
+going to Play, make the fallback fatal rather than trusting the log:
+
+```bash
+SQUARE_ENV=production ./gradlew :app:bundleRelease -PSPSM_REQUIRE_UPLOAD_KEY=1
+```
+
+`npx expo prebuild --platform android --clean` deletes `android/local.properties`
+along with everything else it regenerates, so export `ANDROID_HOME` (or write
+the file again) before the first Gradle run afterwards.
+
 Run by hand and rarely, with their outputs committed:
 
 ```bash

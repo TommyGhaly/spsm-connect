@@ -117,6 +117,45 @@ if (!square.applicationId || !square.locationId) {
  */
 const APPLE_PAY_MERCHANT_ID = process.env.APPLE_PAY_MERCHANT_ID ?? '';
 
+/**
+ * The build number, and it is one number for both stores.
+ *
+ * ---------------------------------------------------------------------------
+ * `version` below is what a person reads — 1.0.0, the marketing version, shown
+ * on the listing and in the About screen. This is the other one: the number the
+ * *stores* use to tell two uploads apart, and neither store will accept an
+ * upload carrying a number it has already seen. It has nothing to do with what
+ * changed and everything to do with how many times something has been sent.
+ *
+ * It is here, explicitly and committed, because this project builds locally
+ * rather than on EAS. `eas.json`'s production profile sets
+ * `autoIncrement: true`, which would have handled this on a build server; a
+ * local build has nothing to increment it, and the default for both fields is
+ * 1. The failure that produces is not on the first submission — it is on the
+ * *second*, where App Store Connect answers "The provided entity includes an
+ * attribute with a value that has already been used" and Play says the version
+ * code is already in use, both of them after a full upload.
+ *
+ * **Bump this by one for every build you send to either store**, including a
+ * TestFlight build that never reaches review, and including a rejected one.
+ * Never reuse and never go backwards. It is deliberately shared between the two
+ * platforms so that "build 7" means one thing when somebody reports a bug,
+ * even though it costs a gap in each store's sequence whenever only one of them
+ * is shipped.
+ *
+ * `BUILD_NUMBER` overrides it for a CI that counts its own runs. Nothing sets
+ * that today.
+ * ---------------------------------------------------------------------------
+ */
+const BUILD = Number(process.env.BUILD_NUMBER ?? 1);
+
+if (!Number.isInteger(BUILD) || BUILD < 1) {
+  throw new Error(
+    `BUILD_NUMBER must be a positive whole number; got "${process.env.BUILD_NUMBER}". ` +
+      "Play refuses anything else outright, and Apple's rules for it are stricter still.",
+  );
+}
+
 const config: ExpoConfig = {
   name: IS_PRODUCTION ? 'SPSM Connect' : 'SPSM Connect (dev)',
   slug: 'spsm-connect',
@@ -129,6 +168,9 @@ const config: ExpoConfig = {
   ios: {
     bundleIdentifier: IS_PRODUCTION ? 'org.spsm.connect' : 'org.spsm.connect.dev',
     supportsTablet: true,
+    /* CFBundleVersion. A string on iOS and an integer on Android — the same
+     * number either way. See BUILD above. */
+    buildNumber: String(BUILD),
     /*
      * App Attest is the iOS App Check provider. It replaces reCAPTCHA
      * Enterprise, which the website uses and which does not exist on a phone.
@@ -247,6 +289,8 @@ const config: ExpoConfig = {
 
   android: {
     package: IS_PRODUCTION ? 'org.spsm.connect' : 'org.spsm.connect.dev',
+    /* Play's own counter, and it must increase with every upload. See BUILD. */
+    versionCode: BUILD,
     adaptiveIcon: {
       // theme `deep`, matching assets/. Baked at build time, so it cannot come
       // from config/theme like everything else — see scripts/make-icons.mjs.
@@ -500,6 +544,13 @@ const config: ExpoConfig = {
     'react-native-square-in-app-payments',
     './plugins/withSquareSetupPhaseOrder',
     './plugins/withGooglePayWallet',
+    /*
+     * Replaces the template's `signingConfig signingConfigs.debug` on the
+     * Android release, which Play refuses. It has to be a plugin because
+     * /android is gitignored and regenerated — see the file's header, and the
+     * four Gradle properties it expects in ~/.gradle/gradle.properties.
+     */
+    './plugins/withReleaseSigning',
     [
       'expo-build-properties',
       {
