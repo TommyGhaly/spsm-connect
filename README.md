@@ -407,6 +407,45 @@ EAS project id yet (`eas init` writes `extra.eas.projectId`), and `submit`'s
 **`production-simulator`** exists to feed `npm run screenshots` a Release build
 without a device.
 
+### The two reset scripts
+
+`./reset-ios.sh` and `./reset-android.sh` do the whole thing — wipe the
+generated native directory, prebuild, install, verify, build — and each takes
+one optional argument:
+
+```bash
+./reset-ios.sh              # sandbox Square, for development
+./reset-ios.sh --store      # production Square, then archive in Xcode
+```
+
+```bash
+./reset-android.sh          # sandbox Square, debug-signed APK
+./reset-android.sh --store  # production Square, upload key required, AAB
+```
+
+`--store` is the only route to production Square and the only one that requires
+the church's upload key. Neither is defaulted off anything, because
+`app.config.ts` defaults to the sandbox precisely so that no ordinary build can
+charge the church's live account, and a script must not quietly undo that.
+
+**The verification is the point.** Every check guards something that fails
+silently — the project builds and breaks later somewhere that does not point
+back at the cause. The iOS script checks that the clip target, its embed phase,
+its App Attest entitlement and its `GoogleService-Info.plist` all landed; that
+Square's setup phase runs *after* `[CP] Embed Pods Frameworks`, without which a
+Release build dies at launch under dyld with no crash report; that the clip's
+version matches the app's, which App Store Connect otherwise rejects after the
+whole archive has uploaded; and that every associated domain is on `www.` with
+no bare apex, which is an association that can never validate. The Android
+script checks that `withReleaseSigning` applied at all, and on `--store` that
+all four key properties exist *before* it wipes anything.
+
+Neither script contains a credential. The keystore and its passwords are four
+Gradle properties in `~/.gradle/gradle.properties`, read by
+`plugins/withReleaseSigning.js` — a script in a git repository is not a secret
+store. Set `SPSM_UPLOAD_SHA1` to have the Android script pin the fingerprint
+too.
+
 ### Building for the stores locally, without EAS
 
 This is the path the project actually uses. `eas.json` stays as the record of
