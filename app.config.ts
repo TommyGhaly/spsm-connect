@@ -379,6 +379,58 @@ const config: ExpoConfig = {
   plugins: [
     'expo-router',
     /*
+     * EB Garamond, embedded at build time.
+     *
+     * The church's serif — `font.body` and `font.display` in the theme — is a
+     * real typeface rather than whatever serif the OS happens to supply. It has
+     * to be *here* rather than loaded at runtime with `useFonts`, because the
+     * theme provider holds the splash until the tokens are in hand and then
+     * draws the first screen immediately: a font still arriving at that point
+     * is the flash of the wrong typeface that ThemeProvider's header spends
+     * twenty lines explaining it will not tolerate for colour. Embedded fonts
+     * are registered before the first frame, so there is nothing to wait for.
+     *
+     * Only the four RIBBI faces ship, and the reason is iOS. The family name
+     * inside a font file is what `fontFamily` resolves on iOS, and Google's
+     * static builds put Regular, Italic, Bold and Bold Italic under
+     * `EB Garamond` while giving every other weight its own family
+     * (`EB Garamond SemiBold`). So these four are exactly the set that one
+     * `fontFamily: 'EB Garamond'` can reach by weight and style, which is what
+     * `Rich.tsx` asks for when it renders a bold or italic run. A SemiBold
+     * would be 480KB that no style in this app can name.
+     *
+     * Android needs the same four spelled out, because there the *file name*
+     * becomes the family unless an XML family declares otherwise — four files
+     * would be four unrelated families, and `fontWeight: '700'` would find
+     * none of them.
+     */
+    [
+      'expo-font',
+      {
+        ios: {
+          fonts: [
+            './assets/fonts/EBGaramond-Regular.ttf',
+            './assets/fonts/EBGaramond-Italic.ttf',
+            './assets/fonts/EBGaramond-Bold.ttf',
+            './assets/fonts/EBGaramond-BoldItalic.ttf',
+          ],
+        },
+        android: {
+          fonts: [
+            {
+              fontFamily: 'EB Garamond',
+              fontDefinitions: [
+                { path: './assets/fonts/EBGaramond-Regular.ttf', weight: 400 },
+                { path: './assets/fonts/EBGaramond-Italic.ttf', weight: 400, style: 'italic' },
+                { path: './assets/fonts/EBGaramond-Bold.ttf', weight: 700 },
+                { path: './assets/fonts/EBGaramond-BoldItalic.ttf', weight: 700, style: 'italic' },
+              ],
+            },
+          ],
+        },
+      },
+    ],
+    /*
      * The App Clip, and the plugin that points it at its own JS entry.
      *
      * Order matters: `withClipEntry` edits the Clip target's build settings, so
