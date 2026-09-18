@@ -31,6 +31,20 @@ cd "$(dirname "$0")"
 fail() { echo "   ✗ $1" >&2; exit 1; }
 note() { echo "   · $1"; }
 
+# ── The signing team ─────────────────────────────────────────────────────────
+#
+# The church's Apple Developer team, and the value `ios.appleTeamId` in
+# app.config.ts declares. Checked here rather than assumed, because a generated
+# project carried it for a long time without anything in the repo setting it —
+# Xcode and the signed-in Apple account were supplying it between them, which
+# holds until the first build on a machine that has never signed for this team.
+#
+# Both targets are checked. Build settings are per-target and the App Clip
+# inherits none of the app's, so the clip is the one that fails first, with
+# "Signing for SPSMConnectClip requires a development team" — an error that
+# reads like a broken project rather than a missing declaration.
+APPLE_TEAM_ID="${APPLE_TEAM_ID:-5ZRM8X66TN}"
+
 # ── Which Square ─────────────────────────────────────────────────────────────
 #
 # Never defaulted off anything. app.config.ts defaults to the sandbox precisely
@@ -151,6 +165,20 @@ SETUP_LINE=$(grep -n "/\* \[CP\] Square In-App Payments SDK Setup \*/," "$PBX" |
 
 [ "$SETUP_LINE" -gt "$EMBED_LINE" ] \
   || fail "Square's setup phase runs BEFORE [CP] Embed Pods Frameworks (lines $SETUP_LINE vs $EMBED_LINE). withSquareSetupPhaseOrder did not apply, and the Release build will die at launch with no crash report."
+
+# ── Both targets sign as the church ──────────────────────────────────────────
+for target in SPSMConnect SPSMConnectClip; do
+  resolved=$(xcodebuild -project ios/SPSMConnect.xcodeproj -target "$target" \
+    -configuration Release -showBuildSettings 2>/dev/null \
+    | awk '/ DEVELOPMENT_TEAM =/{print $3; exit}')
+
+  [ -n "$resolved" ] \
+    || fail "$target has no DEVELOPMENT_TEAM. Set ios.appleTeamId in app.config.ts — the clip inherits nothing from the app target and will not sign."
+
+  [ "$resolved" = "$APPLE_TEAM_ID" ] \
+    || fail "$target signs as team $resolved, not $APPLE_TEAM_ID. Check ios.appleTeamId in app.config.ts, or set APPLE_TEAM_ID if the church has genuinely moved teams."
+done
+echo "   ✓ both targets sign as $APPLE_TEAM_ID"
 
 # ── The clip must link no pods at all ────────────────────────────────────────
 #

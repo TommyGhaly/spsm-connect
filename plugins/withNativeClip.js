@@ -232,6 +232,14 @@ function stripQuotes(value) {
 }
 
 function applyBuildSettings(proj, target, cfg, clipBundleId) {
+  const teamId = cfg.ios?.appleTeamId;
+  if (!teamId) {
+    throw new Error(
+      '[withNativeClip] ios.appleTeamId is missing from app.config.ts. The App Clip target ' +
+        'needs it to sign, and inherits nothing from the app target.',
+    );
+  }
+
   const configurations = proj.pbxXCBuildConfigurationSection();
   const listId = proj.pbxNativeTargetSection()[target.uuid].buildConfigurationList;
 
@@ -275,7 +283,13 @@ function applyBuildSettings(proj, target, cfg, clipBundleId) {
       OTHER_LDFLAGS: '"$(inherited)"',
     });
 
-    if (cfg.ios?.appleTeamId) settings.DEVELOPMENT_TEAM = cfg.ios.appleTeamId;
+    /*
+     * Per-target, and not inherited from the app. Omitting it fails a device or
+     * archive build with "Signing for SPSMConnectClip requires a development
+     * team", which reads like a project misconfiguration rather than a missing
+     * value — so this throws at prebuild instead, where the cause is obvious.
+     */
+    settings.DEVELOPMENT_TEAM = teamId;
 
     if (stripQuotes(configurations[configId].name) === 'Debug') {
       Object.assign(settings, {

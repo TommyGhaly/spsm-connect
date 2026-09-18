@@ -167,6 +167,25 @@ const config: ExpoConfig = {
 
   ios: {
     bundleIdentifier: IS_PRODUCTION ? 'org.spsm.connect' : 'org.spsm.connect.dev',
+    /*
+     * The church's Apple Developer team, declared rather than inherited.
+     *
+     * A generated project had this on every target without anything here
+     * setting it — Xcode and the Apple account between them had been supplying
+     * it, which works until the first build on a machine that has never signed
+     * for this team, where it fails as "Signing for SPSMConnectClip requires a
+     * development team". That is a confusing error for a missing declaration.
+     *
+     * It is load-bearing for the App Clip in particular:
+     * `plugins/withNativeClip.js` puts DEVELOPMENT_TEAM on the clip target from
+     * this value, because build settings are per-target and the clip inherits
+     * none of the app's. The plugin throws when this is absent rather than
+     * creating a target that cannot be signed.
+     *
+     * The same team owns `merchant.org.spsm.connect` — see the Apple Pay
+     * entitlement below.
+     */
+    appleTeamId: '5ZRM8X66TN',
     supportsTablet: true,
     /* CFBundleVersion. A string on iOS and an integer on Android — the same
      * number either way. See BUILD above. */
