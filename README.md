@@ -74,6 +74,34 @@ Three things must be in place first, and none of them are code:
    `EXPO_PUBLIC_FIREBASE_APPCHECK_DEBUG_TOKEN` — App Attest and Play Integrity
    both refuse to vouch for a simulator or an unsigned build.
 
+   Two things on the Firebase side are required for App Attest and neither is
+   obvious, because a missing one fails exactly like a broken app: the iOS app
+   must carry its **Apple Team ID** (Project settings → General; Firebase builds
+   the relying-party App ID from `teamId.bundleId` when it validates an
+   attestation), and the App Attest provider must be registered for it. Both are
+   set — `5ZRM8X66TN`, matching `ios.appleTeamId`.
+
+   **A build sideloaded onto a phone needs the `development` App Attest
+   environment**, because ad-hoc signing and the `production` environment are a
+   mismatch Apple refuses — and the refusal arrives as `getToken` failing, then
+   `401 unattested`, with nothing naming the cause. `app.config.ts` defaults the
+   entitlement off `APP_VARIANT`, which is right for `npx expo run:ios` and for
+   the App Store but wrong for EAS **internal distribution**: that profile sets
+   no `APP_VARIANT`, so it used to claim `production` on an ad-hoc build. The
+   `preview` profile now sets `APPATTEST_ENV=development` in `eas.json` for
+   exactly that case. TestFlight and the App Store come from the `production`
+   profile and keep `production`, which is correct for them.
+
+   One debug token is already registered on **both** the iOS and Android apps,
+   named *"Local simulator and emulator (dev builds)"* under App Check → Manage
+   debug tokens. The value is not in this repository: it is a credential, and
+   anything holding it can mint App Check tokens for these apps. It lives in
+   the gitignored `.env`, `src/firebase/appCheck.ts` reads it only on the
+   `__DEV__` branch so it cannot be inlined into a release bundle, and there is
+   nothing to recover if it is lost — revoke it and register another. Restart
+   the dev server after changing it; `EXPO_PUBLIC_*` is inlined at bundle time,
+   not read at runtime.
+
 3. **`.env`** — copy `.env.example` and fill it in, or let the values carry over
    from `../Website/.env`. Everything in it is public by design; the Square
    access token is a real secret and is not there, because it lives in Secret

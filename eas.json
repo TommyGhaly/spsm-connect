@@ -27,6 +27,9 @@
       },
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "APPATTEST_ENV": "development"
       }
     },
     "production": {

@@ -22,7 +22,7 @@ import { File, UploadTask, UploadType } from 'expo-file-system';
 
 import { ApiError, apiPost } from '@/api/client';
 
-import { explainUploadFailure, UploadFailure } from './errors';
+import { explainUploadFailure, UNATTESTED, UploadFailure } from './errors';
 import {
   markDone,
   markFailed,
@@ -50,12 +50,33 @@ interface Reservation {
  * worth retrying rather than starting over.
  */
 async function mint(row: QueueRow): Promise<Reservation> {
-  return apiPost<Reservation>('/api/gallery/upload-url', {
-    programId: row.programId,
-    programEventId: row.programEventId,
-    contentType: row.contentType,
-    byteSize: row.byteSize,
-  });
+  try {
+    return await apiPost<Reservation>('/api/gallery/upload-url', {
+      programId: row.programId,
+      programEventId: row.programEventId,
+      contentType: row.contentType,
+      byteSize: row.byteSize,
+    });
+  } catch (error) {
+    /*
+     * `unattested`, translated. This was the one refusal in the feature that
+     * reached the uploads screen as a machine code — the Function answers
+     * `{"error":"unattested"}`, `apiPost` prefers a Function's own words to
+     * anything invented, and the row therefore read "Did not send —
+     * unattested". Which is worse than useless: every send fails, the queue
+     * fills, and the only thing on screen to explain it is a word nobody
+     * outside this repository has ever seen.
+     *
+     * `errors.ts` has had the sentence for this all along and had no caller
+     * for it. This is the caller. It is the only code this maps, because it
+     * is the only one the endpoint states as a code rather than as a sentence
+     * written to be read.
+     */
+    if (error instanceof ApiError && error.status === 401 && error.code === 'unattested') {
+      throw new UploadFailure(401, UNATTESTED);
+    }
+    throw error;
+  }
 }
 
 async function send(row: QueueRow, reservation: Reservation): Promise<void> {
