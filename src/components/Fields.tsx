@@ -22,9 +22,10 @@
  * the thing a `<select>` is on the web — a button that opens a sheet, because a
  * phone has no dropdown and a wheel picker cannot be read before it is opened.
  */
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
-  KeyboardAvoidingView,
+  Dimensions,
+  Keyboard,
   Modal,
   Platform,
   Pressable,
@@ -32,6 +33,7 @@ import {
   TextInput,
   View,
   useWindowDimensions,
+  type KeyboardEvent,
 } from 'react-native';
 
 import { Icon } from '@/components/Icon';
@@ -41,6 +43,53 @@ import { useTheme } from '@/theme/ThemeProvider';
 
 /** Wide enough for a form on a tablet, and no wider than reading comfortably. */
 const MAX_SHEET_WIDTH = 520;
+
+/**
+ * How much of the window the keyboard is covering, in points.
+ *
+ * A `KeyboardAvoidingView` with `behavior="padding"` was doing this, and for a
+ * *centred* dialog it does the wrong thing. Padding under a box that is
+ * centred in the screen does not shrink the box, it moves it: the card rose by
+ * the whole height of the keyboard, so the checkout — the one sheet tall
+ * enough for it to matter — went up past the top of the screen and took its
+ * own heading with it.
+ *
+ * The card should not move. What should change is how much room it is allowed,
+ * so that it stays centred in whatever the keyboard has left. That needs the
+ * number, hence this.
+ *
+ * Measured against the *window* and not the screen, which is what keeps
+ * Android honest: with `adjustResize` the window has already shrunk by the
+ * time this fires, so the subtraction comes out at nought there and the same
+ * keyboard is not counted twice.
+ */
+function useKeyboardInset() {
+  const [inset, setInset] = useState(0);
+
+  useEffect(() => {
+    const covered = (event: KeyboardEvent) => {
+      setInset(Math.max(0, Dimensions.get('window').height - event.endCoordinates.screenY));
+    };
+    const gone = () => setInset(0);
+
+    // iOS fires `will*` in step with the animation, so the sheet resizes with
+    // the keyboard rather than after it. Android only has `did*`.
+    const subscriptions =
+      Platform.OS === 'ios'
+        ? [
+            Keyboard.addListener('keyboardWillChangeFrame', covered),
+            Keyboard.addListener('keyboardWillHide', gone),
+          ]
+        : [
+            Keyboard.addListener('keyboardDidShow', covered),
+            Keyboard.addListener('keyboardDidHide', gone),
+          ];
+
+    return () => subscriptions.forEach((subscription) => subscription.remove());
+  }, []);
+
+  return inset;
+}
 
 /**
  * A dialog: a scrim, a card, and a way out of it.
@@ -54,16 +103,56 @@ export function Sheet({
   open,
   onClose,
   label,
+  header,
   children,
 }: {
   open: boolean;
   onClose: () => void;
   /** Announced when the dialog takes focus. The entry's title, usually. */
   label: string;
+  /**
+   * The title row — and with it the ✕ — pinned above the scroller instead of
+   * scrolled along with everything else.
+   *
+   * Every sheet in the app already opened with the same row, and putting it
+   * inside the scroller meant the way out scrolled away: on a long one, the
+   * basket and the checkout especially, leaving took a scroll back to the top
+   * first. A dismissal that has to be hunted for is not a dismissal. The scrim
+   * and Android's back gesture were always there, but neither is discoverable,
+   * and neither is what somebody reaches for.
+   *
+   * Optional only so a sheet with nothing to pin does not have to pass one.
+   */
+  header?: ReactNode;
   children: ReactNode;
 }) {
   const theme = useTheme();
   const { height } = useWindowDimensions();
+  const keyboard = useKeyboardInset();
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [scrolled, setScrolled] = useState(false);
+
+  /*
+   * The ceiling is on the scroller, not on the card, and that is not a
+   * stylistic choice — it was a bug.
+   *
+   * With `maxHeight` on the card and a `ScrollView` inside it, the card has no
+   * height of its own to give and the scroller has none to take, so the two
+   * negotiate one about sixteen points short of the content: every sheet
+   * opened clipped, with its last line scrolled just out of sight and nothing
+   * to say so. A `ScrollView` with a `maxHeight` sizes to its content until it
+   * reaches it, which is exactly what a dialog wants — as tall as what is in
+   * it, never taller than the screen it is centred in.
+   *
+   * Which is also why the pinned header is subtracted by hand rather than left
+   * to Yoga: the ceiling belongs to the scroller, so the card's real height is
+   * the ceiling *plus* the header, and a header that was not taken off the top
+   * would push that much of the sheet off the screen.
+   *
+   * The floor is for the landscape phone with a keyboard up, where 85% of what
+   * is left is barely a line. Something short and scrollable beats a sliver.
+   */
+  const ceiling = Math.max(80, (height - keyboard) * 0.85 - headerHeight);
 
   return (
     <Modal
@@ -73,7 +162,7 @@ export function Sheet({
       animationType="fade"
       statusBarTranslucent
     >
-      <View style={{ flex: 1, justifyContent: 'center' }}>
+      <View style={{ flex: 1 }}>
         {/*
           The scrim, as its own layer behind the card rather than as the card's
           parent. A press that lands on a *parent* is a press that lands on
@@ -95,10 +184,15 @@ export function Sheet({
           }}
         />
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={{ alignItems: 'center', paddingHorizontal: theme.space.gutter }}
+        <View
           pointerEvents="box-none"
+          style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            paddingHorizontal: theme.space.gutter,
+            paddingBottom: keyboard,
+          }}
         >
           <View
             accessibilityViewIsModal
@@ -113,35 +207,43 @@ export function Sheet({
               overflow: 'hidden',
             }}
           >
-            {/*
-              The ceiling is on the scroller, not on the card, and that is not
-              a stylistic choice — it was a bug.
+            {header ? (
+              <View
+                onLayout={(event) => setHeaderHeight(event.nativeEvent.layout.height)}
+                style={{
+                  paddingHorizontal: theme.space.md,
+                  paddingTop: theme.space.md,
+                  paddingBottom: theme.space.sm,
+                  backgroundColor: theme.color.paperRaised,
+                  /*
+                    Drawn only once there is something underneath it to
+                    separate. A rule under the title of a sheet that fits on
+                    the screen is a line across a card for no reason; a rule
+                    over content sliding beneath it is the whole reason.
+                  */
+                  borderBottomWidth: 1,
+                  borderBottomColor: scrolled ? theme.color.rule : 'transparent',
+                }}
+              >
+                {header}
+              </View>
+            ) : null}
 
-              With `maxHeight` on the card and a `ScrollView` inside it, the
-              card has no height of its own to give and the scroller has none
-              to take, so the two negotiate one about sixteen points short of
-              the content: every sheet opened clipped, with its last line
-              scrolled just out of sight and nothing to say so. A `ScrollView`
-              with a `maxHeight` sizes to its content until it reaches it,
-              which is exactly what a dialog wants — as tall as what is in it,
-              never taller than the screen it is centred in.
-
-              `flexGrow: 0` for the same reason: the default is 1, which makes
-              it claim the space it is trying not to need. `flexShrink: 1`
-              because Yoga's default is 0 — a scroller that will not shrink
-              keeps its full content height, and a ceiling anywhere above it
-              then crops rather than scrolls, which is a scroller that cannot
-              reach its own end.
-            */}
             <ScrollView
-              style={{ flexGrow: 0, flexShrink: 1, maxHeight: height * 0.85 }}
-              contentContainerStyle={{ padding: theme.space.md, gap: theme.space.md }}
+              style={{ flexGrow: 0, flexShrink: 1, maxHeight: ceiling }}
+              contentContainerStyle={{
+                padding: theme.space.md,
+                paddingTop: header ? theme.space.sm : theme.space.md,
+                gap: theme.space.md,
+              }}
               keyboardShouldPersistTaps="handled"
+              scrollEventThrottle={16}
+              onScroll={(event) => setScrolled(event.nativeEvent.contentOffset.y > 1)}
             >
               {children}
             </ScrollView>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </View>
     </Modal>
   );
@@ -575,14 +677,19 @@ export function Picker({
       {hint ? <Micro color={theme.color.inkFaint}>{hint}</Micro> : null}
       {error ? <Micro color={theme.color.accentStrong}>{error}</Micro> : null}
 
-      <Sheet open={open} onClose={() => setOpen(false)} label={label}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <View style={{ flex: 1 }}>
-            <Label>{label.toUpperCase()}</Label>
+      <Sheet
+        open={open}
+        onClose={() => setOpen(false)}
+        label={label}
+        header={
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ flex: 1 }}>
+              <Label>{label.toUpperCase()}</Label>
+            </View>
+            <Close onPress={() => setOpen(false)} what={label} />
           </View>
-          <Close onPress={() => setOpen(false)} what={label} />
-        </View>
-
+        }
+      >
         <Choice
           label={label}
           labelHidden

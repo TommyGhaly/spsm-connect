@@ -110,14 +110,20 @@ export function AddProduct({
   };
 
   return (
-    <Sheet open onClose={onClose} label="Add a book to the shop">
-      <View style={{ flexDirection: 'row', gap: theme.space.sm }}>
-        <View style={{ flex: 1, gap: theme.space.xs }}>
-          <Label>Bookstore</Label>
-          <Heading>Add a book</Heading>
+    <Sheet
+      open
+      onClose={onClose}
+      label="Add a book to the shop"
+      header={
+        <View style={{ flexDirection: 'row', gap: theme.space.sm }}>
+          <View style={{ flex: 1, gap: theme.space.xs }}>
+            <Label>Bookstore</Label>
+            <Heading>Add a book</Heading>
+          </View>
+          <Close onPress={onClose} what="the add form" />
         </View>
-        <Close onPress={onClose} what="the add form" />
-      </View>
+      }
+    >
 
       {failed ? (
         <Problem>

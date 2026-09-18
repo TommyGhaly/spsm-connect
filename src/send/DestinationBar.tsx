@@ -153,7 +153,12 @@ function DestinationSheet({
   onRevert: () => void;
 }) {
   return (
-    <Sheet open={open} onClose={onClose} label="Choose where to send photographs">
+    <Sheet
+      open={open}
+      onClose={onClose}
+      label="Choose where to send photographs"
+      header={<Head onClose={onClose} />}
+    >
       {/*
         The contents are mounted with the sheet rather than kept alive behind
         it, which is what makes "reload every time it opens" free: the state
@@ -165,7 +170,6 @@ function DestinationSheet({
           current={current}
           fallback={fallback}
           overridden={overridden}
-          onClose={onClose}
           onChoose={onChoose}
           onRevert={onRevert}
         />
@@ -174,18 +178,33 @@ function DestinationSheet({
   );
 }
 
+/** Pinned above the scroller, so the way out does not scroll off a long list. */
+function Head({ onClose }: { onClose: () => void }) {
+  const theme = useTheme();
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Heading>Send to</Heading>
+        <Small color={theme.color.inkSoft}>
+          Photographs are reviewed by the church before anybody else sees them.
+        </Small>
+      </View>
+      <Close onPress={onClose} what="this list" />
+    </View>
+  );
+}
+
 function SheetBody({
   current,
   fallback,
   overridden,
-  onClose,
   onChoose,
   onRevert,
 }: {
   current: Destination | null;
   fallback: Destination | null;
   overridden: boolean;
-  onClose: () => void;
   onChoose: (destination: Destination) => void;
   onRevert: () => void;
 }) {
@@ -215,16 +234,6 @@ function SheetBody({
 
   return (
     <>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Heading>Send to</Heading>
-          <Small color={theme.color.inkSoft}>
-            Photographs are reviewed by the church before anybody else sees them.
-          </Small>
-        </View>
-        <Close onPress={onClose} what="this list" />
-      </View>
-
       {/*
         The way back, and only when there is somewhere to go back to.
 

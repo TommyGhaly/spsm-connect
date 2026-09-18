@@ -501,14 +501,20 @@ function RefundSheet({
   };
 
   return (
-    <Sheet open onClose={onClose} label="Refund this order">
-      <View style={{ flexDirection: 'row', gap: theme.space.sm }}>
-        <View style={{ flex: 1, gap: theme.space.xs }}>
-          <Label>Bookstore</Label>
-          <Heading>Refund {money(order.total?.amount ?? 0)}?</Heading>
+    <Sheet
+      open
+      onClose={onClose}
+      label="Refund this order"
+      header={
+        <View style={{ flexDirection: 'row', gap: theme.space.sm }}>
+          <View style={{ flex: 1, gap: theme.space.xs }}>
+            <Label>Bookstore</Label>
+            <Heading>Refund {money(order.total?.amount ?? 0)}?</Heading>
+          </View>
+          <Close onPress={onClose} what="the refund" />
         </View>
-        <Close onPress={onClose} what="the refund" />
-      </View>
+      }
+    >
 
       <Body color={theme.color.inkSoft}>
         The whole order goes back to the card it was paid with, including delivery. The

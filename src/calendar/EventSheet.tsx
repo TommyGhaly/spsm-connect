@@ -84,19 +84,25 @@ export function EventSheet({
       : '';
 
   return (
-    <Sheet open onClose={onClose} label={occurrence.title}>
-      <View style={{ flexDirection: 'row', gap: theme.space.sm }}>
-        <View style={{ flex: 1, gap: theme.space.xs }}>
-          <Heading color={tintFor(kindOf(occurrence), theme)}>{occurrence.title}</Heading>
-          {parts ? (
-            <Small color={theme.color.inkSoft}>
-              {parts.weekday} {parts.month} {parts.dayOfMonth}
-              {when === '' ? '' : ` · ${when}`}
-            </Small>
-          ) : null}
+    <Sheet
+      open
+      onClose={onClose}
+      label={occurrence.title}
+      header={
+        <View style={{ flexDirection: 'row', gap: theme.space.sm }}>
+          <View style={{ flex: 1, gap: theme.space.xs }}>
+            <Heading color={tintFor(kindOf(occurrence), theme)}>{occurrence.title}</Heading>
+            {parts ? (
+              <Small color={theme.color.inkSoft}>
+                {parts.weekday} {parts.month} {parts.dayOfMonth}
+                {when === '' ? '' : ` · ${when}`}
+              </Small>
+            ) : null}
+          </View>
+          <Close onPress={onClose} what={occurrence.title} />
         </View>
-        <Close onPress={onClose} what={occurrence.title} />
-      </View>
+      }
+    >
 
       {occurrence.imageUrl ? (
         <Image

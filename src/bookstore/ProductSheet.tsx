@@ -67,14 +67,20 @@ export function ProductSheet({
   const atCeiling = inCart >= MAX_QUANTITY;
 
   return (
-    <Sheet open onClose={onClose} label={product.name}>
-      <View style={{ flexDirection: 'row', gap: theme.space.sm }}>
-        <View style={{ flex: 1, gap: theme.space.xs }}>
-          <Label>Bookstore</Label>
-          <Heading>{product.name}</Heading>
+    <Sheet
+      open
+      onClose={onClose}
+      label={product.name}
+      header={
+        <View style={{ flexDirection: 'row', gap: theme.space.sm }}>
+          <View style={{ flex: 1, gap: theme.space.xs }}>
+            <Label>Bookstore</Label>
+            <Heading>{product.name}</Heading>
+          </View>
+          <Close onPress={onClose} what={product.name} />
         </View>
-        <Close onPress={onClose} what={product.name} />
-      </View>
+      }
+    >
 
       <Gallery product={product} live={editing} />
 

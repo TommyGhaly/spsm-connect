@@ -125,6 +125,25 @@ function Open({
       open
       onClose={onClose}
       label={screen === 'done' ? 'Order confirmed' : 'Your basket'}
+      /*
+       * One header for all three screens, pinned by `Sheet` above the
+       * scroller. Each screen used to draw its own as its first child, which
+       * put the way out at the top of a list long enough to need scrolling —
+       * and the checkout, the longest of the three, had no ✕ at all, only a
+       * back arrow that had scrolled away with everything else.
+       *
+       * Assembled here rather than passed up from the screens because the
+       * three differ by a title and a back arrow, which is less than it costs
+       * to thread a header out of each of them.
+       */
+      header={
+        <Head
+          title={screen === 'done' ? 'Thank you' : screen === 'checkout' ? 'Checkout' : 'Your basket'}
+          what={screen === 'done' ? 'this receipt' : 'your basket'}
+          onBack={screen === 'checkout' ? () => setScreen('basket') : null}
+          onClose={onClose}
+        />
+      }
     >
       {screen === 'done' && receipt ? (
         <Done receipt={receipt} settings={settings} onClose={onClose} />
@@ -132,7 +151,6 @@ function Open({
         <Checkout
           basket={basket}
           settings={settings}
-          onBack={() => setScreen('basket')}
           onPaid={(paid) => {
             setReceipt(paid);
             setScreen('done');
@@ -145,12 +163,58 @@ function Open({
         <BasketLines
           basket={basket}
           products={products}
-          onClose={onClose}
           onCheckout={() => setScreen('checkout')}
           onOpenProduct={onOpenProduct}
         />
       )}
     </Sheet>
+  );
+}
+
+/**
+ * The row at the top of all three screens: where you are, and the two ways out
+ * of it.
+ *
+ * The ✕ closes the sheet from anywhere, including mid-payment-form. The back
+ * arrow appears only on the checkout, because that is the only screen with
+ * somewhere behind it — the basket is the first, and going "back" from a
+ * receipt would be going back to a basket that has just been emptied.
+ */
+function Head({
+  title,
+  what,
+  onBack,
+  onClose,
+}: {
+  title: string;
+  /** What the ✕ is dismissing, for the screen reader. Not the same on a receipt. */
+  what: string;
+  onBack: (() => void) | null;
+  onClose: () => void;
+}) {
+  const theme = useTheme();
+
+  return (
+    <View style={{ flexDirection: 'row', gap: theme.space.sm, alignItems: 'center' }}>
+      {onBack ? (
+        <Pressable
+          onPress={onBack}
+          accessibilityRole="button"
+          accessibilityLabel="Back to your basket"
+          hitSlop={theme.space.sm}
+          style={{ minHeight: 44, justifyContent: 'center', paddingRight: theme.space.xs }}
+        >
+          <Icon name="back" color={theme.color.ink} size={20} />
+        </Pressable>
+      ) : null}
+
+      <View style={{ flex: 1, gap: theme.space.xs }}>
+        <Label>Bookstore</Label>
+        <Heading>{title}</Heading>
+      </View>
+
+      <Close onPress={onClose} what={what} />
+    </View>
   );
 }
 
@@ -161,13 +225,11 @@ function Open({
 function BasketLines({
   basket,
   products,
-  onClose,
   onCheckout,
   onOpenProduct,
 }: {
   basket: Basket;
   products: ShopProduct[];
-  onClose: () => void;
   onCheckout: () => void;
   onOpenProduct: (product: ShopProduct) => void;
 }) {
@@ -197,14 +259,6 @@ function BasketLines({
 
   return (
     <>
-      <View style={{ flexDirection: 'row', gap: theme.space.sm }}>
-        <View style={{ flex: 1, gap: theme.space.xs }}>
-          <Label>Bookstore</Label>
-          <Heading>Your basket</Heading>
-        </View>
-        <Close onPress={onClose} what="your basket" />
-      </View>
-
       {basket.lines.length === 0 ? (
         <Body color={theme.color.inkSoft}>
           Nothing in it yet. Everything in the shop can be collected at the church or delivered to
@@ -397,12 +451,10 @@ function Tap({
 function Checkout({
   basket,
   settings,
-  onBack,
   onPaid,
 }: {
   basket: Basket;
   settings: BookstoreConfig;
-  onBack: () => void;
   onPaid: (receipt: Receipt) => void;
 }) {
   const theme = useTheme();
@@ -562,22 +614,6 @@ function Checkout({
 
   return (
     <>
-      <View style={{ flexDirection: 'row', gap: theme.space.sm, alignItems: 'center' }}>
-        <Pressable
-          onPress={onBack}
-          accessibilityRole="button"
-          accessibilityLabel="Back to your basket"
-          hitSlop={theme.space.sm}
-          style={{ minHeight: 44, justifyContent: 'center', paddingRight: theme.space.xs }}
-        >
-          <Icon name="back" color={theme.color.ink} size={20} />
-        </Pressable>
-        <View style={{ flex: 1, gap: theme.space.xs }}>
-          <Label>Bookstore</Label>
-          <Heading>Checkout</Heading>
-        </View>
-      </View>
-
       {!available ? (
         <Problem>
           <Body>
@@ -768,11 +804,6 @@ function Done({
 
   return (
     <>
-      <View style={{ gap: theme.space.xs }}>
-        <Label>Bookstore</Label>
-        <Heading>Thank you</Heading>
-      </View>
-
       <Body color={theme.color.inkSoft}>
         {receipt.shipping
           ? 'Your order will be delivered to the address you gave. Square has emailed the receipt to '

@@ -126,14 +126,20 @@ export function CategoryEditor({
   };
 
   return (
-    <Sheet open onClose={onClose} label="The shop’s categories">
-      <View style={{ flexDirection: 'row', gap: theme.space.sm }}>
-        <View style={{ flex: 1, gap: theme.space.xs }}>
-          <Label>Bookstore</Label>
-          <Heading>Categories</Heading>
+    <Sheet
+      open
+      onClose={onClose}
+      label="The shop’s categories"
+      header={
+        <View style={{ flexDirection: 'row', gap: theme.space.sm }}>
+          <View style={{ flex: 1, gap: theme.space.xs }}>
+            <Label>Bookstore</Label>
+            <Heading>Categories</Heading>
+          </View>
+          <Close onPress={onClose} what="the categories" />
         </View>
-        <Close onPress={onClose} what="the categories" />
-      </View>
+      }
+    >
 
       <Micro color={theme.color.inkFaint}>
         These are the pills under the search box. A book can be in one of them or in none.

@@ -150,13 +150,19 @@ export function AddEntry({
         <Button label="Add to the schedule" tone="quiet" onPress={begin} />
       )}
 
-      <Sheet open={open} onClose={() => setOpen(false)} label="Add to the schedule">
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.sm }}>
-          <View style={{ flex: 1 }}>
-            <Label>Add to the schedule</Label>
+      <Sheet
+        open={open}
+        onClose={() => setOpen(false)}
+        label="Add to the schedule"
+        header={
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.sm }}>
+            <View style={{ flex: 1 }}>
+              <Label>Add to the schedule</Label>
+            </View>
+            <Close onPress={() => setOpen(false)} what="this form" />
           </View>
-          <Close onPress={() => setOpen(false)} what="this form" />
-        </View>
+        }
+      >
 
         <Field
           label="What is it?"
