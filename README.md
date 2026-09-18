@@ -272,6 +272,22 @@ measures 3 MB.**
 `plugins/withVehicleAppClip.js` in the Taksis repo is what the plugin is ported
 from; that clip reached the same conclusion on the same domain.
 
+### Two floors that are not negotiable
+
+**15 MB**, because every invocation is physical, and **iOS 16.4**, because that
+is Apple's minimum for an App Clip whatever it is written in. The second was
+learned the same way as the first — from a rejection after a completed upload:
+
+```
+90838: Invalid MinimumOSVersion … has an invalid MinimumOSVersion value of
+'16.0' … with a minimum OS of '16.4' or later.
+```
+
+`DEPLOYMENT_TARGET` in `plugins/withNativeClip.js` is 16.4, and `reset-ios.sh`
+checks both that it has not dropped below Apple's floor and that it does not
+exceed the app's own — a clip needing a newer iOS than its parent would leave
+somebody able to install the app but not the clip inside it.
+
 ### What the native clip does not carry
 
 The React Native clip shared screens with the app, so `/c/welcome` rendered the

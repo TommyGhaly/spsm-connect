@@ -166,6 +166,38 @@ SETUP_LINE=$(grep -n "/\* \[CP\] Square In-App Payments SDK Setup \*/," "$PBX" |
 [ "$SETUP_LINE" -gt "$EMBED_LINE" ] \
   || fail "Square's setup phase runs BEFORE [CP] Embed Pods Frameworks (lines $SETUP_LINE vs $EMBED_LINE). withSquareSetupPhaseOrder did not apply, and the Release build will die at launch with no crash report."
 
+# ── The clip's deployment target ─────────────────────────────────────────────
+#
+# **Apple's floor for an App Clip is 16.4**, whatever the clip is written in.
+# This was set to 16.0 once, on the reasoning that 16.4 had only ever been
+# expo-modules-core's requirement, and App Store Connect refused the upload —
+# after the whole archive had gone up:
+#
+#   90838: Invalid MinimumOSVersion … has an invalid MinimumOSVersion value of
+#   '16.0'. The version number should be three dot-separated integers with a
+#   minimum OS of '16.4' or later.
+#
+# The clip must also not require a *newer* iOS than the app that carries it,
+# which would leave people able to install the app and not the clip inside it.
+CLIP_MIN=$(xcodebuild -project ios/SPSMConnect.xcodeproj -target SPSMConnectClip \
+  -configuration Release -showBuildSettings 2>/dev/null \
+  | awk '/ IPHONEOS_DEPLOYMENT_TARGET =/{print $3; exit}')
+APP_MIN=$(xcodebuild -project ios/SPSMConnect.xcodeproj -target SPSMConnect \
+  -configuration Release -showBuildSettings 2>/dev/null \
+  | awk '/ IPHONEOS_DEPLOYMENT_TARGET =/{print $3; exit}')
+
+# `sort -V` rather than a numeric compare, because 16.10 is newer than 16.4 and
+# a float comparison says the opposite.
+lowest() { printf '%s\n%s\n' "$1" "$2" | sort -V | head -1; }
+
+[ "$(lowest "$CLIP_MIN" 16.4)" = "16.4" ] \
+  || fail "The clip's deployment target is $CLIP_MIN. Apple refuses any App Clip below 16.4, and only says so after the archive has uploaded. See DEPLOYMENT_TARGET in plugins/withNativeClip.js."
+
+[ "$(lowest "$CLIP_MIN" "$APP_MIN")" = "$APP_MIN" ] \
+  || fail "The clip requires iOS $CLIP_MIN but the app requires only $APP_MIN, so somebody could install the app and not the clip inside it."
+
+echo "   ✓ clip targets iOS $CLIP_MIN, app iOS $APP_MIN"
+
 # ── Both targets sign as the church ──────────────────────────────────────────
 for target in SPSMConnect SPSMConnectClip; do
   resolved=$(xcodebuild -project ios/SPSMConnect.xcodeproj -target "$target" \

@@ -57,14 +57,27 @@ const TARGET_NAME = 'SPSMConnectClip';
 const SOURCE_DIR = 'ios-appclip/SPSMConnectClip';
 
 /**
- * 16.0, where the React Native clip needed 16.4.
+ * 16.4, and it is **Apple's floor for App Clips**, not a dependency's.
  *
- * That 16.4 was never Apple's floor — it was `expo-modules-core`'s, and the
- * clip's AppDelegate imported Expo. Nothing here does, so the target drops back
- * to the bottom of the 15 MB tier and picks up every device on 16.0 to 16.3
- * that the old clip could not serve.
+ * This was set to 16.0 on the reasoning that 16.4 had only ever been
+ * `expo-modules-core`'s requirement — the old clip's AppDelegate imported Expo,
+ * and a native clip imports none. That reasoning was wrong, and App Store
+ * Connect said so after the archive had uploaded:
+ *
+ *     90838: Invalid MinimumOSVersion. The Info.plist for app clip
+ *     'SPSMConnect.app/AppClips/SPSMConnectClip.app' has an invalid
+ *     MinimumOSVersion value of '16.0'. The version number should be three
+ *     dot-separated integers with a minimum OS of '16.4' or later.
+ *
+ * So 16.4 is the floor regardless of what the clip is written in, and the
+ * devices on 16.0 to 16.3 that dropping to 16.0 appeared to buy were never
+ * available. They fall back to the website page every tag already carries.
+ *
+ * It must not exceed the app's own deployment target either — a clip that
+ * requires a newer iOS than its parent cannot be installed by everyone who can
+ * install the parent. Both are 16.4 today; `reset-ios.sh` checks the pair.
  */
-const DEPLOYMENT_TARGET = '16.0';
+const DEPLOYMENT_TARGET = '16.4';
 
 /** Apple requires the clip's id to be the parent's plus exactly one component. */
 const BUNDLE_ID_SUFFIX = 'Clip';
