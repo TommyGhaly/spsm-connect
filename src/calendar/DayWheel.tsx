@@ -50,6 +50,7 @@ import {
 } from 'react-native';
 import { dayParts, type CalendarOccurrence, type ViewRange } from '@spsm/shared';
 
+import { Icon } from '@/components/Icon';
 import { Micro, Small, Subheading } from '@/components/Type';
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -193,6 +194,12 @@ export function DayWheel({
     };
   };
 
+  /**
+   * How far the wheel can turn, in points. Read by the two chevrons below to
+   * know when there is nothing left in their direction.
+   */
+  const travel = Math.max(0, (range.days.length - 1) * ROW);
+
   return (
     <View>
       {/*
@@ -220,6 +227,74 @@ export function DayWheel({
         }}
       />
 
+      {/*
+        The one thing the wheel could not say for itself: that it turns.
+
+        Everything else here is a *consequence* of turning — the tilt, the fade,
+        the band — and all of it is legible only once something has moved. Still,
+        on the first frame, the wheel is a lit row with two dim rows near it,
+        which is what a disabled list looks like as readily as what a picker
+        looks like. Somebody who does not try the gesture never sees the answer,
+        and the complaint was exactly that: not knowing there was anything to
+        try.
+
+        So a pair of chevrons, in the band, on the side the rows leave empty.
+        Two rather than one, because the wheel goes both ways and a lone
+        down-arrow reads as "more below" — a list's mark, not a dial's.
+
+        Each fades with the offset, through the same native driver as the tilt:
+        the up one is gone on Sunday and the down one on Saturday, so the pair
+        is also where the reader is in the week. `pointerEvents` is off on the
+        wrapper — the row underneath is the tap target, and a chevron that
+        swallowed a tap on Wednesday would be a mark that lies about being a
+        button.
+      */}
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          right: theme.space.sm,
+          top: PEEK * ROW,
+          height: ROW,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Animated.View
+          style={{
+            // Pointing up: the same glyph the rest of the app uses for a
+            // disclosure, turned over, rather than a second path to keep in
+            // step with the website's — see `Icon`'s header.
+            transform: [{ rotate: '180deg' }],
+            // The two glyphs nest rather than stack. 1.6 of stroke twice over
+            // with the viewBox's own slack between them reads as a gap in a
+            // 52pt row; pulled together they read as one mark with two ends.
+            marginBottom: -5,
+            opacity: scrollY.interpolate({
+              inputRange: [0, ROW * 0.5],
+              outputRange: [0, 1],
+              extrapolate: 'clamp',
+            }),
+          }}
+        >
+          <Icon name="chevron" size={16} color={theme.color.inkFaint} />
+        </Animated.View>
+        <Animated.View
+          style={{
+            opacity: scrollY.interpolate({
+              // A week is always seven days, so `travel` is never zero in
+              // practice — but a range of one day would make this a flat
+              // interpolation, which throws. Guarded by the `max` below.
+              inputRange: [Math.max(0, travel - ROW * 0.5), Math.max(1, travel)],
+              outputRange: [1, 0],
+              extrapolate: 'clamp',
+            }),
+          }}
+        >
+          <Icon name="chevron" size={16} color={theme.color.inkFaint} />
+        </Animated.View>
+      </View>
+
       <Animated.ScrollView
         ref={scroller}
         style={{ height: ROW * (PEEK * 2 + 1) }}
@@ -239,6 +314,10 @@ export function DayWheel({
         scrollEventThrottle={16}
         onScroll={onScroll}
         accessibilityLabel={`Pick a day, ${range.label}`}
+        // Said, because the chevrons cannot be: they are a drawing, and a
+        // drawing of an affordance is not available to somebody who is having
+        // this row read to them rather than looking at it.
+        accessibilityHint="Swipe up or down to turn through the week."
       >
         {range.days.map((day, row) => (
           <Animated.View key={day} style={[{ height: ROW }, leanOf(row)]}>
