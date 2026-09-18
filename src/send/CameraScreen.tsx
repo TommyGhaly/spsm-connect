@@ -578,6 +578,20 @@ export function CameraScreen() {
     setZoom(clamp(zoomBase.current + (scale - 1) * 0.35, 0, 1));
   }, []);
 
+  /**
+   * Turn the camera round. The button's press, and the double tap's.
+   *
+   * `runRef` rather than the `recording` state, for the reason every other
+   * guard in this file gives: a gesture is built once and cannot close over
+   * state. The refusal itself is the documented one — "flipping camera during
+   * a recording results in stopping it" — and it is worse from a gesture than
+   * from the button, because the button can be greyed out and a finger cannot.
+   */
+  const flipCamera = useCallback(() => {
+    if (runRef.current !== null) return;
+    setFacing((current) => (current === 'back' ? 'front' : 'back'));
+  }, []);
+
   const handleTap = useCallback((x: number, y: number) => {
     setFocusAt({ x, y, at: Date.now() });
     /*
@@ -618,9 +632,29 @@ export function CameraScreen() {
     () => Gesture.Tap().runOnJS(true).onEnd((event) => handleTap(event.x, event.y)),
     [handleTap],
   );
+
+  // Two taps anywhere on the viewfinder turns the camera round, which is what
+  // every other camera on the phone does and therefore what a finger tries
+  // before it goes looking for the button in the corner.
+  const doubleTap = useMemo(
+    () => Gesture.Tap().numberOfTaps(2).runOnJS(true).onEnd(() => flipCamera()),
+    [flipCamera],
+  );
   /* eslint-enable react-hooks/refs */
 
-  const viewfinderGestures = useMemo(() => Gesture.Simultaneous(pinch, tap), [pinch, tap]);
+  /*
+   * `Exclusive`, so the single tap loses to the double one.
+   *
+   * Without it both fire on a double tap: the lens re-hunts, the camera turns
+   * round, and the focus square is drawn on a preview that has just been
+   * replaced. Exclusive makes the single tap wait for the double to fail,
+   * which costs the focus retrigger the length of Gesture Handler's
+   * double-tap window — a fifth of a second on a gesture nobody times.
+   */
+  const viewfinderGestures = useMemo(
+    () => Gesture.Simultaneous(pinch, Gesture.Exclusive(doubleTap, tap)),
+    [pinch, doubleTap, tap],
+  );
 
   /* ---------------------------------------------------------------------- */
   /* The states before there is a camera                                     */
@@ -647,6 +681,40 @@ export function CameraScreen() {
       {focused ? (
         <CameraView
           ref={cameraRef}
+          /*
+           * The front camera is a mirror, in both halves of the screen.
+           *
+           * The two have to agree, and there are only two ways to make them:
+           * un-mirror the preview, or mirror the file. This is the second, and
+           * the first was tried — the preview carried a `scaleX: -1` and the
+           * `mirror` prop stayed false. It made the halves agree on the answer
+           * nobody wanted. A viewfinder that does not behave like a mirror is
+           * wrong from the first frame, before anything is even taken: you
+           * raise the phone, lean left, and the picture of you leans right.
+           * Tommy: *"the selfie camera is now inverted... now it starts off
+           * inverted."* Every camera on the phone mirrors this preview, so a
+           * hand learns the mirror long before it meets this app.
+           *
+           * So the preview is left exactly as the platform draws it — the
+           * transform is gone, not set to identity — and the capture is
+           * mirrored to match what was on screen when the shutter went.
+           *
+           * **This flips writing in the frame**, and that is the known cost of
+           * the choice: a banner or a name tag behind somebody comes back
+           * backwards. It is the trade every phone's "mirror front camera"
+           * setting makes, and it is the right way round here because the
+           * subject of a selfie at this church is a face, not a sign — and
+           * because the alternative surprises somebody *after* the only moment
+           * they could have reframed.
+           *
+           * `facing === 'front'` rather than a bare `true`, and it is not
+           * belt-and-braces. Photo capture is guarded natively on both
+           * platforms (`presetCamera == .front`, `lensFacing == FRONT`) but
+           * **iOS video recording is not**: `CameraVideoRecording.swift` sets
+           * `isVideoMirrored` from this prop alone, so a constant `true` would
+           * flip every clip taken with the back camera.
+           */
+          mirror={facing === 'front'}
           style={{ flex: 1 }}
           facing={facing}
           flash={flash}
@@ -729,7 +797,7 @@ export function CameraScreen() {
           // Documented: "Flipping camera during a recording results in
           // stopping it." Better greyed out than silently truncating a clip.
           disabled={recording}
-          onPress={() => setFacing(facing === 'back' ? 'front' : 'back')}
+          onPress={flipCamera}
         />
       </View>
 
