@@ -13,11 +13,16 @@
  * labels for "Day 1, Day 2, Talent Show" tells you their names; a list of their
  * covers tells you which is which.
  *
- * ## The one thing it can do that the cards cannot
+ * ## It is the only list of the parts now
  *
- * Reach a part with **no photographs in it**. Such a part draws a card with a
- * seal on it and no information, and it is exactly the part an administrator has
- * just made and wants to fill.
+ * The level page used to list them again as full-width cards above the gallery,
+ * and two lists of the same fourteen days is one list too many — Tommy: *"the
+ * side drawer in the events node is there, get rid of the subgroups in the main
+ * page."* This is the copy that survived: it scrolls a long camp in a thumb's
+ * reach, it costs the gallery nothing above the fold, and it reaches a part with
+ * **no photographs in it** — which the cards showed as a seal and no
+ * information, and which is exactly the part an administrator has just made and
+ * wants to fill.
  *
  * ## What was adjusted for a phone, and why
  *
@@ -63,10 +68,9 @@ export interface ShelfItem {
 /**
  * The terse line under a tile's name, ported from the website's `shelfNote`.
  *
- * Terse on purpose, and a different sentence from the one on the card for the
- * same level. A card is 160 points wide with room for "3 inside · 12
- * photographs"; a tile in a menu is a glance, and the useful fact at a glance is
- * whether there is anything in there yet.
+ * Terse on purpose. A tile in a menu is a glance, and the useful fact at a
+ * glance is whether there is anything in there yet — not the full "3 inside · 12
+ * photographs · 2 clips" the page's own cards used to have room for.
  */
 export function shelfNote({
   children,

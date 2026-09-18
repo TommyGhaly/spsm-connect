@@ -206,7 +206,7 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
    *     ministry and leaves the camp beneath it.
    *
    * Only the *top* level wants any of this. Drilling down inside one ministry is
-   * a real chain, and `ChildCard` still pushes.
+   * a real chain, and the shelf's tiles still push.
    */
   const goMinistry = (href: Href) => {
     router.dismissTo('/events');

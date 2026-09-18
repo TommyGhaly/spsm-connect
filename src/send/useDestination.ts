@@ -5,6 +5,10 @@
  * them: **the church's answer is live, the sender's answer wins, and the
  * sender's answer does not outlive the visit.**
  *
+ * A gallery page may give the sender's answer on their behalf — see `handoff.ts`
+ * and the focus effect below. It is the same override the sheet writes, arrived
+ * at by a different press, and it is forgotten on the same terms.
+ *
  * ## Why the override is forgotten on the way out
  *
  * It is the difference between a preference and a correction. Somebody who
@@ -32,6 +36,7 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 
 import { watchDefaultDestination, type Destination } from './destination';
+import { takeRequestedDestination } from './handoff';
 
 export interface DestinationState {
   /** Where a photograph taken right now would go. Null when nowhere. */
@@ -71,6 +76,22 @@ export function useDestination(): DestinationState {
    */
   useFocusEffect(
     useCallback(() => {
+      /*
+       * A gallery page can arrive holding an answer — "add photographs" on
+       * Day 3 opens this screen already pointed at Day 3 — and that is the
+       * sender's own answer rather than a second kind of default: they said it
+       * by standing on that page and pressing the button there.
+       *
+       * Taken on focus, which is the same moment the clear below happens on
+       * blur, so it obeys the rule above without an exception to it: the
+       * override still does not outlive the visit. A re-focus with no request
+       * waiting — back from the permission sheet, back from a phone call —
+       * takes nothing and changes nothing, because `takeRequestedDestination`
+       * answers null for everything except a request made seconds ago.
+       */
+      const requested = takeRequestedDestination();
+      if (requested) setChosen(requested);
+
       return () => setChosen(null);
     }, []),
   );

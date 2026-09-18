@@ -1,5 +1,6 @@
 /**
- * One level of a ministry's gallery: its sub-levels, and its photographs.
+ * One level of a ministry's gallery: its photographs, with its parts in the
+ * shelf at the right edge.
  *
  * A catch-all rather than a fixed depth, because the galleries are a tree of
  * arbitrary depth — `/events/summercamp/2026-week-1/day-1/the-hike` is a real
@@ -21,7 +22,7 @@
  * ## One read, not one per level
  *
  * The whole tree and one window of media come back in two queries, and every
- * card, count and cover on the page is derived from those in memory. A read per
+ * tile, count and cover on the page is derived from those in memory. A read per
  * level would be a fan-out that grows with the church's history, on a screen
  * somebody opens first.
  */
@@ -39,12 +40,15 @@ import {
   summariseChildren,
   trailOf,
   type GalleryTree,
-  type NodeSummary,
 } from '@spsm/shared';
 
+import { Rich } from '@/about/Rich';
 import { Card, Screen } from '@/components/Surface';
-import { Body, Heading, Label, Lede, Small, Title } from '@/components/Type';
-import { NoPictures, Picture } from '@/gallery/Picture';
+import { Body, Label, Lede, Small, Title } from '@/components/Type';
+import { AddPictures } from '@/gallery/AddPictures';
+import { Picture } from '@/gallery/Picture';
+import { PictureTools } from '@/gallery/PictureTools';
+import { ReviewQueue } from '@/gallery/ReviewQueue';
 import {
   SHELF_CLEARANCE,
   SubgroupShelf,
@@ -91,6 +95,19 @@ export default function GalleryLevel() {
   const theme = useTheme();
   const { trail } = useLocalSearchParams<{ trail: string | string[] }>();
   const [state, setState] = useState<State | null>(null);
+  /*
+   * Bumped by anything that changes a document this page drew: approving a
+   * photograph, moving one, deleting one. A counter rather than a refetch
+   * function, so the reads stay in the one effect that knows how to cancel
+   * them — and so a decision made while the previous read is still in flight
+   * cannot install a level built from the older answer.
+   *
+   * It is deliberately not a listener. This page is public and reads the whole
+   * tree plus a window of media; watching all of that for the handful of people
+   * who can change it would put a permanent subscription on every visitor's
+   * phone to serve an administrator's convenience.
+   */
+  const [reload, setReload] = useState(0);
 
   /*
    * A catch-all hands back a string for one segment and an array for more, so
@@ -153,7 +170,7 @@ export default function GalleryLevel() {
     // `segments` is memoised on `key`; listing the key keeps the dependency
     // honest without re-running on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, reload]);
 
   // A result for a different trail is this trail's loading state. See `State`.
   if (state === null || state.for !== key) {
@@ -184,10 +201,10 @@ export default function GalleryLevel() {
     );
   }
 
-  return <LevelView level={state.level} />;
+  return <LevelView level={state.level} onChanged={() => setReload((count) => count + 1)} />;
 }
 
-function LevelView({ level }: { level: Level }) {
+function LevelView({ level, onChanged }: { level: Level; onChanged: () => void }) {
   const theme = useTheme();
   const { program, tree, node, media } = level;
 
@@ -224,13 +241,12 @@ function LevelView({ level }: { level: Level }) {
   const childLabel = node?.childLabel ?? program.childLabel ?? 'Inside';
 
   /*
-   * The same children the cards are built from, shaped for the side menu.
+   * This level's parts, shaped for the side menu — the only list of them now.
    *
-   * Derived here rather than inside the shelf because everything it needs —
-   * the tree, the summaries, the trail each child resolves to — has already
-   * been computed for the cards. The shelf takes rows and knows nothing about
-   * galleries, which is what keeps it a menu rather than a second copy of this
-   * screen.
+   * Derived here rather than inside the shelf because everything it needs is
+   * already on this screen: the tree, the summaries, and the trail each child
+   * resolves to. The shelf takes rows and knows nothing about galleries, which
+   * is what keeps it a menu rather than a second copy of this screen.
    */
   const shelf = useMemo(
     (): ShelfItem[] =>
@@ -266,44 +282,86 @@ function LevelView({ level }: { level: Level }) {
           lost a word off the end of every line it was beside. Nothing in the
           page can see an overlay, so the page is told: see `SHELF_CLEARANCE`.
 
-          Only this block, and only when there is a tab. The cards and the
-          photographs below start further down than the tab reaches, and paying
-          34 points of every row for furniture that is not there would narrow
-          the gallery on every leaf page in the app.
+          Only this block, and only when there is a tab. The photographs below
+          start further down than the tab reaches, and paying 34 points of every
+          row for furniture that is not there would narrow the gallery on every
+          leaf page in the app.
         */}
         <View style={{ gap: theme.space.md, paddingRight: shelf.length > 0 ? SHELF_CLEARANCE : 0 }}>
           <Breadcrumb level={level} />
           <Title>{title}</Title>
-          {description ? <Body color={theme.color.inkSoft}>{description}</Body> : null}
+          {/*
+            `Rich`, not `Body`: the website renders this same field through
+            `Prose`, so the church types `**Monthly**` into a ministry's
+            description and reads it bold on the site. Plain text here showed
+            the asterisks instead — the same words saying something slightly
+            sillier in the app than on the page they were written for.
+          */}
+          {description ? <Rich color={theme.color.inkSoft}>{description}</Rich> : null}
+
+          {/*
+            The way in for photographs, at the top of the page, where the
+            website puts it too — and pointed at *this* level rather than at
+            whatever the camera tab happens to be collecting for. It draws
+            nothing when the ministry has stopped taking them, so this block
+            stays unconditional without ever ending in a gap. See
+            `AddPictures`.
+          */}
+          <AddPictures program={program} node={node} />
+
+          {/*
+            The approval queue, and only on the ministry's own page.
+
+            `node === null` is the whole of that rule and it matches the
+            website: the query behind it is `where('programId','==',…)`, which
+            is the one shape `firestore.rules` can prove for a program lead
+            rather than only for a superadmin, so there is exactly one queue per
+            ministry and this is where it lives. It draws nothing for anybody
+            who does not run this ministry, and nothing when nothing is waiting
+            — see `ReviewQueue`, which decides both for itself so this page does
+            not carry a second copy of the permission.
+
+            Inside the clearance block with the head, because it is at the top
+            of the page where the shelf's pull tab is, and a card that ran under
+            the tab would put its button beneath it.
+          */}
+          {node === null ? (
+            <ReviewQueue program={program} tree={tree} onDecided={onChanged} />
+          ) : null}
         </View>
 
-        {children.length > 0 ? (
-          <View style={{ gap: theme.space.sm }}>
-            <Label>{childLabel}</Label>
-            {children.map((child) => (
-              <ChildCard
-                key={child.id}
-                child={child}
-                summary={summaries.get(child.id) ?? null}
-                level={level}
-              />
-            ))}
-          </View>
-        ) : null}
+        {/*
+          The photographs, and on this screen that is the whole page.
 
+          This level's parts used to be listed here as well, above the gallery,
+          and the shelf at the right edge listed them again — Tommy: *"the side
+          drawer in the events node is there, get rid of the subgroups in the
+          main page."* The shelf is the better of the two copies: it holds a
+          fourteen-day camp in one scroll, it reaches a part with no
+          photographs in it, and it does not push the gallery off the bottom of
+          the first screen. So there is one list now, and the page is what it
+          says it is.
+
+          With the cards gone, the section heading over the gallery goes too:
+          there is nothing left for "Photographs" to distinguish it from.
+        */}
         {pictures.length > 0 ? (
-          <View style={{ gap: theme.space.sm }}>
-            {children.length > 0 ? <Label>Photographs</Label> : null}
-            <Canvas pictures={pictures} />
-          </View>
-        ) : children.length === 0 ? (
+          <Canvas pictures={pictures} program={program} tree={tree} onChanged={onChanged} />
+        ) : (
           <Card>
             <Label>Nothing yet</Label>
+            {/* A level with parts is not empty, it just has no photographs of
+                its own yet — so this points at the shelf rather than telling
+                somebody to wait for the church. It does not name the parts:
+                `childLabel` falls back to "Inside", and the tab beside this
+                card is already carrying the church's word for them. */}
             <Body color={theme.color.inkSoft}>
-              There are no photographs here yet. When the church approves some, they appear here.
+              {children.length > 0
+                ? 'There are no photographs here yet. What is inside this level is in the menu at the right edge.'
+                : 'There are no photographs here yet. When the church approves some, they appear here.'}
             </Body>
           </Card>
-        ) : null}
+        )}
       </Screen>
 
       {/*
@@ -386,84 +444,58 @@ function Breadcrumb({ level }: { level: Level }) {
 }
 
 /**
- * A level's card: its cover, its name, and what is inside it.
- *
- * Every number counts the child's whole subtree rather than the documents filed
- * directly on it. "Week 1 2026 — 214 photographs" is the fact somebody wants
- * before they tap; the per-document count gives "0 photographs" for a week whose
- * four days hold fifty each, and that reads as an empty camp.
- */
-function ChildCard({
-  child,
-  summary,
-  level,
-}: {
-  child: NodeRow;
-  summary: NodeSummary<MediaRow> | null;
-  level: Level;
-}) {
-  const theme = useTheme();
-  const router = useRouter();
-
-  const slugs = trailOf(level.tree, child.id).map((one) => one.slug);
-  const href: Href = `/events/${level.program.slug}/${slugs.join('/')}`;
-
-  return (
-    <Pressable
-      onPress={() => router.push(href)}
-      accessibilityRole="button"
-      accessibilityLabel={child.title}
-      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, gap: theme.space.xs })}
-    >
-      {/* A level with nothing filed under it yet gets the same picture the
-          directory gives an empty ministry, rather than a blank plate. The line
-          below — "Nothing yet" — is what says so. See `NoPictures`. */}
-      {summary?.cover ? (
-        <Picture media={summary.cover} height={160} />
-      ) : (
-        <NoPictures height={160} />
-      )}
-      <Heading>{child.title}</Heading>
-      <Small color={theme.color.inkSoft}>{insideLine(summary)}</Small>
-    </Pressable>
-  );
-}
-
-function insideLine(summary: NodeSummary<MediaRow> | null): string {
-  if (!summary) return '';
-
-  const parts: string[] = [];
-  if (summary.children > 0) {
-    parts.push(summary.children === 1 ? '1 inside' : `${summary.children} inside`);
-  }
-  if (summary.photos > 0) {
-    parts.push(summary.photos === 1 ? '1 photograph' : `${summary.photos} photographs`);
-  }
-  if (summary.videos > 0) {
-    parts.push(summary.videos === 1 ? '1 clip' : `${summary.videos} clips`);
-  }
-  return parts.length > 0 ? parts.join(' · ') : 'Nothing yet';
-}
-
-/**
- * The photographs, in the administrator's arrangement, collapsed to one column.
+ * The photographs, in the administrator's arrangement, laid out for the screen
+ * they are actually on.
  *
  * `packGallery` lays the gallery out on the same twelve-column canvas the
  * website uses — honouring every manual placement exactly — and
  * `collapseToColumn` then reads that arrangement top-to-bottom, left-to-right
- * and stacks it. Both are `@spsm/shared`, and running them here rather than
- * sorting by `order` is what makes the phone agree with the website about which
- * photograph comes first.
+ * and flattens it to a list. Both are `@spsm/shared`, and running them here
+ * rather than sorting by `order` is what makes the phone agree with the website
+ * about which photograph comes first.
  *
  * **Reading order, not document order, and that is the point.** An
  * administrator who drags a photograph to the top of the canvas means it to come
  * first; a phone that ignored the position would show it wherever it happened to
  * sit in the list. A layout built on a 1400px canvas cannot be shown at 390pt —
- * a third-width box is a hundred points — so this does not try.
+ * a third-width box is a hundred points — so this does not try to reproduce it.
+ *
+ * ## One column on a phone, more on anything wider
+ *
+ * The collapse is to a *list*, and how many of that list fit across is this
+ * screen's question rather than the shared walk's. On a phone held upright the
+ * answer is one, and that is not a limitation — **this build has no lightbox.**
+ * There is no way to enlarge a photograph, so the gallery is the viewing
+ * experience, and two-up thumbnails would be a gallery you cannot actually look
+ * at. See the note on `VideoMark` in `Picture.tsx`: when the lightbox lands,
+ * this trade is worth re-opening.
+ *
+ * Turn the phone, or open it on a tablet, and one column becomes wrong in the
+ * other direction. A 900pt-wide column gives a portrait a 1125pt cell — a
+ * photograph taller than the screen it is on, which has to be scrolled past in
+ * two goes to be seen at all. So the column count follows the width, and the
+ * cell is capped against the *height* as well. Both are app-only: the website
+ * has its own answer to the same question on its own canvas, and nothing here
+ * reaches into `@spsm/shared` to change it.
+ *
+ * Rows are filled in reading order, left to right, so the order is preserved
+ * exactly however many columns there are — and every cell in a row shares one
+ * height, because a ragged row of near-equal boxes reads as a mistake rather
+ * than as a design. Cropping to that height is what `focal` is for.
  */
-function Canvas({ pictures }: { pictures: readonly MediaRow[] }) {
+function Canvas({
+  pictures,
+  program,
+  tree,
+  onChanged,
+}: {
+  pictures: readonly MediaRow[];
+  program: ProgramRow;
+  tree: GalleryTree<NodeRow>;
+  onChanged: () => void;
+}) {
   const theme = useTheme();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
 
   const order = useMemo(() => {
     const placed = collapseToColumn(
@@ -475,22 +507,96 @@ function Canvas({ pictures }: { pictures: readonly MediaRow[] }) {
       .filter((item): item is MediaRow => item !== undefined);
   }, [pictures]);
 
-  // The cell is the column width, which is the window less both gutters. Its
-  // height comes from the photograph's own proportions where they are known, so
-  // a portrait is not cropped to a landscape box on the one layout that has the
-  // room to show it whole.
-  const column = width - theme.space.gutter * 2;
+  // The page's usable width is the window less both gutters; the cell is that
+  // divided by however many go across, less the gaps between them.
+  const page = width - theme.space.gutter * 2;
+  const across = columnsFor(width);
+  const gap = theme.space.sm;
+  const cell = (page - gap * (across - 1)) / across;
+
+  const rows = useMemo(() => chunk(order, across), [order, across]);
 
   return (
     <View style={{ gap: theme.space.sm }}>
-      {order.map((item) => (
-        <View key={item.id} style={{ gap: theme.space.xs }}>
-          <Picture media={item} height={cellHeight(column, item.aspect)} />
-          {item.caption ? <Small color={theme.color.inkSoft}>{item.caption}</Small> : null}
+      {rows.map((row) => (
+        <View key={row[0]?.id} style={{ flexDirection: 'row', gap }}>
+          {row.map((item) => (
+            /*
+              `flex: 1` rather than the measured width, so the last row of a
+              three-column gallery with one photograph in it does not leave a
+              lonely third-width box: a short row shares the page between what
+              is in it. The measured `cell` is still what decides the height,
+              because a height cannot be worked out from a flex basis.
+            */
+            <View key={item.id} style={{ flex: 1, gap: theme.space.xs }}>
+              {/*
+                The photograph and its controls share a box, so the controls can
+                sit *on* it. Not on the outer element: that one holds the caption
+                too, and a button positioned against it would drift down the page
+                by the height of however many lines the caption ran to.
+              */}
+              <View>
+                <Picture media={item} height={rowHeight(row, cell, height)} />
+                <PictureTools media={item} program={program} tree={tree} onChanged={onChanged} />
+              </View>
+              {item.caption ? <Small color={theme.color.inkSoft}>{item.caption}</Small> : null}
+            </View>
+          ))}
         </View>
       ))}
     </View>
   );
+}
+
+/**
+ * How many photographs go across, from the width of the window.
+ *
+ * Phone upright — anything under 620pt, which is every phone in portrait and
+ * most in landscape — is one, for the reason in the header: there is no
+ * lightbox, so a small cell is a photograph nobody can see. The thresholds above
+ * that are a tablet and a tablet turned sideways.
+ *
+ * Read from `useWindowDimensions` rather than from a device class, so a split
+ * screen and a floating window get the layout their actual width deserves.
+ */
+function columnsFor(width: number): number {
+  if (width >= 1000) return 3;
+  if (width >= 620) return 2;
+  return 1;
+}
+
+/** The reading order, cut into rows of `across`. Order is preserved exactly. */
+function chunk(order: readonly MediaRow[], across: number): MediaRow[][] {
+  const rows: MediaRow[][] = [];
+  for (let from = 0; from < order.length; from += across) {
+    rows.push(order.slice(from, from + across));
+  }
+  return rows;
+}
+
+/**
+ * One height for a whole row.
+ *
+ * The mean of what each photograph in it would have asked for alone, so a
+ * portrait beside a landscape gives a little and takes a little rather than one
+ * of them dictating and the other being gutted. Every cell is `contentFit:
+ * cover` around the administrator's focal point, so the difference is a crop
+ * rather than a distortion.
+ *
+ * A single-item row is therefore exactly `cellHeight`, which is what a phone
+ * held upright gets — the layout this page had before columns existed.
+ */
+function rowHeight(row: readonly MediaRow[], cell: number, screen: number): number {
+  const mean = row.reduce((total, item) => total + cellHeight(cell, item.aspect), 0) / row.length;
+
+  /*
+   * Never taller than most of the screen it is on, which is the cap the old
+   * ratio-only version was missing. It does nothing on a phone in portrait —
+   * 1.25 × 358pt is 448, well inside 80% of 844 — and everything on a phone
+   * turned sideways, where a portrait cell would otherwise be taller than the
+   * window and could not be seen without two scrolls.
+   */
+  return Math.round(Math.min(mean, screen * 0.8));
 }
 
 /**
