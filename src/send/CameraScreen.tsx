@@ -52,7 +52,7 @@ import { Image } from 'expo-image';
 import * as MediaLibrary from 'expo-media-library';
 import { useFocusEffect, useIsFocused, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Pressable, View } from 'react-native';
+import { Linking, Platform, Pressable, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { VIDEO_MAX_BYTES } from '@spsm/shared';
@@ -897,12 +897,26 @@ function Round({
  * who has already granted it (by choosing from their library once) gets the
  * thumbnail, and everybody else gets the icon. Pressing it is what asks, and by
  * then the press has explained why.
+ *
+ * **iOS only, and not by preference.** On Android the thumbnail needs
+ * `READ_MEDIA_IMAGES`, and Play's Photo and Video Permissions policy rejects a
+ * build that declares it unless the need is frequent and central — which a
+ * decorated button is not. `app.config.ts` therefore passes
+ * `granularPermissions: []` to expo-media-library, so the permission is not in
+ * the Android manifest and this query could only ever be denied. The check
+ * below would handle that on its own; the platform test is here so the reason
+ * sits next to the code it explains, rather than looking like an Android bug
+ * the next time somebody sees an icon where a photograph is on iPhone.
+ * Choosing photographs is unaffected on both platforms — that goes through the
+ * system picker in `upload/pick.ts`, which needs no permission.
  */
 function LibraryButton({ onPress, busy }: { onPress: () => void; busy: boolean }) {
   const theme = useTheme();
   const [thumbnail, setThumbnail] = useState<string | null>(null);
 
   useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+
     let live = true;
     void (async () => {
       // `getPermissionsAsync`, never `requestPermissionsAsync`. This must not

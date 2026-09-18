@@ -17,10 +17,9 @@ cd "$(dirname "$0")"
 # with nothing on screen to say so.
 #
 # What the plugins do, so it is findable from here:
-#   withClipTarget            the clip's JS entry, App Attest entitlement and
-#                             GoogleService-Info.plist — none of which
-#                             react-native-app-clip provides
-#   react-native-app-clip     the SPSMConnectClip target itself
+#   withNativeClip            the whole SPSMConnectClip target — a native
+#                             SwiftUI clip that links no pods, from the sources
+#                             in ios-appclip/
 #   withSquareSetupPhaseOrder moves Square's `setup` phase after [CP] Embed Pods
 #                             Frameworks, without which a Release build dies at
 #                             launch under dyld with no crash report
@@ -106,9 +105,6 @@ CLIP_ENT=ios/SPSMConnectClip/SPSMConnectClip.entitlements
 test -f ios/SPSMConnect/GoogleService-Info.plist \
   || fail "GoogleService-Info.plist missing from ios/SPSMConnect — check ios.googleServicesFile in app.config.ts. Firebase would fail on the first call."
 
-test -f ios/SPSMConnectClip/GoogleService-Info.plist \
-  || fail "GoogleService-Info.plist missing from the clip — withClipTarget did not apply. The clip target ships without one and Firebase cannot start in it."
-
 grep -q "SPSMConnectClip" "$PBX" \
   || fail "SPSMConnectClip target missing from the Xcode project — react-native-app-clip did not apply."
 
@@ -116,7 +112,7 @@ grep -q "Embed App Clips" "$PBX" \
   || fail "Embed App Clips build phase missing — the clip would not ship inside the app."
 
 grep -q "appattest-environment" "$CLIP_ENT" \
-  || fail "App Attest entitlement missing from the clip's entitlements — withClipTarget did not apply. App Check would fail in the clip for a reason that looks like App Check being broken."
+  || fail "App Attest entitlement missing from the clip's entitlements — withNativeClip did not stamp it. Sending a photograph from the clip would fail for a reason that looks like App Check being broken."
 
 # ── The `www.` check ─────────────────────────────────────────────────────────
 #
@@ -156,26 +152,27 @@ SETUP_LINE=$(grep -n "/\* \[CP\] Square In-App Payments SDK Setup \*/," "$PBX" |
 [ "$SETUP_LINE" -gt "$EMBED_LINE" ] \
   || fail "Square's setup phase runs BEFORE [CP] Embed Pods Frameworks (lines $SETUP_LINE vs $EMBED_LINE). withSquareSetupPhaseOrder did not apply, and the Release build will die at launch with no crash report."
 
-# ── Nothing excluded may have got into the clip ──────────────────────────────
+# ── The clip must link no pods at all ────────────────────────────────────────
 #
-# `excludedPackages` in app.config.ts is applied by react-native-app-clip to
-# Expo modules only; it hardcodes an empty list for React Native community
-# modules, so those were linked into the clip regardless.
-# plugins/withClipExclusions.js repairs that, and this checks the repair held.
+# The clip is native SwiftUI and links nothing. That is not a preference: the
+# React Native clip measured 61 MB against a 15 MB limit, and the framework that
+# produced its first rejection — Square's, with its nested bundles — arrived
+# because the clip inherited the app's Pods xcconfig.
 #
-# Square is the one that bites, because its framework ships nested frameworks
-# and the script that hoists them out is on the app target alone. The clip
-# therefore shipped them nested, and Apple refuses the upload — after the whole
-# archive has gone up:
-#
-#   Invalid Bundle … SquareInAppPaymentsSDK.framework contains disallowed
-#   nested bundles.  (90205 / 90206)
-CLIP_FRAMEWORKS="ios/Pods/Target Support Files/Pods-SPSMConnectClip/Pods-SPSMConnectClip-frameworks.sh"
-if [ -f "$CLIP_FRAMEWORKS" ]; then
-  grep -qi "square" "$CLIP_FRAMEWORKS" \
-    && fail "The App Clip embeds Square's framework. withClipExclusions did not apply, and App Store Connect will refuse the upload with 90205/90206 — after the entire archive has uploaded. See plugins/withClipExclusions.js."
-  echo "   ✓ clip embeds nothing from excludedPackages"
+# `OTHER_LDFLAGS = "$(inherited)"` in withNativeClip.js is what keeps that from
+# happening again, and this is the check that it held. A Pods xcconfig appearing
+# for the clip means the target has acquired dependencies and the budget is
+# about to be a problem again.
+if [ -f "ios/Pods/Target Support Files/Pods-SPSMConnectClip/Pods-SPSMConnectClip.release.xcconfig" ]; then
+  fail "The clip has a Pods xcconfig, which means it is linking pods again. A native clip links nothing — see plugins/withNativeClip.js, and check whether react-native-app-clip has come back into package.json."
 fi
+echo "   ✓ clip links no pods"
+
+# Its whole reason for existing, as a number.
+CLIP_SOURCES=$(ls ios/SPSMConnectClip/*.swift 2>/dev/null | wc -l | tr -d ' ')
+[ "$CLIP_SOURCES" -ge 15 ] \
+  || fail "Only $CLIP_SOURCES Swift files reached ios/SPSMConnectClip — withNativeClip did not copy the sources from ios-appclip/."
+echo "   ✓ $CLIP_SOURCES Swift sources in the clip target"
 
 # ── The clip's version must match the app's exactly ──────────────────────────
 #
@@ -194,11 +191,9 @@ else
   note "could not read the clip's version from build settings — check it by hand before uploading"
 fi
 
-# A warning rather than a failure: nothing about the app build needs this, but
-# the App Clip spike in README.md tells you to run `--scheme SPSMConnectClip`,
-# and without a *shared* scheme that name resolves to nothing.
+# withNativeClip writes this, so its absence means the plugin only half ran.
 test -f ios/SPSMConnect.xcodeproj/xcshareddata/xcschemes/SPSMConnectClip.xcscheme \
-  || note "no shared SPSMConnectClip scheme — to run the clip on a device, make its scheme shared in Xcode (Product → Scheme → Manage Schemes → tick Shared) first"
+  || fail "No SPSMConnectClip scheme — withNativeClip did not finish. The clip would not be runnable from Xcode."
 
 echo "   ✓ clip target, embed phase, entitlements, Firebase plists, Square phase order"
 echo "   ✓ associated domains all on www.spsmwayland.org"

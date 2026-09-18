@@ -147,7 +147,7 @@ const APPLE_PAY_MERCHANT_ID = process.env.APPLE_PAY_MERCHANT_ID ?? '';
  * that today.
  * ---------------------------------------------------------------------------
  */
-const BUILD = Number(process.env.BUILD_NUMBER ?? 1);
+const BUILD = Number(process.env.BUILD_NUMBER ?? 2);
 
 if (!Number.isInteger(BUILD) || BUILD < 1) {
   throw new Error(
@@ -155,33 +155,6 @@ if (!Number.isInteger(BUILD) || BUILD < 1) {
       "Play refuses anything else outright, and Apple's rules for it are stricter still.",
   );
 }
-
-/**
- * What the App Clip does not get, and the one thing that makes it true.
- *
- * Lifted out of the `react-native-app-clip` options so that
- * `withClipExclusions` below can be given the *same* array. That plugin exists
- * because react-native-app-clip applies this list to Expo modules only and
- * hardcodes an empty list for React Native community modules — so five of these
- * were being linked into the clip regardless, and it surfaced as an App Store
- * Connect rejection after a full upload. Its header has the account.
- *
- * Two arrays would put the project one copy-paste away from that rejection
- * again, which is why this is one.
- */
-const CLIP_EXCLUDED = [
-  'expo-media-library',
-  'expo-background-task',
-  'expo-task-manager',
-  'expo-sqlite',
-  '@react-native-firebase/messaging',
-  'expo-notifications',
-  '@react-native-firebase/storage',
-  '@shopify/flash-list',
-  'react-native-webview',
-  'expo-sharing',
-  'react-native-square-in-app-payments',
-];
 
 const config: ExpoConfig = {
   name: IS_PRODUCTION ? 'SPSM Connect' : 'SPSM Connect (dev)',
@@ -223,8 +196,10 @@ const config: ExpoConfig = {
        *
        *   APPATTEST_ENV=development npx expo prebuild --platform ios --clean
        *
-       * See README.md; plugins/withClipTarget.js copies whatever this resolves
-       * to onto the App Clip target, which has no entitlements of its own.
+       * See README.md; plugins/withNativeClip.js stamps whatever this resolves
+       * to onto the clip's entitlements, so the two targets are always signed
+       * for the same App Attest environment — a mismatch fails attestation in a
+       * way that reads as App Check being broken.
        */
       'com.apple.developer.devicecheck.appattest-environment':
         process.env.APPATTEST_ENV ?? (IS_PRODUCTION ? 'production' : 'development'),
@@ -281,10 +256,11 @@ const config: ExpoConfig = {
      * ---------------------------------------------------------------------
      * `applinks:` is what makes the **installed app** open for one of these
      * URLs instead of Safari. `appclips:` is what associates the **App Clip**
-     * with the site, and Apple asks for it on both targets — this array is
-     * copied verbatim onto the clip's entitlements by `react-native-app-clip`
-     * (see `getAppClipEntitlements` in its plugin), so anything added here is
-     * added to both by construction.
+     * with the site, and Apple asks for it on both targets. The clip keeps its
+     * own list, in `ASSOCIATED_DOMAINS` in plugins/withNativeClip.js, which
+     * stamps it over the checked-in entitlements on every prebuild — so the two
+     * are set in two places and `reset-ios.sh` checks that neither has drifted
+     * onto the apex.
      *
      * Both hosts, because both serve the same site: `www.spsmwayland.org` is
      * the church's own domain and is what goes on a tag, and
@@ -383,74 +359,21 @@ const config: ExpoConfig = {
      * tag already carries.
      */
     /*
-     * Listed BEFORE 'react-native-app-clip', which looks backwards and is not.
-     * `withXcodeProject` mods compose by wrapping, so the plugin registered
-     * *later* runs *first* — verified by this one throwing "found no build
-     * configuration" when it was listed after. It has to run once the Clip
-     * target exists, so it goes above.
+     * The App Clip, and it is **native SwiftUI** rather than React Native.
+     *
+     * The React Native clip was rejected on upload: 61 MB thinned against a
+     * 15 MB limit. That was not fat to trim — React.framework is 11.6 MB and
+     * hermesvm.framework 4.9 MB, so the runtime alone exceeded the budget
+     * before any of this church's code. The 100 MB tier does not apply and
+     * never will: Apple grants it only to clips with no physical invocations,
+     * and every tag this parish owns is physical.
+     *
+     * So the clip is Swift, links no pods, and talks to the church over REST.
+     * Its sources are in `ios-appclip/`; the plugin's header has the account,
+     * and `docs/app-clip-experiences.md` in the Website repo carries the
+     * consequences for what each experience can do.
      */
-    './plugins/withClipTarget',
-    /*
-     * Also BEFORE 'react-native-app-clip', and for the same reason — mods
-     * compose by wrapping, so this runs after the Podfile block exists. It
-     * repairs an upstream bug that put Square inside the clip; see its header.
-     */
-    ['./plugins/withClipExclusions', { excludedPackages: CLIP_EXCLUDED }],
-    [
-      'react-native-app-clip',
-      {
-        name: 'SPSM Connect',
-        // Apple requires the App Clip's App ID product name to be exactly
-        // "Clip", which makes the bundle id org.spsm.connect.Clip.
-        bundleIdSuffix: 'Clip',
-        targetSuffix: 'Clip',
-        deploymentTarget: '16.4',
-        /*
-         * Shared container, so a photograph taken in the clip can be handed to
-         * the full app if the person installs it rather than being lost with
-         * the clip's own storage — which iOS clears without warning.
-         */
-        groupIdentifier: 'group.org.spsm.connect',
-        /*
-         * Kept out of the clip target's autolinking. Three kinds of thing:
-         *
-         *   Forbidden.  `expo-media-library` is PhotoKit, and PhotoKit provides
-         *               no functionality at runtime in an App Clip. This is why
-         *               the clip's photo experience is camera-only.
-         *               `expo-background-task` / `expo-task-manager` are
-         *               background execution, which a clip may not do at all.
-         *
-         *   Pointless.  `expo-sqlite` backs the durable upload queue, and a clip
-         *               is ephemeral — a queue that outlives the process has
-         *               nowhere to drain from. `@react-native-firebase/messaging`
-         *               is push; a clip gets only the 8-hour ephemeral kind,
-         *               which is a different API.
-         *
-         *   Unused.     Storage, FlashList, WebView and Shar        excludedPackages: CLIP_EXCLUDED,
-        *               goods may not use IAP. This is the honest side of it
-         *               today — the clip enters at index.clip.ts, cannot reach
-         *               checkout, and a framework it never calls is pure budget
-         *               against 15 MB. Revisit with a measurement the day the
-         *               clip gets a shelf, not before.
-         *
-         * Anything added here must also be unreachable from `index.clip.ts`, or
-         * the clip crashes on import rather than failing gracefully.
-         */
-        excludedPackages: [
-          'expo-media-library',
-          'expo-background-task',
-          'expo-task-manager',
-          'expo-sqlite',
-          '@react-native-firebase/messaging',
-          'expo-notifications',
-          '@react-native-firebase/storage',
-          '@shopify/flash-list',
-          'react-native-webview',
-          'expo-sharing',
-          'react-native-square-in-app-payments',
-        ],
-      },
-    ],
+    './plugins/withNativeClip',
     [
       '@react-native-firebase/app',
       {
@@ -484,7 +407,7 @@ const config: ExpoConfig = {
     '@react-native-firebase/messaging',
     /*
      * Listed BEFORE 'expo-notifications' so that it runs AFTER it — mods
-     * compose by wrapping, the same rule withClipTarget above is placed by.
+     * compose by wrapping, which is the rule every ordered plugin here obeys.
      * It edits an element expo-notifications creates, and throws if it is not
      * there yet, so a move in either direction fails loudly.
      */
@@ -610,9 +533,11 @@ const config: ExpoConfig = {
          * parish that is, and the Play Console refuses an upload that would
          * strand existing installs, so this is safe to discover there.
          *
-         * iOS has the same shape of constraint in a different place: the App
-         * Clip's `deploymentTarget` is 16.4 because expo-modules-core requires
-         * it. See the react-native-app-clip block above.
+         * iOS has the same shape of constraint in a different place, though it
+         * eased: the clip's deployment target was 16.4 because expo-modules-core
+         * required it, and a native clip imports no Expo at all — so
+         * plugins/withNativeClip.js sets 16.0 and picks up every device on
+         * 16.0 to 16.3 the old clip could not serve.
          */
         android: { minSdkVersion: 28 },
       },
@@ -677,6 +602,39 @@ const config: ExpoConfig = {
           'SPSM Connect needs your photo library so you can choose photographs to send to the church galleries.',
         savePhotosPermission: 'SPSM Connect needs permission to save photographs to your library.',
         isAccessMediaLocationEnabled: false,
+        /*
+         * **Play rejects a build that declares these.** The plugin's default is
+         * `['photo', 'video', 'audio']`, which puts `READ_MEDIA_IMAGES`,
+         * `READ_MEDIA_VIDEO` and `READ_MEDIA_AUDIO` in the manifest, and
+         * Google's Photo and Video Permissions policy answers:
+         *
+         *     Your app uses the following undeclared photo and video
+         *     permissions: android.permission.READ_MEDIA_IMAGES,
+         *     android.permission.READ_MEDIA_VIDEO
+         *
+         * The policy's remedy is the Android photo picker, and **this app
+         * already uses it.** `expo-image-picker` on API 33+ launches
+         * `PickVisualMedia` and requests nothing —
+         * `getMediaLibraryPermissions` in its ImagePickerModule.kt returns an
+         * empty array on TIRAMISU and above. So every path a member actually
+         * takes keeps working with these gone: "choose from my library" in
+         * `upload/pick.ts` (images *and* video), the forms picker, the
+         * bookstore admin picker. `READ_EXTERNAL_STORAGE` stays for Android 12
+         * and below, where that picker does need it, capped at
+         * `maxSdkVersion="32"`.
+         *
+         * Two of the three had nothing behind them at all. Nothing in this app
+         * reads video or audio from the library, and nothing writes to it —
+         * there is no `saveToLibraryAsync` call anywhere. What the third bought
+         * was one decoration: the most recent photograph shown on the library
+         * button in `send/CameraScreen.tsx`, which is now iOS-only. See
+         * `LibraryButton` there, which says this from the other side.
+         *
+         * `READ_MEDIA_VISUAL_USER_SELECTED` is added by the plugin
+         * unconditionally and is *not* restricted — it is the partial-access
+         * permission Google recommends, and the picker path is happy with it.
+         */
+        granularPermissions: [],
       },
     ],
     [

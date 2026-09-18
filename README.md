@@ -236,128 +236,102 @@ out of `CalendarScreen`), `forms/pictures.ts` (the Storage SDK calls, out of
 Measured after the eight: **1,473 modules, 2.7 MB of JS**, against the
 1,930-module graph the router alone produced.
 
-### The question, and how far it can be answered without a device
+### It is native SwiftUI, and that was forced
 
-**Can Firebase App Check mint a token inside an App Clip?** It decides two of
-the eight experiences: `galleryUploadUrl` and `formUploadUrl` read
-`X-Firebase-AppCheck` by hand and answer `401 {"error":"unattested"}` without
-it, so no token means no photographs and no forms. The other six read or hand
-off and are unaffected either way.
+The clip was React Native until App Store Connect refused it:
 
-Reading the SDK and the configuration settles most of it, and the answer is that
-**the clip as currently configured cannot succeed** — for a reason that is
-fixable, and behind a question that is not yet settled.
-
-1. **Apple binds an attestation to the bundle it is running in.** The
-   relying-party identifier is the team id concatenated with *the app's* bundle
-   identifier. Inside the clip that is `org.spsm.connect.Clip`, not the parent.
-   (The note this file used to carry had it the other way round — that a clip
-   attests as its parent. That was the wrong guess, and it does not change the
-   conclusion, only which side the mismatch is on.)
-
-2. **The clip authenticates as the parent app.** `plugins/withClipTarget.js`
-   copies the parent's `GoogleService-Info.plist` onto the clip target, so the
-   clip talks to the Firebase iOS app registered for `org.spsm.connect` —
-   confirmed: both plists carry the same `BUNDLE_ID` and `GOOGLE_APP_ID`.
-
-3. **And it tells the backend which bundle it really is.** `AppCheckCore`'s
-   `GACAppCheckAPIService.m` stamps every request with
-   `[[NSBundle mainBundle] bundleIdentifier]`, which in the clip is
-   `org.spsm.connect.Clip`.
-
-So the attestation says `…Clip`, the Firebase app says `org.spsm.connect`, and
-the bundle header says `…Clip`. Those cannot all be satisfied at once, and a
-rejection is the expected outcome rather than a surprise.
-
-**The fix, if App Attest runs in a clip at all:** register a *second* Firebase
-iOS app for `org.spsm.connect.Clip`, give the clip its own
-`GoogleService-Info.plist` naming it, and register App Attest for that app in
-App Check. Everything is then self-consistent. That is a console change plus a
-small change to `withClipTarget.js`, which currently copies the parent's file.
-
-**What still needs hardware, and only this:** whether
-`DCAppAttestService.isSupported` is true inside an App Clip process at all.
-Apple documents that it is false in some contexts — most app extensions — and an
-App Clip is not an app extension, so the carve-out does not obviously apply and
-the documentation does not say either way. If it is false, no configuration
-rescues it and the clip ships read-only. That is one boolean, and the spike now
-reports it directly.
-
-`src/clip/AppCheckSpike.tsx` was changed to answer this in **one run** rather
-than leaving a bare null to be interpreted: it prints the plist's bundle id
-beside the running process's, surfaces the actual SDK error instead of
-swallowing it (`appCheckTokenOrReason` in `src/firebase/appCheck.ts`), and adds
-a "What that means" line that distinguishes *App Attest is unavailable here*
-from *the exchange was refused*. The first is fatal to the feature; the second
-is the bundle mismatch above, and is fixable.
-
-### Running the spike
-
-**It must be a real device.** App Attest refuses a simulator outright, and a
-debug token registered in the console makes the simulator pass while telling you
-nothing: the debug provider never goes near App Attest, so it would report a
-pass for a build that fails in somebody's hand.
-
-```bash
-npx expo prebuild --platform ios --clean
-npx expo run:ios --device --configuration Release --scheme SPSMConnectClip
+```
+90865: Thinned App Clip size is too large. The main bundle of the
+"/Payload/SPSM Connect.app" App Clip is 61 MB … must be less than 15 MB.
 ```
 
-**Match the App Attest environment to how you signed.** A mismatch fails
-attestation and reads exactly like App Check being broken, which is the one
-false answer this spike must not give.
+Measured, that 61 MB was not fat to trim:
 
-- **TestFlight** — build as above. `production` is correct and is the default.
-- **Locally on your own device** — prepend `APPATTEST_ENV=development` to the
-  prebuild. Do *not* reach for `APP_VARIANT=development` instead: that changes
-  the bundle id to `org.spsm.connect.dev`, which means a second Firebase iOS
-  app, a second `GoogleService-Info.plist` and a second pair of App IDs, for one
-  run.
+| | |
+| --- | --- |
+| `React.framework` | 11.6 MB |
+| `hermesvm.framework` | 4.9 MB |
+| executable (Firestore, gRPC, BoringSSL, abseil, leveldb) | 18.1 MB |
+| `libavif` + SDWebImage + ExpoImage | 5.3 MB |
+| everything else | ~21 MB |
+
+**React and Hermes alone are 16.5 MB** — over the limit before a line of this
+church's code. React Native 0.86 ships them as prebuilt dynamic frameworks and
+an App Clip is an independent bundle that must carry its own copies.
+
+The 100 MB tier does not apply and never will. Apple grants it only to clips
+supporting **digital invocations alone** — a link on a website or in Spotlight —
+and explicitly not to App Clip Codes, QR codes or NFC tags. Every invocation
+this parish has is a tag by a door or a code on a printed card.
+
+So the clip is Swift, in `ios-appclip/`, built by `plugins/withNativeClip.js`.
+It links no pods, carries no JavaScript engine, and reads the church's data over
+REST — `/api/calendar` for the week, Firestore's REST API for the forms. **It
+measures 3 MB.**
+
+`plugins/withVehicleAppClip.js` in the Taksis repo is what the plugin is ported
+from; that clip reached the same conclusion on the same domain.
+
+### What the native clip does not carry
+
+The React Native clip shared screens with the app, so `/c/welcome` rendered the
+very `TourScreen` the app does and the words could never drift. This cannot.
+`about/tour.ts` is 842 lines and `about/future.ts` 497, and a Swift copy of
+either would be a second original going stale the first time the church edits
+the page through `aboutOverrides`.
+
+So the long-form experiences do not copy it. They draw a native card answering
+what cannot wait — may I come in, what happens, what am I expected to do — and
+hand the reading to the church's own page in `SFSafariViewController`, which is
+always current and costs the clip nothing. What stays native is everything
+somebody came to a tag to *do*: see this week, send a photograph, open a form,
+give.
+
+### The App Check question, and what changed
+
+`galleryUploadUrl` reads `X-Firebase-AppCheck` by hand and answers
+`401 unattested` without it, so `/c/photos` still depends on the clip minting a
+token. Going native removed the part that made this unanswerable: Apple builds
+the relying-party identifier from the bundle it is *running in*, so the clip
+attests as `org.spsm.connect.Clip`, while the old clip authenticated to Firebase
+as the parent app because the plugin copied the parent's
+`GoogleService-Info.plist` onto it. Those two could never both be satisfied.
+
+`ios-appclip/SPSMConnectClip/AppAttest.swift` calls `DCAppAttestService` directly
+and exchanges the attestation with App Check's REST endpoint for the **clip's
+own** app id. Two things remain, and neither is code:
+
+1. **Register `org.spsm.connect.Clip` as a second Firebase iOS app**, with App
+   Attest enabled, and put its app id in `AppAttest.clipAppId`. Until then that
+   file returns `.notConfigured` and the photographs screen says so plainly
+   rather than failing at the upload.
+2. **`DCAppAttestService.isSupported` may be false inside a clip.** Apple
+   documents it false in some contexts and does not say whether an App Clip is
+   one. If it is, nothing rescues `/c/photos` and the screen falls back to
+   offering the app. That is one boolean on one device, and the code reports it
+   distinctly from every other failure so the first run settles it.
+
+### Running the clip
+
+The clip has its own shared scheme, written by the plugin on every prebuild, and
+Xcode's Run action is preset to `/c/schedule`.
 
 ```bash
-APPATTEST_ENV=development npx expo prebuild --platform ios --clean
+npx expo run:ios --scheme SPSMConnectClip
 ```
 
-`plugins/withClipTarget.js` copies whatever that resolves to onto the App Clip
-target, which ships with no entitlements of its own.
+To exercise a different experience, change the scheme's **App Clip Invocation
+URL** (Run → Arguments) to any `/c/<slug>`. `ClipRouter` reads it from
+`_XCAppClipURL`, and only in Debug — a release build takes its destination from
+the system and nowhere else, so an environment variable can never override a
+tag.
 
-The screen runs three checks on its own — Firebase initialised, anonymous
-sign-in, App Check token — and offers a fourth behind a button, which asks
-`galleryUploadUrl` for a real reservation. That last one writes one pending row
-against the church's current main section; `sweepUnuploadedSubmissions` deletes
-it an hour later.
-
-### Reading the answer
-
-Three outcomes, and the screen names which one it got.
-
-- **Pass** — all eight experiences are shippable. Size becomes the next question.
-- **Fail, "App Attest is not available inside an App Clip at all"** — the
-  `isSupported` case. Nothing fixes it: `/c/forms` and `/c/photos` cannot write,
-  and the clip ships read-only. The other six are unaffected, and both tags
-  still work for everybody through the fallback pages on the website. A
-  read-only clip is still worth having; it is just a shorter list of experiences
-  to register.
-- **Fail, "the exchange was refused"** — the bundle mismatch above, and it is
-  worth one more attempt before giving up the feature: a second Firebase iOS app
-  for `org.spsm.connect.Clip`, its own `GoogleService-Info.plist`, App Attest
-  registered for it, and `withClipTarget.js` copying that file instead of the
-  parent's. Then run the spike again.
-
-### What the build needed that the plugin does not provide
-
-`plugins/withClipTarget.js`, and all three were found by generating the project
-and reading it. Each would have broken the clip in a way that looks like
-something else:
-
-1. **Its own JS entry.** Without `ENTRY_FILE`, the clip bundles expo-router,
-   whose `require.context` over `app/` pulls in every screen, the upload queue,
-   SQLite and the background task. Measured: swapping a component underneath the
-   router took the clip bundle from 1,930 modules to 1,931 — it added the
-   replacement and removed nothing. The seam had to move to `index.clip.ts`.
-2. **The App Attest entitlement**, which the clip's generated entitlements file
-   does not inherit from `ios.entitlements`.
-3. **A `GoogleService-Info.plist`**, which the clip target ships without.
+A simulator cannot test the invocation itself: the App Clip card, the codes and
+associated-domain validation all need a device. Register a Local Experience
+under **Settings → Developer → Local Experiences** with URL prefix
+`https://www.spsmwayland.org/c` and bundle id `org.spsm.connect.Clip`, and a tag
+or QR code holding one of those URLs brings up the real card. Local Experiences
+bypass the association check, so this works before the AASA is deployed.
 
 ## Commands
 

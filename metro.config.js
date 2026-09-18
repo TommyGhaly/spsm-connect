@@ -31,69 +31,18 @@ config.resolver.nodeModulesPaths = [
 config.resolver.disableHierarchicalLookup = false;
 
 /*
- * The App Clip's separate JS.
+ * There is no App Clip resolution here any more.
  *
- * `react-native-app-clip` sets BUILDING_FOR_APP_CLIP while it builds the Clip
- * target, and this is the whole of the mechanism it relies on: with `.clip`
- * prepended to the source extensions, `import { RootShell } from
- * '@/shell/RootShell'` resolves `RootShell.clip.tsx` in the clip build and
- * `RootShell.tsx` in the app's. Same import, two files, one binary each.
+ * The clip used to be React Native, and this file carried the seam that gave it
+ * its own JS: `.clip` prepended to the source extensions, plus two package
+ * aliases. All of it is gone because the clip is gone from Metro's world — it
+ * is native SwiftUI now, in `ios-appclip/`, and bundles no JavaScript at all.
  *
- * It matters because of the size limit, which is the constraint that governs
- * every decision about the clip: **15 MB uncompressed for a physical
- * invocation**, and every tag the church owns is physical. (The 100 MB budget
- * iOS 17 added is for digital invocations only — a link tapped in Safari or
- * Messages — so it does not apply to anything screwed to a wall.) Excluding a
- * native module from the clip target is `excludedPackages` in app.config.ts;
- * this is how the JS that would have imported it goes too.
+ * The reason is the size limit that block used to describe: 15 MB uncompressed
+ * for a physical invocation, and every tag the church owns is physical. The
+ * React Native clip measured 61 MB, of which React.framework and Hermes alone
+ * were 16.5 MB — over the budget before any of this church's code. No amount of
+ * resolution trickery reaches 15 MB from there. See plugins/withNativeClip.js.
  */
-/*
- * The two packages the clip gets a substitute for, rather than the real thing.
- *
- * The `.clip` extension above cannot do this job: it only applies to files in
- * this project, and these are package names. Resolution is the only seam.
- *
- * Neither is an exclusion — `excludedPackages` in app.config.ts is the list of
- * native modules kept out of the clip target, and a JS import of one of those
- * is a crash on import, which is why nothing in `index.clip.ts`'s graph reaches
- * them. These two are the opposite case: the module is present and usable, and
- * what it *does* has to be different inside a clip.
- *
- *   expo-router        A clip has one invocation and one screen, and importing
- *                      the real router runs a `require.context` over `app/`
- *                      that drags every screen in the app into the clip bundle.
- *                      The shim gives the borrowed screens a router that
- *                      answers with the clip's own three outcomes.
- *
- *   expo-image-picker  PhotoKit provides no functionality at runtime in an App
- *                      Clip, so "choose from my library" cannot work. The shim
- *                      points the library call at the camera, which does.
- *
- * Each shim's own header carries the full reasoning; keep the two in step.
- */
-const CLIP_ALIASES = {
-  'expo-router': path.resolve(projectRoot, 'src/clip/shims/expo-router.tsx'),
-  'expo-image-picker': path.resolve(projectRoot, 'src/clip/shims/expo-image-picker.ts'),
-};
-
-if (process.env.BUILDING_FOR_APP_CLIP) {
-  config.resolver.sourceExts = [
-    ...config.resolver.sourceExts.map((extension) => `clip.${extension}`),
-    ...config.resolver.sourceExts,
-  ];
-
-  /*
-   * Exact names only. A subpath — `expo-image-picker/src/ImagePicker`, which is
-   * what the shim itself imports to reach the real camera functions — must go
-   * to the real package, or the shim would resolve to itself and Metro would
-   * report a cycle rather than the mistake.
-   */
-  const upstream = config.resolver.resolveRequest;
-  config.resolver.resolveRequest = (context, moduleName, platform) => {
-    const alias = CLIP_ALIASES[moduleName];
-    if (alias) return { type: 'sourceFile', filePath: alias };
-    return (upstream ?? context.resolveRequest)(context, moduleName, platform);
-  };
-}
 
 module.exports = config;
