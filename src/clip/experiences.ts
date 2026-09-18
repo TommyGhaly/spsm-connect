@@ -124,7 +124,7 @@ export const EXPERIENCES: readonly Experience[] = [
   },
   {
     slug: 'apps',
-    title: 'The Parish’s Apps',
+    title: 'The Church’s Apps',
     card: 'Taksis, Tithe.ly and SPSM Connect',
     /*
      * An App Clip *is* an App Store card, so a clip advertising apps is

@@ -27,7 +27,7 @@ enum ClipDestination: String, CaseIterable {
         switch self {
         case .give: return "Give"
         case .schedule: return "This Week"
-        case .apps: return "The Parish’s Apps"
+        case .apps: return "The Church’s Apps"
         case .welcome: return "Welcome"
         case .plans: return "Our Expansion Plans"
         case .bookstore: return "The Bookstore"
