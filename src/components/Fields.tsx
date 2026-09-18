@@ -367,7 +367,18 @@ export function Field({
           color: theme.color.ink,
           fontFamily: theme.fontFamily.body,
           fontSize: theme.fontSize.body,
-          lineHeight: lineHeightFor(theme, 'body'),
+          /*
+           * Leading on the textarea only. On a one-line iOS `TextInput` a
+           * `lineHeight` is not leading, it is a paragraph style: UIKit hangs
+           * the glyphs from the top of a line box it has been told is 1.5×
+           * the font, and the field's own text rect is only as tall as the
+           * font. The baseline drops out of the bottom of that rect and the
+           * descenders are shaved off — `ghaly.tommy@…` came out with the
+           * tails cut off both `y`s, which is what the body face's deep
+           * descenders made obvious. A single line has nothing to lead
+           * against anyway.
+           */
+          lineHeight: multiline ? lineHeightFor(theme, 'body') : undefined,
           backgroundColor: readOnly ? theme.color.paperSunken : theme.color.paper,
           borderColor: wrong ? theme.color.accent : theme.color.rule,
           borderWidth: 1,
