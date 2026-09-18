@@ -6,7 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { Fault } from '@/diagnostics/Fault';
 import { watchForFaults } from '@/diagnostics/report';
-import { headerSkin } from '@/navigation/header';
+import { headerSkinStack } from '@/navigation/header';
 import { quietInForeground, watchNotificationTaps } from '@/notify/handle';
 import { useNotifyLifecycle } from '@/notify/useNotifyLifecycle';
 import { SessionProvider } from '@/session/SessionProvider';
@@ -106,14 +106,14 @@ function RootStack() {
     <Stack
       screenOptions={{
         /*
-         * The skin and not the whole header: `headerSkin` is the bar's colours
-         * and type, `headerChrome` adds the menu and the bell. The two screens
-         * here are modals presented *over* the app — a menu button on one would
-         * navigate the screen underneath it, and the bell has no business
-         * interrupting a sign-in. They look like the app; they do not pretend
-         * to be a place in it.
+         * The skin and not the whole header: `headerSkinStack` is the bar's
+         * colours, type and appearance, `headerChrome` adds the menu and the
+         * bell. The two screens here are modals presented *over* the app — a
+         * menu button on one would navigate the screen underneath it, and the
+         * bell has no business interrupting a sign-in. They look like the app;
+         * they do not pretend to be a place in it.
          */
-        ...headerSkin(theme),
+        ...headerSkinStack(theme),
         contentStyle: { backgroundColor: theme.color.paper },
       }}
     >

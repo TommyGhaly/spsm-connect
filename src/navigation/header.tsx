@@ -50,7 +50,8 @@ import type { ResolvedTheme } from '@/theme/tokens';
  * The bar's own surface: the church's dark red, and the UI face on top of it.
  *
  * Separate from `headerChrome` for one caller — the root stack, whose modals
- * should look like this app without wearing its two controls.
+ * should look like this app without wearing its two controls. The root stack
+ * takes it through `headerSkinStack`, because its bars are real ones.
  *
  * A function of the theme rather than a constant, because every value in it
  * comes from `config/theme` — the church can change the red and the type scale,
@@ -140,6 +141,85 @@ export const headerRoot = {
 /* -- the same header, asked for the way a native stack needs it ------------ */
 
 /**
+ * `headerSkin` for a real `UINavigationBar`, which needs one thing more: being
+ * told that it is a dark bar.
+ *
+ * ## The bug this fixes: the glowing header
+ *
+ * Reported as the bookstore header "glowing", and as the galleries "glitching".
+ * Both are one thing. Measured on an iPhone 17 Pro at 3×, sampling inside a
+ * control's capsule away from its glyph:
+ *
+ * | bar                       | capsule       |
+ * | ------------------------- | ------------- |
+ * | drawer (React-drawn)      |  57,  18,  18 |
+ * | bookstore, shelf at top   | 182, 160, 160 |
+ * | bookstore, after a scroll |  56,  19,  19 |
+ * | bookstore, tab away, back | 255, 215, 215 |
+ *
+ * Three different capsules for one control, on bars that are the same red. The
+ * pale rows are the glow, and the galleries' flicker is the same numbers
+ * arriving one per frame as photographs pass under the bar.
+ *
+ * ## Why a navigation bar did this and our own headers did not
+ *
+ * Because expo-router tells the bar what appearance to wear, and it reads that
+ * from the *app's* theme:
+ *
+ *     experimental_userInterfaceStyle: dark ? 'dark' : 'light'
+ *
+ * — `useHeaderConfigProps`, one line above the spread of these very
+ * `unstable_nativeProps`. This app's react-navigation theme is the light one,
+ * because the app *is* light: `paper` under everything. So every real bar in it
+ * was being told `'light'` — and a bar button item on iOS 26 is glass, so a
+ * light appearance is a near-white lens over whatever is behind the bar. What
+ * is behind the bar is the screen's own content, scrolled under it, which is
+ * why the same control came out at three different values depending on what
+ * happened to be up there.
+ *
+ * The tabs' and the drawer's headers are React views. Nothing tells them an
+ * appearance, so the `colorScheme="dark"` our capsules already carry (see
+ * `HeaderCapsule`) is the only thing deciding, and they were the steady ones
+ * all along. This is the same fix, applied to the bars that were overruling it.
+ *
+ * With the bar told the truth, all of the rows above read 56, 19, 19 — at rest,
+ * mid-scroll, and with a photograph under the bar — which is the number UIKit's
+ * *own* back button renders beside them, and within a level of the drawer's
+ * 57, 18, 18. Every bar in the app, one capsule.
+ *
+ * ## Why not the other two fixes that also work
+ *
+ * `scrollEdgeEffects: { top: 'hidden' }` removes what the glass samples rather
+ * than how it samples it, and measured just as dark — but only sometimes. That
+ * option is applied once, when the prop changes, by walking the screen's first
+ * descendants for a scroll view (`RNSScrollEdgeEffectApplicator`); on a cold
+ * launch the shelf's list is not there yet, nothing is found, and it is never
+ * retried. It fixed the bookstore on a Fast Refresh and did nothing at all on a
+ * relaunch, which is worse than not fixing it.
+ *
+ * A `tintColor` on the capsule holds still too, and it was measured (24, 18,
+ * 16). It is the wrong fix for the same reason painting the capsule was: it
+ * steadies *our* two controls and leaves UIKit's back button in the lottery,
+ * one capsule away. The appearance is the only one of the three that the
+ * back button hears.
+ *
+ * ## `experimental_`
+ *
+ * RNS's prefix, and its note says it does not support changing while a screen
+ * is visible. Ours never changes: the bar is `deep` on every screen, on a
+ * device whose own appearance it has never followed. The risk is the name
+ * moving, and the cost of that is this one line.
+ */
+export function headerSkinStack(theme: ResolvedTheme) {
+  return {
+    ...headerSkin(theme),
+    unstable_nativeProps: {
+      headerConfig: { experimental_userInterfaceStyle: 'dark' as const },
+    },
+  } as const;
+}
+
+/**
  * `headerChrome` for the two navigators whose header is a real
  * `UINavigationBar` — the forms stack and the galleries.
  *
@@ -169,7 +249,7 @@ export const headerRoot = {
  */
 export function headerChromeStack(theme: ResolvedTheme) {
   return {
-    ...headerSkin(theme),
+    ...headerSkinStack(theme),
     unstable_headerRightItems: () => [
       { type: 'custom' as const, element: <AnnouncementsButton />, hidesSharedBackground: true },
     ],

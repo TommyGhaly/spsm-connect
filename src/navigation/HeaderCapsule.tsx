@@ -43,7 +43,9 @@
  * **The bars themselves did not match** — height, inset, and the air under the
  * capsule. See `BAR_EDGE` and the table with it.
  *
- * **And the material would not hold still.** See `HeaderCapsule`.
+ * **And the material would not hold still** — which is why, for a while, it
+ * was not a material at all but a painted pill. It is real glass again, held
+ * still by being told which appearance to wear. See `HeaderCapsule`.
  *
  * ## Where there are no capsules
  *
@@ -60,7 +62,7 @@
  * both paths.
  */
 import type { ReactNode } from 'react';
-import { isLiquidGlassAvailable } from 'expo-glass-effect';
+import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { View } from 'react-native';
 
 import { useTheme } from '@/theme/ThemeProvider';
@@ -91,23 +93,6 @@ export const GLASS = isLiquidGlassAvailable();
  */
 export const CAPSULE = 40;
 export const GLYPH = 20;
-
-/**
- * How much of the church's ink goes over the bar to make a capsule.
- *
- * Fitted to the measurement in `HeaderCapsule`'s note rather than chosen, and
- * then checked: UIKit's own glass renders **(56, 19, 19)** on the **(72, 16,
- * 16)** bar, and `ink` at this weight renders **(56, 18, 17)** — two channels
- * one and two levels out, which is below anything an eye resolves against a
- * dark red. 0.28 was the first guess and came out at (60, 18, 17); those four
- * levels of red were visible, as the capsule being the lighter of the two.
- *
- * A bare number because the theme has no scrim token and this is the only place
- * in the app that needs one. If a second place ever does, it belongs in
- * `config/theme` rather than being copied — a wash is design intent, and the
- * rule at the top of `tokens.ts` is about exactly that.
- */
-const CAPSULE_WASH = 0.37;
 
 /**
  * The measurements a React-drawn bar has to copy from UIKit's.
@@ -235,8 +220,7 @@ export function headerGlyphColor(theme: ResolvedTheme) {
  * `deep`, and on the bookstore stack UIKit's capsule then comes out (56, 19, 19)
  * against our (56, 18, 17): the same finish, arrived at by the platform.
  *
- * ## But it is only the same finish on *some* screens, and that is not fixable
- * ## from here
+ * ## It is only the same finish on *some* screens, and that stopped mattering
  *
  * Measured on the galleries stack, same tint, same bar, same build:
  *
@@ -245,18 +229,25 @@ export function headerGlyphColor(theme: ResolvedTheme) {
  * | bookstore | 56, 19, 19           |
  * | galleries | 255, 215, 215        |
  *
- * Near-white, next to our two dark circles. This is not a second bug, it is the
- * *first* one — the instability `HeaderCapsule`'s note documents, seen from the
- * other side: the back button is real glass, real glass samples what is behind
- * it, and what is behind it differs by screen. Painting our own capsules is what
- * took our two controls out of that lottery; the back button cannot be taken out
- * of it by choosing a tint, because the tint is not what is varying.
+ * This is not a second bug, it is the *first* one — real glass samples what is
+ * behind it, and what is behind it differs by screen. The back button cannot be
+ * taken out of that lottery by choosing a tint, because the tint is not what is
+ * varying.
  *
- * Taking it out would mean owning the back button — `hidesSharedBackground` on a
- * custom `unstable_headerLeftItems` entry, the way `headerChromeStack` already
- * does for the bell — and that costs the long-press "back to root" menu UIKit
- * gives a real back button for free. Worth doing; not worth doing quietly as
- * part of a colour fix, which is why it is written down here instead.
+ * What this note used to say next was that our own controls had been taken out
+ * of the lottery by being painted, which left them standing against the back
+ * button on the screens where it drifted — near-white lozenge, two dark
+ * circles. **That is no longer true and the fix was the opposite one:** our
+ * capsules are real glass again, so they drift with it rather than against it.
+ * Re-measured on the galleries stack, all three controls now read 182, 160,
+ * 160. See `HeaderCapsule`.
+ *
+ * So owning the back button — `hidesSharedBackground` on a custom
+ * `unstable_headerLeftItems` entry, the way `headerChromeStack` already does
+ * for the bell — is no longer worth what it costs, which is the long-press
+ * "back to root" menu UIKit gives a real back button for free. It would buy a
+ * fixed colour across screens; it would not buy agreement within a bar, and
+ * that is the one the eye actually reads.
  *
  * Below iOS 26 there is no capsule and no glass, and `headerTintColor` means
  * what it has always meant — the glyph itself. `deep` on a `deep` bar would be
@@ -268,15 +259,13 @@ export function headerTint(theme: ResolvedTheme) {
 }
 
 /**
- * One control's background: the capsule.
+ * One control's background: the capsule, in the material UIKit uses for one.
  *
- * ## Why this is a painted pill and not a `GlassView`
+ * ## It was a `GlassView`, then a painted pill, and it is a `GlassView` again
  *
- * It was a `GlassView` — the same `UIVisualEffectView` UIKit puts behind its
- * own bar buttons — and that is exactly what it could not stay, because the
- * material is not the same object in the two places this renders.
- *
- * Measured, sampling the middle of the capsule on four screens:
+ * The middle step was not a mistake, and the thing that made it necessary is
+ * still true: **glass samples what is behind it, and behind it is a different
+ * thing on every screen.** Measured then, sampling the middle of the capsule:
  *
  * | capsule                         | rgb           |
  * | ------------------------------- | ------------- |
@@ -284,50 +273,95 @@ export function headerTint(theme: ResolvedTheme) {
  * | inside a React header (Giving)  | 255, 244, 239 |
  * | inside a React header (Apps)    | 255, 241, 235 |
  *
- * Glass samples what is behind it, and behind it is a different thing on every
- * screen — photographs under one bar, pale paper under another, and inside a
- * bar button item something different again. Tinting it did not fix that;
- * neither did an opaque backing, which the material then lightened by a
- * different amount in each place. Three shades of nearly-white is not a
- * material, it is a bug that happens to be pretty.
+ * Three shades of nearly-white is not a material, it is a bug that happens to
+ * be pretty — so it was painted instead, as a dark wash of `ink` over the bar,
+ * fitted to what UIKit's own back button renders as two corners away.
  *
- * Painting it is still the answer. **What was painted was wrong**, and the
- * table above says why without noticing it: those three samples were all taken
- * on bars with pale content behind them. The bar this app actually ships is
- * `deep`, the church's dark red, on every screen — and on a dark bar iOS 26's
- * own glass goes *dark*, not pale.
+ * ## What the paint could never have
  *
- * Measured again, on the forms stack at 3×, sampling across the bar:
+ * A wash is a flat rectangle of colour. Liquid Glass is a lens: it refracts the
+ * edge of what is under it, it carries a specular highlight along its rim, and
+ * it moves both of those as the device tilts. A pill matched to the *average*
+ * colour of real glass is the one thing that is guaranteed to match it in no
+ * frame where anything is moving. Beside UIKit's back button — which is real
+ * glass, on the same bar, and cannot be painted — that reads as two materials.
  *
- * | thing                                    | rgb          |
- * | ---------------------------------------- | ------------ |
- * | the bar itself (`deep`)                  | 72, 16, 16   |
- * | UIKit's back-button capsule, real glass  | 56, 19, 19   |
- * | our painted capsule (`accentSoft`)       | 246, 216, 208 |
+ * ## What holds it still: `colorScheme`, and nothing else
  *
- * So the two controls on the same bar were photographic negatives of each
- * other: a dark lozenge with a white chevron in the left corner, a pale pink
- * circle with a dark red bell in the right. Nothing in the old note is false —
- * `accentSoft` *is* what glass renders as over pale paper — it was matching the
- * wrong bar.
+ * The three samples above have one thing in common the old note said out loud
+ * without using: they are all *pale*. Glass picks a light or a dark appearance,
+ * and on these bars it was picking light — the light appearance of a small
+ * capsule is near-white whatever is beneath it. `colorScheme` is the lever for
+ * exactly that ("override the system appearance when your app has its own theme
+ * toggle"), and this app is the case it describes: the bar is `deep` on every
+ * screen and never follows the device.
  *
- * The capsule is now a dark wash over the red, which is what UIKit does two
- * corners away, and the glyphs on it are white, which is what UIKit's chevron
- * and the header's own title already were. `headerGlyphColor` collapsed to one
- * answer as a result.
+ * It is load-bearing, and the difference is not subtle. Measured on Giving at
+ * 3x, sampling the middle of the menu capsule:
  *
- * `isLiquidGlassAvailable()` still decides whether a capsule is drawn at all.
- * That is the honest use of it: the question is not "can we blur" but "is this
- * an OS whose own bars put their buttons in capsules", and on one that does
- * not, a pill would be an affectation rather than a convention.
+ * | `colorScheme` | our capsule   |
+ * | ------------- | ------------- |
+ * | absent        | 255, 215, 215 |
+ * | `'dark'`      |  57,  18,  18 |
+ *
+ * The first row is the bug, and it is the *same* near-white this file has now
+ * recorded three times. The second is within a level or two of the 56, 19, 19
+ * that UIKit's own back button renders on the forms stack — the number the
+ * painted wash existed to imitate, arrived at here by the material instead of
+ * by fitting a colour to it.
+ *
+ * ## Why there is no `tintColor`
+ *
+ * Because the obvious value for it erases the capsule. A bar button item is
+ * *tinted prominent glass* and the tint is `headerTintColor`, so handing ours
+ * the same `headerTint(theme)` looks like the faithful thing to do — and it
+ * tints the glass `deep`, over a bar that is already `deep`. Measured, that
+ * build's capsule was a bare rim with the bar showing through the middle of it:
+ *
+ * | tint                  | rim        | fill       |
+ * | --------------------- | ---------- | ---------- |
+ * | `headerTint(theme)`   | 157, 31, 31 | 72, 16, 16 | <- the bar
+ * | none                  | 128, 38, 38 | 57, 18, 18 |
+ *
+ * Untinted glass on a dark appearance already lands on UIKit's number. The tint
+ * is what UIKit needs because UIKit is told nothing else about the bar; we are
+ * drawing *on* the bar and can let the material read it.
+ *
+ * ## What this does not fix, and no longer needs to
+ *
+ * The capsule is still not one rgb across the app. Measured on the galleries
+ * stack, all three controls on the same bar:
+ *
+ * | control                   | rgb           |
+ * | ------------------------- | ------------- |
+ * | UIKit's back button       | 182, 160, 160 |
+ * | our bell                  | 182, 160, 160 |
+ * | our menu                  | 182, 160, 160 |
+ *
+ * Pale, where Giving is dark — the variance the old note chased, still here.
+ * But look at what it costs now: **nothing within a bar.** The three are the
+ * same pixel. That is the failure the `headerTint` note below called out as
+ * unfixable from here — our dark pill beside UIKit's near-white capsule, "the
+ * same mismatch with the two halves swapped" — and it is fixed, because the way
+ * to match a material is to be it rather than to guess its average. What varies
+ * now varies for every control at once, which is a bar looking like itself.
+ *
+ * **And the variance itself is gone too, from outside this file.** The pale
+ * rows above were a navigation bar wearing the *light* appearance, which
+ * expo-router hands it from the app's own light theme; the three controls now
+ * read 56, 19, 19 there, the same as everywhere else. `colorScheme` below is
+ * what holds a capsule on a header this app draws; `headerSkinStack` in
+ * `header.tsx` is what holds one on a bar UIKit draws, and its note has the
+ * measurements. Neither is redundant — the two kinds of bar are told by
+ * different things.
  *
  * ## `pressed`
  *
- * The glyph dims; the capsule does not. Note the `GlassView` prop that is
- * deliberately not here even in the history: `isInteractive` makes the glass
- * handle the touch itself, and with it set every header control in the app
- * stopped responding — the menu opened nothing, the bell opened nothing, on all
- * four navigators at once.
+ * The glyph dims; the capsule does not. Note the prop that is deliberately not
+ * here even in the history: `isInteractive` makes the glass handle the touch
+ * itself, and with it set every header control in the app stopped responding —
+ * the menu opened nothing, the bell opened nothing, on all four navigators at
+ * once.
  */
 export function HeaderCapsule({
   children,
@@ -352,45 +386,22 @@ export function HeaderCapsule({
   }
 
   return (
-    <View
+    <GlassView
+      // The bar-button material, not `clear`. `clear` is the one for a control
+      // floating over a photograph — it has no fill of its own, and in a bar it
+      // would leave the glyph sitting on bare red with a rim around it.
+      glassEffectStyle="regular"
+      colorScheme="dark"
       style={{
         ...box,
         // Clamped here rather than stored as 9999, exactly as the camera button
         // in the tab bar does it: `radius.full` is documented as "pills and
-        // avatars, clamped by the consumer".
+        // avatars, clamped by the consumer". The glass takes its shape from
+        // this, so a square corner here is a square capsule on screen.
         borderRadius: Math.min(theme.radius.full, CAPSULE / 2),
       }}
     >
-      {/*
-        The wash, as its own view under the glyph rather than a background
-        colour on the box.
-
-        Because the amount of it is the whole point and `opacity` is the only
-        way to say "some of this colour" without writing a literal: the theme
-        stores hex, `ink` has no alpha, and `#1c161447` would be exactly the
-        hardcoded colour `tokens.ts` forbids. On the box itself the opacity
-        would fade the glyph with it — a white bell at 28% on dark red is not a
-        bell — so the wash and the glyph are siblings and only one of them is
-        translucent.
-
-        `ink` and not black: the church's ink is warm (`#1c1614`-ish), and a
-        neutral black over `deep` greys the red in a way the measurement above
-        says UIKit does not — its capsule keeps the hue and loses about a fifth
-        of the red channel, which is what a warm ink at this weight does.
-      */}
-      <View
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          borderRadius: Math.min(theme.radius.full, CAPSULE / 2),
-          backgroundColor: theme.color.ink,
-          opacity: CAPSULE_WASH,
-        }}
-      />
       {glyph}
-    </View>
+    </GlassView>
   );
 }
