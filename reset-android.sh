@@ -134,14 +134,16 @@ grep -q "withReleaseSigning.js" "$BUILD_GRADLE" \
 grep -q "signingConfigs.release" "$BUILD_GRADLE" \
   || fail "No release signingConfig in $BUILD_GRADLE — withReleaseSigning applied only partly."
 
-# versionCode is BUILD in app.config.ts. Both stores refuse a number they have
-# already seen, and they refuse it after the upload finishes.
+# versionCode is ANDROID_VERSION_CODE in app.config.ts, and it is Play's alone —
+# iOS counts separately, so bumping this does not touch the iOS build number.
+# Play refuses a number it has already seen, and it refuses it after the upload
+# finishes.
 VERSION_CODE=$(grep -E '^\s*versionCode ' "$BUILD_GRADLE" | head -1 | awk '{print $2}')
 VERSION_NAME=$(grep -E '^\s*versionName ' "$BUILD_GRADLE" | head -1 | awk '{print $2}' | tr -d '"')
 echo "   ✓ version $VERSION_NAME, versionCode $VERSION_CODE"
 
 if [ "$STORE_BUILD" = "1" ]; then
-  note "if versionCode $VERSION_CODE has been uploaded before, stop now and bump BUILD in app.config.ts"
+  note "if versionCode $VERSION_CODE has been uploaded before, stop now and bump ANDROID_VERSION_CODE in app.config.ts"
 fi
 
 # ── Build ────────────────────────────────────────────────────────────────────

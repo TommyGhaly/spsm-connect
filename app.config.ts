@@ -118,16 +118,17 @@ if (!square.applicationId || !square.locationId) {
 const APPLE_PAY_MERCHANT_ID = process.env.APPLE_PAY_MERCHANT_ID ?? '';
 
 /**
- * The build number, and it is one number for both stores.
+ * The build numbers — one per store, counted separately.
  *
  * ---------------------------------------------------------------------------
  * `version` below is what a person reads — 1.0.0, the marketing version, shown
- * on the listing and in the About screen. This is the other one: the number the
- * *stores* use to tell two uploads apart, and neither store will accept an
- * upload carrying a number it has already seen. It has nothing to do with what
- * changed and everything to do with how many times something has been sent.
+ * on the listing and in the About screen. These are the other ones: the numbers
+ * the *stores* use to tell two uploads apart, and neither store will accept an
+ * upload carrying a number it has already seen. They have nothing to do with
+ * what changed and everything to do with how many times something has been
+ * sent.
  *
- * It is here, explicitly and committed, because this project builds locally
+ * They are here, explicitly and committed, because this project builds locally
  * rather than on EAS. `eas.json`'s production profile sets
  * `autoIncrement: true`, which would have handled this on a build server; a
  * local build has nothing to increment it, and the default for both fields is
@@ -136,24 +137,46 @@ const APPLE_PAY_MERCHANT_ID = process.env.APPLE_PAY_MERCHANT_ID ?? '';
  * attribute with a value that has already been used" and Play says the version
  * code is already in use, both of them after a full upload.
  *
- * **Bump this by one for every build you send to either store**, including a
- * TestFlight build that never reaches review, and including a rejected one.
- * Never reuse and never go backwards. It is deliberately shared between the two
- * platforms so that "build 7" means one thing when somebody reports a bug,
- * even though it costs a gap in each store's sequence whenever only one of them
- * is shipped.
+ * ## Two numbers, not one
  *
- * `BUILD_NUMBER` overrides it for a CI that counts its own runs. Nothing sets
- * that today.
+ * These used to be a single `BUILD` shared by both platforms, so that "build 7"
+ * meant one thing when somebody reported a bug. That is given up here on
+ * purpose: iOS is pinned while Android climbs, because the two are not being
+ * shipped at the same rate and Play is the one refusing repeats.
+ *
+ * What it costs is exactly what the old arrangement bought. "Build 3" is now
+ * ambiguous on its own — a bug report needs to say which store it came from,
+ * and the two sequences will not line up again. `Platform.OS` alongside the
+ * number is the thing to read.
+ *
+ * **Bump the platform you are shipping, by one, for every build you send it** —
+ * including a TestFlight build that never reaches review, and including a
+ * rejected one. Never reuse and never go backwards. Bumping the other platform
+ * to match is not required and not wanted; they are independent counters now.
+ *
+ * `IOS_BUILD_NUMBER` and `ANDROID_VERSION_CODE` override them for a CI that
+ * counts its own runs. Nothing sets either today. The old single
+ * `BUILD_NUMBER` is gone rather than aliased, because a variable that silently
+ * moved only one of two counters is worse than one that is not there.
  * ---------------------------------------------------------------------------
  */
-const BUILD = Number(process.env.BUILD_NUMBER ?? 2);
 
-if (!Number.isInteger(BUILD) || BUILD < 1) {
-  throw new Error(
-    `BUILD_NUMBER must be a positive whole number; got "${process.env.BUILD_NUMBER}". ` +
-      "Play refuses anything else outright, and Apple's rules for it are stricter still.",
-  );
+/** CFBundleVersion. Held at 1 deliberately — see above. */
+const IOS_BUILD = Number(process.env.IOS_BUILD_NUMBER ?? 1);
+
+/** Play's versionCode. This is the one that climbs. */
+const ANDROID_VERSION_CODE = Number(process.env.ANDROID_VERSION_CODE ?? 3);
+
+for (const [name, value, variable] of [
+  ['iOS build number', IOS_BUILD, 'IOS_BUILD_NUMBER'],
+  ['Android versionCode', ANDROID_VERSION_CODE, 'ANDROID_VERSION_CODE'],
+] as const) {
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(
+      `${name} must be a positive whole number; got "${process.env[variable]}" from ${variable}. ` +
+        "Play refuses anything else outright, and Apple's rules for it are stricter still.",
+    );
+  }
 }
 
 const config: ExpoConfig = {
@@ -187,9 +210,9 @@ const config: ExpoConfig = {
      */
     appleTeamId: '5ZRM8X66TN',
     supportsTablet: true,
-    /* CFBundleVersion. A string on iOS and an integer on Android — the same
-     * number either way. See BUILD above. */
-    buildNumber: String(BUILD),
+    /* CFBundleVersion, a string here and an integer on Android. No longer the
+     * same number as Android's — see IOS_BUILD above. */
+    buildNumber: String(IOS_BUILD),
     /*
      * App Attest is the iOS App Check provider. It replaces reCAPTCHA
      * Enterprise, which the website uses and which does not exist on a phone.
@@ -311,8 +334,9 @@ const config: ExpoConfig = {
 
   android: {
     package: IS_PRODUCTION ? 'org.spsm.connect' : 'org.spsm.connect.dev',
-    /* Play's own counter, and it must increase with every upload. See BUILD. */
-    versionCode: BUILD,
+    /* Play's own counter, and it must increase with every upload. Independent
+     * of iOS's — see ANDROID_VERSION_CODE. */
+    versionCode: ANDROID_VERSION_CODE,
     adaptiveIcon: {
       // theme `deep`, matching assets/. Baked at build time, so it cannot come
       // from config/theme like everything else — see scripts/make-icons.mjs.
