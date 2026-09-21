@@ -104,6 +104,7 @@ const SWIFT_FILES = [
   'RootView.swift',
   'Theme.swift',
   'Chrome.swift',
+  'StoreBadge.swift',
   'Handoff.swift',
   'FirestoreREST.swift',
   'GiveView.swift',

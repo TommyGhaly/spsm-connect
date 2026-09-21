@@ -66,7 +66,28 @@ struct AppsView: View {
                         ClipHeading(text: app.name)
                     }
                     ClipBody(text: app.blurb)
-                    ClipButton(label: "View on the App Store", tone: .quiet) {
+
+                    /* A hairline, because the badge is artwork and not this
+                       card's type: without it the black pill sits directly
+                       under the sentence and reads as part of the paragraph
+                       rather than as the thing to tap. The app's cards take the
+                       same rule for the same reason — a `ClipButton` never
+                       needed one, because its own border said what it was. */
+                    Rectangle().fill(Ink.rule).frame(height: 1)
+
+                    /*
+                     * Apple's own badge, as on the website and on the app's
+                     * `/apps` — `StoreBadge.swift` carries the rules about it,
+                     * and why this screen shows one store where the other two
+                     * show two.
+                     *
+                     * Still the Safari sheet and not `UIApplication.open`: the
+                     * reason `Handoff.swift` gives holds for a store page as
+                     * much as for a liturgy tour. Leaving the clip dismisses
+                     * the card, and somebody who has just looked at Taksis
+                     * should come back to the card that offers them this one.
+                     */
+                    AppStoreBadge(appName: app.name) {
                         sheet = IdentifiableURL(url: app.appStore)
                     }
                 }
@@ -95,6 +116,16 @@ struct AppsView: View {
                     removes the sample on its own.
                     """
                 )
+                /*
+                 * A button and not the badge above, and the difference is not
+                 * an oversight to be tidied up. Apple's badge links to an App
+                 * Store product page; this presents `SKOverlay`, which is the
+                 * mechanism Apple provides for a clip offering its own full
+                 * app, and which needs no App Store id — see `Handoff.swift`
+                 * for why that matters while the app is unreleased. Putting
+                 * Apple's artwork on a control that does not go to the store
+                 * would be using the badge for something it is not for.
+                 */
                 ClipButton(label: "Get SPSM Connect") { AppOffer.present() }
                 Text("Free, and from the church’s own developer account.")
                     .font(Face.small)
@@ -127,9 +158,20 @@ private struct AppIconImage: View {
         }
         .frame(width: 64, height: 64)
         .background(Ink.paperSunken)
-        // 8, which is `radius.md` in the theme and what the app's card uses for
-        // the same square.
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        /*
+         * 16, which is `radius.lg`, and it was 8. A 64pt icon on a home screen
+         * is rounded at about fourteen points; at eight this square read as a
+         * thumbnail *of* an app icon rather than as the icon — on the one
+         * screen whose job is helping somebody recognise the thing they are
+         * about to look for in a store. The app's own cards made the same move.
+         *
+         * The hairline comes with it, and earns its place twice here: Tithe.ly's
+         * icon is pale at the edges and would dissolve into the card, and this
+         * square is empty paper until a fetched file arrives, which without an
+         * edge is a gap rather than a space being held.
+         */
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Ink.rule, lineWidth: 1))
         .accessibilityHidden(true)
     }
 }
