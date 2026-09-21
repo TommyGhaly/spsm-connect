@@ -397,8 +397,11 @@ and the clip bundle ID.
 
 ## C2. The recording
 
-One continuous take on a physical iPhone, current iOS, screen recording with
-touch indication on. Roughly six to eight minutes. **Start from the Home Screen
+One continuous take on a physical iPhone, current iOS, using the built-in
+screen recorder (Control Centre). Roughly six to eight minutes. iOS has no
+touch-indicator setting, so move deliberately and pause a beat on each screen
+before tapping — that, and not a highlight ring, is what makes a flow readable
+to somebody watching it once. **Start from the Home Screen
 and tap the icon** — Apple asks for the launch explicitly, and a recording that
 begins with the app already open reads as hiding a launch crash.
 
