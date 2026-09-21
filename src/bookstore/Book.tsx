@@ -38,15 +38,23 @@ import type { ShopProduct } from './data';
  * A fixed height rather than an aspect ratio, and that is the point of it: the
  * covers are portrait, square and landscape depending on who photographed which
  * book, and a grid where every tile is a different height is the ragged shelf
- * the framing above is meant to fix. `contentFit="contain"` inside a fixed box
- * is what makes eleven different shapes sit on one line.
+ * the framing above is meant to fix. `contentFit="cover"` inside a fixed box is
+ * what makes eleven different shapes sit on one line.
+ *
+ * Kept near enough to square that the crop costs almost nothing on the covers
+ * that were photographed square, which is most of them — so it is read off the
+ * card's width and has moved twice for the same reason. 168 while the picture
+ * sat inside the card's padding; 176 when it went full width of a card that was
+ * still inside the shelf's gutter; 190 now that the shelf has no gutter and a
+ * card is half of the screen, a little under 200 points on a 390pt phone.
  */
-const COVER_HEIGHT = 168;
+const COVER_HEIGHT = 190;
 
 export function Book({
   product,
   inCart,
   editing,
+  atRightEdge,
   onOpen,
   onAdd,
 }: {
@@ -61,6 +69,17 @@ export function Book({
    * eleven dialogs. Everything else about a book is a tap away in its sheet.
    */
   editing: boolean;
+  /**
+   * This card is in the right-hand column, so its right edge is the screen's.
+   *
+   * The one thing a card cannot work out for itself and the one thing it needs
+   * to, now that the grid has no gaps: every card draws the rules on the two
+   * sides that face a neighbour, and the last column has no neighbour to its
+   * right — only the bezel. Passed as a boolean rather than the index it is
+   * derived from, because two columns is the list's business and the card
+   * should not have to know the number to know which side it is on.
+   */
+  atRightEdge: boolean;
   onOpen: () => void;
   onAdd: () => void;
 }) {
@@ -83,186 +102,212 @@ export function Book({
 
   return (
     /*
-     * The gutter between columns, as padding inside a half-width cell rather
-     * than a gap on the list. `FlashList`'s grid has no column gap of its own,
-     * and margin on the card would leave the outer edges narrower than the
-     * middle — which reads as the shelf being off-centre.
+     * Touching sideways, four points apart down the page.
+     *
+     * This started as `padding` on all four sides — the column gutter written
+     * inside a half-width cell, because `FlashList`'s grid has no column gap of
+     * its own and a margin would have left the outer edges narrower than the
+     * middle — and it has come off in stages. The horizontal half went with the
+     * list's side padding, so a row is now two covers meeting in the middle and
+     * running out to both edges of the screen. The vertical half went with it
+     * and then came back at `space.xs`, which is the smallest step the scale
+     * has and about a millimetre on the glass.
+     *
+     * That asymmetry is the point rather than an oversight. Sideways there are
+     * exactly two cards and the eye has the screen's own edges to measure them
+     * against, so a drawn line is enough to say where one ends. Down the page
+     * the covers keep coming, and a column of photographs separated only by a
+     * hairline reads as one tall picture cut into strips — the gap is what says
+     * these are separate objects. Four points does it without becoming a
+     * margin: it reads as the shelf's own join, not as space around a card.
      */
-    <View style={{ flex: 1, padding: theme.space.xs }}>
+    <View style={{ flex: 1, paddingBottom: theme.space.xs }}>
       {/*
-        Lifted off the page rather than ruled off it.
+        Ruled off the page, not lifted off it — which is where this started, and
+        it is back because the gaps are gone.
         ------------------------------------------------------------------------
-        This was a hairline border and no shadow, which is the finish the rest of
-        the app uses — `Card` in `Surface.tsx` — and is right there: a card that
-        holds a paragraph of the church's own words should sit *on* the paper,
-        because it is paper. A book is an object on a shelf. Twenty-two of them
-        outlined in the same hairline read as a table with the lines half rubbed
-        out, and the thing a shopper is actually scanning — where one cover ends
-        and the next begins — is the one thing the hairline states weakly.
+        The card carried a soft drop shadow for the reason it is worth writing
+        down: a book is an object on a shelf rather than a paragraph of the
+        church's own words, and twenty-two cards outlined in the same hairline
+        read as a table with the lines half rubbed out. That argument held while
+        every card sat in its own clear space. It does not survive the cards
+        touching. A shadow needs paper to fall on, and with no gap there is
+        none — each card's shadow lands on the card to its right and the card
+        below it, in list order, so the shelf comes out with dark bands under
+        and beside some books and not others depending on which was drawn last.
+        An uneven grid is worse than an unlifted one.
 
-        The border is kept underneath the shadow rather than dropped, because
-        Android draws nothing from `shadowOpacity` and would otherwise get a
-        shelf of cards with no edges at all. On iOS it disappears under the
-        shadow's own darkening at the card's foot, which is where it would have
-        been doing the least work anyway.
+        So: a flat card and a hairline, which is the finish `Card` in
+        `Surface.tsx` uses, and which draws on Android too — `shadowOpacity`
+        never did.
 
-        Two views and not one, which is not a spare wrapper: `overflow: hidden`
-        sets `masksToBounds` on the layer it is written on, and a layer that
-        masks to its bounds clips its own shadow — the card would come out with
-        the border it started with and nothing else. So the shadow is on the
-        outer view and the clipping, which the cover's square corners need, is
-        on the inner one.
+        The right edge only, and nothing on the other three. A rule is for a
+        join with no gap in it, and the only join left without one is the seam
+        down the middle of a row — under the card there is now four points of
+        paper doing the same job, and a line drawn just above that gap is the
+        join stated twice. One card draws the seam rather than both, because
+        two adjacent cards each drawing their own edge makes it twice the
+        weight of every other line on the shelf, and the right-hand column
+        draws nothing at all: its right edge is the screen's, and a rule along
+        the bezel is a rule around nothing.
+
+        One view and not two: the pair existed because `overflow: hidden` sets
+        `masksToBounds`, and a layer that masks to its bounds clips its own
+        shadow — so the shadow needed a view outside the clipping one. With no
+        shadow and no radius there is nothing to clip and nothing to protect.
       */}
       <View
         style={{
           flex: 1,
-          borderRadius: theme.radius.md,
           backgroundColor: theme.color.paperRaised,
-          /*
-           * Native shadow properties rather than a theme token, because the
-           * church's three shadows live under `web` in the theme document and
-           * `resolveTheme` does not carry them into the resolved theme this app
-           * reads. The values are `shadowSm`'s intent — a close, soft lift —
-           * and the colour is the theme's.
-           */
-          shadowColor: theme.color.ink,
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.08,
-          shadowRadius: 8,
-          elevation: 2,
+          borderColor: theme.color.rule,
+          borderRightWidth: atRightEdge ? 0 : 1,
         }}
       >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: theme.color.paperRaised,
-            borderColor: theme.color.rule,
-            borderWidth: 1,
-            borderRadius: theme.radius.md,
-            overflow: 'hidden',
-          }}
+        <Pressable
+          onPress={onOpen}
+          accessibilityRole="button"
+          /*
+           * The whole card announced as one thing, because that is what it is.
+           * Read piecemeal it is "image, Be Prepared, eight dollars" with no
+           * sentence tying them together, and the price is the part most likely
+           * to be missed.
+           */
+          accessibilityLabel={`${product.name}, ${money(product.amount, product.currency)}${
+            soldOut ? ', sold out' : !editing && inCart > 0 ? `, ${inCart} in basket` : ''
+          }${editing && pending.dirty ? ', edited' : ''}`}
+          accessibilityHint={editing ? 'Opens this book’s settings' : 'Opens the book'}
+          /*
+            No padding, and that is the change. The cover used to sit inside
+            `space.sm` on all four sides, so a card showed a frame of paper
+            around a picture that was itself letterboxed on more paper. Two
+            surrounds around one photograph is the catalogue look — a product
+            floating in a tray — and the tray is what gets read first. The
+            picture is the top edge of the card now, and the title, the price
+            and Add are the footer under it.
+          */
+          style={({ pressed }) => ({
+            backgroundColor: pressed ? theme.color.paperSunken : 'transparent',
+          })}
         >
-          <Pressable
-            onPress={onOpen}
-            accessibilityRole="button"
-            /*
-             * The whole card announced as one thing, because that is what it is.
-             * Read piecemeal it is "image, Be Prepared, eight dollars" with no
-             * sentence tying them together, and the price is the part most likely
-             * to be missed.
-             */
-            accessibilityLabel={`${product.name}, ${money(product.amount, product.currency)}${
-              soldOut ? ', sold out' : !editing && inCart > 0 ? `, ${inCart} in basket` : ''
-            }${editing && pending.dirty ? ', edited' : ''}`}
-            accessibilityHint={editing ? 'Opens this book’s settings' : 'Opens the book'}
-            style={({ pressed }) => ({
-              padding: theme.space.sm,
-              gap: theme.space.xs,
-              backgroundColor: pressed ? theme.color.paperSunken : 'transparent',
-            })}
-          >
-            <View>
-              <Cover
-                slug={product.slug}
-                fallback={product.images[0] ?? null}
-                height={COVER_HEIGHT}
-                live={editing}
-              />
-
-              {/*
-              Only ever drawn when there is something to say. A badge that is
-              usually blank is furniture — which is why this is a ternary and
-              not two independent conditions.
-            */}
-              {editing && pending.dirty ? (
-                <Flag label="Edited" tone="in" />
-              ) : soldOut ? (
-                <Flag label="Sold out" tone="out" />
-              ) : !editing && inCart > 0 ? (
-                <Flag label={`${inCart} in basket`} tone="in" />
-              ) : null}
-            </View>
+          <View>
+            <Cover
+              slug={product.slug}
+              name={product.name}
+              fallback={product.images[0] ?? null}
+              height={COVER_HEIGHT}
+              /*
+                Square, like the card it is the top of. It was square before
+                the card was, so as not to draw a second curve inside the
+                card's own; there is no curve anywhere on the shelf now, so
+                this is simply the shelf's finish.
+              */
+              radius={0}
+              live={editing}
+            />
 
             {/*
-            Clamped at three lines. Square's longest title runs to five, and a
-            card that grows to fit it drags the whole row down with it; the
-            whole of the title is in the sheet this opens.
+            Only ever drawn when there is something to say. A badge that is
+            usually blank is furniture — which is why this is a ternary and
+            not two independent conditions.
           */}
-            <Small numberOfLines={3}>{product.name}</Small>
-          </Pressable>
+            {editing && pending.dirty ? (
+              <Flag label="Edited" tone="in" />
+            ) : soldOut ? (
+              <Flag label="Sold out" tone="out" />
+            ) : !editing && inCart > 0 ? (
+              <Flag label={`${inCart} in basket`} tone="in" />
+            ) : null}
+          </View>
 
           {/*
-          The foot, pushed to the bottom so the prices line up across a row
-          whose titles are one, two and three lines long. `marginTop: 'auto'`
-          against the card's `flex: 1` is what does it.
+          Clamped at three lines. Square's longest title runs to five, and a
+          card that grows to fit it drags the whole row down with it; the
+          whole of the title is in the sheet this opens.
+
+          It carries the padding the press target no longer has: the title is
+          the first line of the footer, so it lines up with the price and the
+          button under it rather than with the picture above it.
         */}
-          <View
-            style={{
-              marginTop: 'auto',
-              paddingHorizontal: theme.space.sm,
-              paddingBottom: theme.space.sm,
-              gap: theme.space.xs,
-            }}
-          >
-            {/*
-            The price stays even when the book does not: a sold-out title still
-            costs what it costs, and the flag on the cover is what says it is
-            gone.
-
-            `ink` and not `inkSoft`, and above the title's own weight rather
-            than below it. The price was the quietest line on the card, under a
-            three-line title and over a button — and the price is the second
-            thing anybody wants off a shelf, after which book it is. Softening
-            it was treating it as metadata.
-          */}
-            <Body color={theme.color.ink}>{money(product.amount, product.currency)}</Body>
-
-            {editing ? (
-              <ShelfStock product={product} pending={pending} />
-            ) : soldOut ? (
-              <Micro color={theme.color.inkFaint}>Unavailable</Micro>
-            ) : (
-              /*
-               * Filled, and it used to be outlined.
-               *
-               * An outlined button in the church's red on a cream card is the
-               * *quiet* tone from `Surface.tsx` — the one the app uses for "go
-               * back", "cancel", "all forms". Add to basket is the opposite kind
-               * of thing: it is the one action the whole screen exists to offer,
-               * and it was wearing the finish reserved for the ones that undo.
-               *
-               * The plus glyph is what makes it legible at this width. "Add
-               * another" is fifteen characters in a 160pt card and wrapped to two
-               * lines; the glyph plus a count says the same thing in a third of
-               * the room, and says it the way a basket does.
-               */
-              <Pressable
-                onPress={onAdd}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  inCart > 0 ? `Add another ${product.name}` : `Add ${product.name} to the basket`
-                }
-                style={({ pressed }) => ({
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: theme.space.xs,
-                  borderRadius: theme.radius.full,
-                  backgroundColor: pressed ? theme.color.accentStrong : theme.color.accent,
-                  // Below the 44pt minimum on purpose, and the only control in
-                  // the app that is: two of these sit in a row on a 390pt screen,
-                  // and at 44 the card is taller than the cover it is selling.
-                  // The card itself is the large target — this is the smaller,
-                  // more specific one inside it, which is the arrangement the
-                  // guideline is about rather than one it forbids.
-                  minHeight: 36,
-                })}
-              >
-                <Icon name="plus" color={theme.color.inkInverse} size={14} />
-                <Micro color={theme.color.inkInverse}>{inCart > 0 ? 'Another' : 'Add'}</Micro>
-              </Pressable>
-            )}
+          <View style={{ paddingHorizontal: theme.space.sm, paddingTop: theme.space.sm }}>
+            <Small numberOfLines={3}>{product.name}</Small>
           </View>
+        </Pressable>
+
+        {/*
+        The foot, pushed to the bottom so the prices line up across a row
+        whose titles are one, two and three lines long. `marginTop: 'auto'`
+        against the card's `flex: 1` is what does it.
+      */}
+        <View
+          style={{
+            marginTop: 'auto',
+            paddingHorizontal: theme.space.sm,
+            // The press target above ends at the last line of the title now
+            // that it has no padding of its own, so the gap under it is this.
+            paddingTop: theme.space.xs,
+            paddingBottom: theme.space.sm,
+            gap: theme.space.xs,
+          }}
+        >
+          {/*
+          The price stays even when the book does not: a sold-out title still
+          costs what it costs, and the flag on the cover is what says it is
+          gone.
+
+          `ink` and not `inkSoft`, and above the title's own weight rather
+          than below it. The price was the quietest line on the card, under a
+          three-line title and over a button — and the price is the second
+          thing anybody wants off a shelf, after which book it is. Softening
+          it was treating it as metadata.
+        */}
+          <Body color={theme.color.ink}>{money(product.amount, product.currency)}</Body>
+
+          {editing ? (
+            <ShelfStock product={product} pending={pending} />
+          ) : soldOut ? (
+            <Micro color={theme.color.inkFaint}>Unavailable</Micro>
+          ) : (
+            /*
+             * Filled, and it used to be outlined.
+             *
+             * An outlined button in the church's red on a cream card is the
+             * *quiet* tone from `Surface.tsx` — the one the app uses for "go
+             * back", "cancel", "all forms". Add to basket is the opposite kind
+             * of thing: it is the one action the whole screen exists to offer,
+             * and it was wearing the finish reserved for the ones that undo.
+             *
+             * The plus glyph is what makes it legible at this width. "Add
+             * another" is fifteen characters in a 160pt card and wrapped to two
+             * lines; the glyph plus a count says the same thing in a third of
+             * the room, and says it the way a basket does.
+             */
+            <Pressable
+              onPress={onAdd}
+              accessibilityRole="button"
+              accessibilityLabel={
+                inCart > 0 ? `Add another ${product.name}` : `Add ${product.name} to the basket`
+              }
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: theme.space.xs,
+                borderRadius: theme.radius.full,
+                backgroundColor: pressed ? theme.color.accentStrong : theme.color.accent,
+                // Below the 44pt minimum on purpose, and the only control in
+                // the app that is: two of these sit in a row on a 390pt screen,
+                // and at 44 the card is taller than the cover it is selling.
+                // The card itself is the large target — this is the smaller,
+                // more specific one inside it, which is the arrangement the
+                // guideline is about rather than one it forbids.
+                minHeight: 36,
+              })}
+            >
+              <Icon name="plus" color={theme.color.inkInverse} size={14} />
+              <Micro color={theme.color.inkInverse}>{inCart > 0 ? 'Another' : 'Add'}</Micro>
+            </Pressable>
+          )}
         </View>
       </View>
     </View>

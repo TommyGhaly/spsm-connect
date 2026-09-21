@@ -325,7 +325,12 @@ function BasketLines({
               })}
             >
               <View style={{ width: 40 }}>
-                <Cover slug={product.slug} fallback={product.images[0] ?? null} height={52} />
+                <Cover
+                  slug={product.slug}
+                  name={product.name}
+                  fallback={product.images[0] ?? null}
+                  height={52}
+                />
               </View>
               <View style={{ flex: 1 }}>
                 <Small numberOfLines={2}>{product.name}</Small>
@@ -357,7 +362,12 @@ function Line({
   return (
     <View style={{ flexDirection: 'row', gap: theme.space.sm, alignItems: 'flex-start' }}>
       <View style={{ width: 48 }}>
-        <Cover slug={product.slug} fallback={product.images[0] ?? null} height={64} />
+        <Cover
+          slug={product.slug}
+          name={product.name}
+          fallback={product.images[0] ?? null}
+          height={64}
+        />
       </View>
 
       <View style={{ flex: 1, gap: theme.space.xs }}>

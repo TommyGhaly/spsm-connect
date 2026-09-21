@@ -107,13 +107,13 @@ const SAVE_BAR_SPACE = 158;
 /**
  * How tall one plate of the loading shelf is.
  *
- * A real card, measured: `COVER_HEIGHT` is 168, and the padding, the title's
- * three possible lines, the price and the Add button come to the rest. It only
- * has to be close — the point is that the grid does not resize when the covers
- * land, and a plate a few points out is invisible against one that is not
- * there yet.
+ * A real card, measured: `COVER_HEIGHT` is 190, and the title's three possible
+ * lines, the price, the Add button and the footer's padding come to the hundred
+ * points under it. It only has to be close — the point is that the grid does
+ * not resize when the covers land, and a plate a few points out is invisible
+ * against one that is not there yet.
  */
-const SKELETON_CARD = 268;
+const SKELETON_CARD = 290;
 
 /**
  * The shop, and the held edits it may be carrying.
@@ -335,6 +335,15 @@ function Shelf({
    * The shelf's padding, and it reserves room for the basket bar whether or not
    * there is one.
    *
+   * No horizontal padding, and that is deliberate: the covers run to both edges
+   * of the screen. A grid of pictures inside a gutter is a grid with a frame
+   * drawn round it, and on a 390pt phone that frame costs two books most of a
+   * centimetre of cover each — the one thing on this screen anybody is actually
+   * looking at. The gutter has not been deleted so much as moved down a level:
+   * the header, the foot and the empty states carry it themselves, because a
+   * search field or a paragraph of small print flush to the bezel reads as a
+   * layout that has come apart rather than as a full-bleed shelf.
+   *
    * This was conditional — `+ 72` only once something was in the basket — which
    * is the tighter layout and was wrong. Changing a list's content padding makes
    * it re-measure, and the shelf visibly jumped down about a row the instant the
@@ -348,7 +357,7 @@ function Shelf({
    */
   const shelfPadding = useMemo(
     () => ({
-      padding: theme.space.gutter,
+      paddingTop: theme.space.gutter,
       /*
        * The save bar is taller than the basket bar — two lines of text and two
        * buttons — so edit mode reserves more. This *is* a padding change that
@@ -408,7 +417,13 @@ function Shelf({
    */
   const foot =
     settings.fulfilmentNote !== '' || settings.returnsNotice !== '' ? (
-      <View style={{ gap: theme.space.xs, paddingTop: theme.space.lg }}>
+      <View
+        style={{
+          gap: theme.space.xs,
+          paddingHorizontal: theme.space.gutter,
+          paddingTop: theme.space.lg,
+        }}
+      >
         {settings.fulfilmentNote !== '' ? (
           <Small color={theme.color.inkSoft}>{settings.fulfilmentNote}</Small>
         ) : null}
@@ -427,7 +442,17 @@ function Shelf({
   }, []);
 
   const header = (
-    <View style={{ gap: theme.space.md, paddingBottom: theme.space.md }}>
+    /* The gutter, now that the list has none. `PillRow` cancels it again with
+       its own negative margin so that the pills still run off both edges — it
+       was written against a padded list and this is the same measurement, just
+       taken one view further in. */
+    <View
+      style={{
+        gap: theme.space.md,
+        paddingHorizontal: theme.space.gutter,
+        paddingBottom: theme.space.md,
+      }}
+    >
       {canReview ? (
         <ShopAdminBar
           canEdit={canEdit}
@@ -502,11 +527,14 @@ function Shelf({
             }}
           />
         }
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <Book
             product={item}
             inCart={basket.cart[item.slug] ?? 0}
             editing={editing}
+            /* Which side of the seam this card is on. The column count lives
+               here, so the answer is worked out here too. */
+            atRightEdge={index % 2 === 1}
             onOpen={() => openDetail(item)}
             onAdd={() => basket.bump(item.slug, 1)}
           />
@@ -882,50 +910,59 @@ function Empty({
         style={{ flexDirection: 'row', flexWrap: 'wrap' }}
       >
         {[0, 1, 2, 3, 4, 5].map((plate) => (
-          <View key={plate} style={{ width: '50%', padding: theme.space.xs }}>
-            <View
-              style={{
-                height: SKELETON_CARD,
-                borderRadius: theme.radius.md,
-                backgroundColor: theme.color.paperSunken,
-                borderColor: theme.color.rule,
-                borderWidth: 1,
-              }}
-            />
-          </View>
+          /* The grid the covers will land in, down to the joins: no radius,
+             the seam down the middle drawn by the left-hand plate of each pair,
+             and `space.xs` under every plate. A plate laid out differently from
+             the card replacing it is the jump this whole component exists to
+             prevent, and four points is enough to see. */
+          <View
+            key={plate}
+            style={{
+              width: '50%',
+              height: SKELETON_CARD,
+              marginBottom: theme.space.xs,
+              backgroundColor: theme.color.paperSunken,
+              borderColor: theme.color.rule,
+              borderRightWidth: plate % 2 === 0 ? 1 : 0,
+            }}
+          />
         ))}
       </View>
     );
   }
 
   return (
-    <Card gap={theme.space.sm}>
-      <Label>{searching || filtered ? 'Nothing matching' : 'Nothing in the shop yet'}</Label>
-      <Heading>
-        {searching
-          ? 'No book here by that name'
-          : filtered
-            ? 'Nothing in this category'
-            : 'The shelves are empty'}
-      </Heading>
-      <Body color={theme.color.inkSoft}>
-        {searching || filtered
-          ? 'Try the whole shop, or ask at the bookstore table after Liturgy — not everything the church has is listed here.'
-          : 'Nothing has been put in the bookstore yet. It is worth looking again after Sunday.'}
-      </Body>
-      {searching || filtered ? (
-        <Pressable
-          onPress={onClear}
-          accessibilityRole="button"
-          style={{
-            paddingVertical: theme.space.xs,
-            minHeight: 44,
-            justifyContent: 'center',
-          }}
-        >
-          <Small color={theme.color.accent}>Show the whole shop</Small>
-        </Pressable>
-      ) : null}
-    </Card>
+    // Sentences rather than covers, so this takes the gutter back: a paragraph
+    // that starts at the bezel is a paragraph that looks cut off.
+    <View style={{ paddingHorizontal: theme.space.gutter }}>
+      <Card gap={theme.space.sm}>
+        <Label>{searching || filtered ? 'Nothing matching' : 'Nothing in the shop yet'}</Label>
+        <Heading>
+          {searching
+            ? 'No book here by that name'
+            : filtered
+              ? 'Nothing in this category'
+              : 'The shelves are empty'}
+        </Heading>
+        <Body color={theme.color.inkSoft}>
+          {searching || filtered
+            ? 'Try the whole shop, or ask at the bookstore table after Liturgy — not everything the church has is listed here.'
+            : 'Nothing has been put in the bookstore yet. It is worth looking again after Sunday.'}
+        </Body>
+        {searching || filtered ? (
+          <Pressable
+            onPress={onClear}
+            accessibilityRole="button"
+            style={{
+              paddingVertical: theme.space.xs,
+              minHeight: 44,
+              justifyContent: 'center',
+            }}
+          >
+            <Small color={theme.color.accent}>Show the whole shop</Small>
+          </Pressable>
+        ) : null}
+      </Card>
+    </View>
   );
 }

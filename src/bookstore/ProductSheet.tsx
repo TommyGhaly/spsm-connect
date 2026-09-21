@@ -269,26 +269,47 @@ function Gallery({ product, live }: { product: ShopProduct; live: boolean }) {
    * a plate never pushes the price and the Add button off the bottom of a small
    * phone. The sheet scrolls, but a shopper should not have to scroll to find
    * out what something costs.
+   *
+   * A cap on the height only. The width is the sheet's, all of it — see below.
    */
   const height = Math.min(320, Math.round(width * 0.8));
 
   const plate = (
     <Cover
       slug={product.slug}
+      name={product.name}
       index={at}
       fallback={images[at] ?? null}
       height={height}
-      radius={theme.radius.md}
+      /* Square, because it runs into the corners of the sheet now, and the
+         sheet has its own radius and clips to it. */
+      radius={0}
       /* The photograph on this plate is the one being judged while editing, so
          it has to be Square's own rather than the website's baked copy. */
       live={live}
     />
   );
 
-  if (images.length <= 1) return plate;
+  /*
+   * Out through the scroller's padding, so the picture is the full width of the
+   * sheet and sits flush under the title rather than inset on three sides.
+   *
+   * The negative margins are the whole of the trick, and they belong here
+   * rather than on `Sheet`: every other sheet in the app is text and controls,
+   * which want that padding. `space.md` is the scroller's horizontal padding
+   * and `space.sm` the top one it uses when a header is pinned, which this
+   * sheet always passes — so both numbers are read off `Fields.tsx` rather than
+   * chosen, and anything that stops being the first child here loses the top.
+   */
+  const bleed = {
+    marginHorizontal: -theme.space.md,
+    marginTop: -theme.space.sm,
+  } as const;
+
+  if (images.length <= 1) return <View style={bleed}>{plate}</View>;
 
   return (
-    <View style={{ gap: theme.space.sm }}>
+    <View style={{ ...bleed, gap: theme.space.sm }}>
       {plate}
 
       <View

@@ -64,7 +64,7 @@ import { Image } from 'expo-image';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { Icon } from '@/components/Icon';
+import { Body, Micro } from '@/components/Type';
 import { siteUrl } from '@/about/media';
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -87,6 +87,7 @@ function bakedUrl(slug: string, index: number): string {
 
 export function Cover({
   slug,
+  name,
   index = 0,
   fallback,
   height,
@@ -94,6 +95,8 @@ export function Cover({
   live = false,
 }: {
   slug: string;
+  /** The book's title, which is what stands in when it has no photograph. */
+  name: string;
   /** Which of the product's pictures this is. */
   index?: number;
   /** Square's own URL, or null for a product with no photograph yet. */
@@ -125,32 +128,22 @@ export function Cover({
   const source = live || failedFor === id ? fallback : bakedUrl(slug, index);
 
   /*
-   * A placeholder that is not a broken image.
+   * A book with no photograph, which is the website's `.cover--none` binding.
    *
-   * Reached two ways: a product with no photograph at all, and one whose baked
-   * copy is missing *and* which has no Square URL either. Both are ordinary —
-   * a title added in Square minutes ago and not yet photographed — so this is a
-   * sunken panel with the shop's own glyph rather than an error state. It is
-   * the same bag the tab bar uses, which is what makes it read as "something
-   * from the bookstore" rather than as something that failed.
+   * Reached two ways: a product with no picture at all, and one whose baked
+   * copy is missing *and* which has no Square URL either. Both are ordinary — a
+   * title added in Square minutes ago and not yet photographed.
+   *
+   * This used to be a sunken panel with the shop's bag glyph on it, and the
+   * website's own note on why that is wrong applies here word for word: a pale
+   * rectangle among photographs reads as a hole rather than as a book, and the
+   * glyph said nothing about *which* book was missing its picture. So it is a
+   * plain cloth binding instead — the parish's deep red, a gold spine down the
+   * outer edge, a gold rule stamped inside the boards, and the title set on it.
+   * Interleaved with the photographs it gives a shelf a rhythm instead of a gap,
+   * and it fixes itself the day somebody uploads the photograph.
    */
-  if (!source) {
-    return (
-      <View
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        style={{
-          height,
-          borderRadius: corner,
-          backgroundColor: theme.color.paperSunken,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Icon name="bag" color={theme.color.inkFaint} size={28} />
-      </View>
-    );
-  }
+  if (!source) return <Binding name={name} height={height} radius={corner} />;
 
   return (
     <Image
@@ -167,13 +160,22 @@ export function Cover({
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       /*
-       * `contain` and not `cover`, which is the one place this departs from the
-       * galleries. A gallery photograph is a rectangle of a scene and cropping
-       * it loses the edges; a book cover is an object with a title printed
-       * across the top, and cropping it to fill a square cuts the title off.
-       * The paper showing around a portrait cover is correct — it is a shelf.
+       * `cover`, and it was `contain`.
+       *
+       * The argument for `contain` was that a book cover has its title printed
+       * across the top and cropping it to fill a square can cut that off —
+       * true, and the price of avoiding it was a band of sunken paper around
+       * every picture that is not exactly the shape of its box. Ten of those in
+       * a grid is a catalogue with its photographs floating in trays, and the
+       * tray is what a shopper's eye lands on first.
+       *
+       * The church's covers are phone snaps taken square, so what the crop
+       * actually costs is a few points off the sides of the ones that are not.
+       * The picture is the tile now — full width, nothing around it, the title
+       * and the price underneath — and the whole of a cover is still one tap
+       * away on the plate in the book's own sheet.
        */
-      contentFit="contain"
+      contentFit="cover"
       /*
        * Covers change rarely, and disk caching is what keeps the shelf instant
        * on every visit after the first.
@@ -191,11 +193,97 @@ export function Cover({
       // the previous book's picture rather than showing it under the new title
       // until the new one decodes.
       recyclingKey={id}
+      // No backing colour. It was `paperSunken`, which is the band `contain`
+      // left around a picture; with `cover` there is nothing for it to fill but
+      // the 180ms before the picture decodes, and a grey tile that appears and
+      // disappears is the same tray arriving late.
+      style={{ height, borderRadius: corner }}
+    />
+  );
+}
+
+/**
+ * The plain cloth binding a book with no photograph gets.
+ *
+ * The website's `.cover--none` rule, carried over piece for piece: the deep
+ * ground, the gold spine on the outer edge, the gold rule stamped inside the
+ * boards, and the title centred on it. One component for every size it appears
+ * at — a shelf tile, the plate in a book's sheet, a 40-point thumbnail beside a
+ * basket line — because the website's is one rule for five contexts and only
+ * the sizes differ.
+ *
+ * ## What differs by size, and why it is measured rather than passed
+ *
+ * A 5-point spine on a 52-point basket thumbnail is a tenth of the book, which
+ * reads as a stripe rather than as a binding; the website drops it to 3 there.
+ * The title is the same argument — a serif at body size does not fit two words
+ * into a thumbnail, and `Micro` does. Both follow from the one number this
+ * already has, so neither is a prop: a caller that has to be told how big it is
+ * is a caller that can get it wrong.
+ *
+ * `goldSoft` for the title rather than the website's 80% mix of `gold` into
+ * cream, which is the same intent reached with a token this app already has.
+ * It is also the pairing the rest of the app uses for text on `deep` — the
+ * privacy screen and the giving verse both set it — and at micro size on a dark
+ * ground the brighter of the two golds is what keeps it readable.
+ */
+function Binding({ name, height, radius }: { name: string; height: number; radius: number }) {
+  const theme = useTheme();
+  const small = height < 100;
+  const Title = small ? Micro : Body;
+
+  return (
+    <View
+      /*
+       * Hidden from assistive technology like the photograph it stands in for,
+       * and here for a sharper reason: the text inside it *is* the title, and
+       * every caller draws that title again directly underneath or beside it.
+       * Announced, a book with no picture would read its own name twice.
+       */
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
       style={{
         height,
-        borderRadius: corner,
-        backgroundColor: theme.color.paperSunken,
+        borderRadius: radius,
+        overflow: 'hidden',
+        backgroundColor: theme.color.deep,
+        borderLeftWidth: small ? 3 : 5,
+        borderLeftColor: theme.color.gold,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: small ? theme.space.xs : theme.space.sm,
+        paddingVertical: small ? theme.space.xs : theme.space.md,
       }}
-    />
+    >
+      {/*
+        The rule stamped inside the boards. Its own view rather than a border on
+        the box above, because that box spends its left border on the spine —
+        and the rule has to sit inside the spine, not replace it.
+      */}
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          top: theme.space.xs,
+          bottom: theme.space.xs,
+          left: 0,
+          right: theme.space.xs,
+          borderWidth: 1,
+          borderColor: theme.color.gold,
+          /*
+           * 40%, as a whole-view opacity rather than a mixed colour. The view
+           * is nothing but its border, so the two come out the same — and this
+           * one does not need the colour-mixing helper the app does not have.
+           */
+          opacity: 0.4,
+        }}
+      />
+
+      {/* Clamped for the reason the card's own title is: Square's longest title
+          runs to five lines, and a binding is a fixed box. */}
+      <Title color={theme.color.goldSoft} align="center" numberOfLines={small ? 3 : 5}>
+        {name}
+      </Title>
+    </View>
   );
 }
