@@ -30,7 +30,7 @@ import type { SubmissionTarget } from '@spsm/shared';
 
 import { Close, Sheet } from '@/components/Fields';
 import { Icon } from '@/components/Icon';
-import { Body, Heading, Label, Micro, Small } from '@/components/Type';
+import { Heading, Label, Micro, Small } from '@/components/Type';
 import { useTheme } from '@/theme/ThemeProvider';
 
 import {
@@ -247,54 +247,112 @@ function SheetBody({
         <Pressable
           onPress={onRevert}
           accessibilityRole="button"
+          accessibilityLabel={
+            `Go back to ${destinationLabel(fallback)}, ` +
+            'which is what the church is collecting for'
+          }
+          /*
+            Tinted rather than outlined. This is an offer and not a field, and
+            an outlined box directly above an outlined list of ministries read
+            as the first row of that list — which is the one thing it must not
+            be, because pressing it files somewhere else entirely. A soft wash
+            of the accent and the arrow beside it say "back to" at a glance.
+          */
           style={({ pressed }) => ({
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: theme.space.sm,
             padding: theme.space.sm,
-            gap: 2,
             borderRadius: theme.radius.md,
-            borderWidth: 1,
-            borderColor: theme.color.rule,
-            backgroundColor: pressed ? theme.color.paperSunken : 'transparent',
+            backgroundColor: pressed ? theme.color.accentSoft : theme.color.paperSunken,
           })}
         >
-          <Label>The church is collecting for</Label>
-          <Body>{destinationLabel(fallback)}</Body>
-          <Micro color={theme.color.inkSoft}>Press to use that instead</Micro>
+          <Icon name="back" color={theme.color.accent} size={18} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Label color={theme.color.accent}>The church is collecting for</Label>
+            <Small numberOfLines={2}>{destinationLabel(fallback)}</Small>
+            <Micro color={theme.color.inkSoft}>Press to use that instead</Micro>
+          </View>
         </Pressable>
       ) : null}
 
       {programs === null ? (
-        <Body color={theme.color.inkSoft}>Reading the ministries…</Body>
+        <Small color={theme.color.inkSoft}>Reading the ministries…</Small>
       ) : programs.length === 0 ? (
-        <Body color={theme.color.inkSoft}>
+        <Small color={theme.color.inkSoft}>
           No ministry is collecting photographs at the moment.
-        </Body>
+        </Small>
       ) : (
-        programs.map((program) => (
-          <ProgramRow
-            key={program.id}
-            program={program}
-            expanded={expanded === program.id}
-            current={current}
-            onToggle={() => setExpanded(expanded === program.id ? null : program.id)}
-            onChoose={onChoose}
-          />
-        ))
+        /*
+          One card holding every ministry, rather than a dozen loose rows.
+          ----------------------------------------------------------------------
+          The rows used to sit directly in the scroller, which put the sheet's
+          own `space.md` between each of them: a column of unattached lines with
+          more gap than line, and nothing to say where one ministry's levels
+          ended and the next ministry began. Grouping them is what the rest of
+          the app does with a list of choices, and it is what makes an indent
+          mean "inside this" rather than "further right".
+
+          `overflow: hidden` so the pressed wash and the open ministry's own
+          shading stop at the rounded corners instead of squaring them off.
+        */
+        <View
+          style={{
+            borderRadius: theme.radius.md,
+            borderWidth: 1,
+            borderColor: theme.color.rule,
+            overflow: 'hidden',
+          }}
+        >
+          {programs.map((program, index) => (
+            <ProgramRow
+              key={program.id}
+              program={program}
+              expanded={expanded === program.id}
+              current={current}
+              last={index === programs.length - 1}
+              onToggle={() => setExpanded(expanded === program.id ? null : program.id)}
+              onChoose={onChoose}
+            />
+          ))}
+        </View>
       )}
     </>
   );
 }
 
-/** One ministry, and — once opened — everywhere inside it. */
+/**
+ * One ministry: a row that opens, and everywhere inside it once it has.
+ *
+ * ## What the row says when it is shut
+ *
+ * Which ministry it is, and — if the camera is pointed at something inside it —
+ * where exactly. That second line is the reason this is not just a heading: the
+ * common question at the pill is "am I still sending to the right day?", and
+ * before it existed the only way to answer it was to open the ministry and read
+ * down the list for the tick. A ministry that holds nothing current says
+ * nothing extra, so the line never becomes furniture.
+ *
+ * ## The chevron turns
+ *
+ * It did not, and a chevron that points the same way open and shut is a chevron
+ * that has stopped meaning anything. Half a turn, which is `DrawerContent`'s
+ * own disclosure and therefore the app's: one drawing, and the rotation is what
+ * says the row is a disclosure rather than a link to somewhere else.
+ */
 function ProgramRow({
   program,
   expanded,
   current,
+  last,
   onToggle,
   onChoose,
 }: {
   program: DestinationProgram;
   expanded: boolean;
   current: Destination | null;
+  /** The last ministry in the card, which keeps no rule under it. */
+  last: boolean;
   onToggle: () => void;
   onChoose: (destination: Destination) => void;
 }) {
@@ -321,43 +379,115 @@ function ProgramRow({
   const holdsCurrent = current?.programId === program.id;
 
   return (
-    <View style={{ gap: theme.space.xs }}>
+    <View>
       <Pressable
         onPress={onToggle}
         accessibilityRole="button"
         accessibilityState={{ expanded }}
+        accessibilityLabel={
+          holdsCurrent && current
+            ? `${program.name}, sending to ${current.nodeTitle ?? 'the ministry itself'}`
+            : program.name
+        }
         style={({ pressed }) => ({
           flexDirection: 'row',
           alignItems: 'center',
-          gap: theme.space.xs,
+          gap: theme.space.sm,
+          paddingHorizontal: theme.space.sm,
           paddingVertical: theme.space.xs,
-          backgroundColor: pressed ? theme.color.paperSunken : 'transparent',
-          borderRadius: theme.radius.sm,
+          // The same 46 the drawer's own disclosure row is. A list somebody
+          // scans with a thumb while holding a camera is not the place to go
+          // under it.
+          minHeight: 46,
+          /*
+           * Shaded while it is open, so the levels below plainly belong to it.
+           * This is the only thing tying a six-deep indent back to its parent
+           * once the parent has scrolled to the top of the sheet.
+           */
+          backgroundColor: pressed
+            ? theme.color.paperSunken
+            : expanded
+              ? theme.color.paperSunken
+              : 'transparent',
+          // Dropped under the last shut ministry, because the card's own border
+          // is already there and two lines a point apart is a thick line.
+          borderBottomWidth: last && !expanded ? 0 : 1,
+          borderBottomColor: theme.color.rule,
         })}
       >
-        <Icon
-          name="chevron"
-          color={holdsCurrent ? theme.color.accent : theme.color.inkFaint}
-          size={16}
-        />
-        <Label color={holdsCurrent ? theme.color.accent : undefined}>{program.name}</Label>
+        <View style={{ flex: 1, gap: 1 }}>
+          {/*
+            The UI face and sentence case, where this was an uppercase `Label`.
+            Uppercase micro is the app's *eyebrow* — the thing written above a
+            card to say what kind of card it is — and eleven of them stacked
+            read as eleven headings with no content rather than as the list of
+            choices they are.
+          */}
+          <Small numberOfLines={1}>{program.name}</Small>
+          {holdsCurrent && current ? (
+            <Micro color={theme.color.accent} numberOfLines={1}>
+              Sending to {current.nodeTitle ?? 'the ministry itself'}
+            </Micro>
+          ) : null}
+        </View>
+
+        {/* The tick that is on the chosen row inside, repeated on the closed
+            ministry that holds it. Hidden from assistive technology because the
+            row's own label says the same thing in words. */}
+        {holdsCurrent ? (
+          <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            <Icon name="check" color={theme.color.accent} size={16} />
+          </View>
+        ) : null}
+
+        <View style={{ transform: [{ rotate: expanded ? '180deg' : '0deg' }] }}>
+          <Icon name="chevron" color={theme.color.inkFaint} size={18} />
+        </View>
       </Pressable>
 
       {expanded ? (
-        targets === null ? (
-          <View style={{ paddingLeft: theme.space.md }}>
-            <Small color={theme.color.inkSoft}>Reading the levels…</Small>
+        <View
+          style={{
+            paddingVertical: theme.space.xs,
+            borderBottomWidth: last ? 0 : 1,
+            borderBottomColor: theme.color.rule,
+          }}
+        >
+          {/*
+            A rule down the left of the levels, and the levels themselves on
+            plain paper.
+            ------------------------------------------------------------------
+            The whole open block was shaded at first, which grouped it but made
+            a ministry with six years in it a slab of tint halfway down the
+            sheet — and left the chosen row, which is a *wash* of the accent,
+            competing with the shading instead of standing out of it. A single
+            line does the same job: everything to the right of it is inside the
+            ministry above, and the only filled thing in the card is the row
+            you have picked.
+          */}
+          <View
+            style={{
+              marginLeft: theme.space.sm,
+              borderLeftWidth: 2,
+              borderLeftColor: theme.color.rule,
+            }}
+          >
+            {targets === null ? (
+              <View style={{ paddingHorizontal: theme.space.md, paddingVertical: theme.space.xs }}>
+                <Small color={theme.color.inkSoft}>Reading the levels…</Small>
+              </View>
+            ) : (
+              targets.map(({ target, destination }) => (
+                <TargetRow
+                  key={target.id}
+                  target={target}
+                  chosen={sameDestination(current, destination)}
+                  onPress={() => onChoose(destination)}
+                />
+              ))
+            )}
           </View>
-        ) : (
-          targets.map(({ target, destination }) => (
-            <TargetRow
-              key={target.id}
-              target={target}
-              chosen={sameDestination(current, destination)}
-              onPress={() => onChoose(destination)}
-            />
-          ))
-        )
+        </View>
       ) : null}
     </View>
   );
@@ -369,9 +499,19 @@ function ProgramRow({
  * The ministry's own row comes back from `submissionTargets` at depth 0 and is
  * a real destination — filing on the ministry rather than on a level is a
  * documented state, and it is what a ministry with no levels yet offers. It is
- * labelled here rather than left to look like a duplicate of the heading above
- * it, because "Summercamp" appearing twice in a row with no explanation is
- * exactly the thing that makes somebody press the wrong one.
+ * marked here rather than left to look like a duplicate of the row above it,
+ * because "Summercamp" appearing twice with no explanation is exactly the thing
+ * that makes somebody press the wrong one. The mark is two words at the end of
+ * the line and not the sentence it used to be: "The ministry itself, not a
+ * level inside it", set under every such row, was longer than the rows it was
+ * explaining and made the top of every ministry look like a warning.
+ *
+ * ## The chosen row is filled, not coloured
+ *
+ * It was the title in the accent with a tick beside it, which on a sheet where
+ * the ministry's name is *also* in the accent left two red things and no way to
+ * tell which one you had picked. A washed bar reads as a selection at arm's
+ * length, which is the distance this is used from.
  */
 function TargetRow({
   target,
@@ -389,32 +529,52 @@ function TargetRow({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected: chosen }}
+      accessibilityLabel={
+        target.isProgram
+          ? `${target.title === '' ? 'Untitled' : target.title}, ` +
+            'the ministry itself rather than a level inside it'
+          : target.title === ''
+            ? 'Untitled'
+            : target.title
+      }
       style={({ pressed }) => ({
         flexDirection: 'row',
         alignItems: 'center',
         gap: theme.space.xs,
         minHeight: 44,
         paddingVertical: theme.space.xs,
-        paddingRight: theme.space.xs,
+        paddingRight: theme.space.sm,
         // One step of indent per level of the tree, from the depth the shared
         // flattener already worked out. `+1` so nothing sits under the
         // ministry's own pressable above.
-        paddingLeft: theme.space.md + target.depth * theme.space.md,
-        borderRadius: theme.radius.sm,
-        backgroundColor: pressed ? theme.color.paperSunken : 'transparent',
+        paddingLeft: theme.space.sm + target.depth * theme.space.md,
+        backgroundColor: chosen
+          ? theme.color.accentSoft
+          : pressed
+            ? theme.color.paperSunken
+            : 'transparent',
       })}
     >
-      <View style={{ width: 18 }}>
+      {/* Held open whether or not there is a tick in it, so the titles line up
+          down the column instead of shifting a glyph's width when one is
+          chosen. */}
+      <View style={{ width: 20, alignItems: 'center' }}>
         {chosen ? <Icon name="check" color={theme.color.accent} size={18} /> : null}
       </View>
-      <View style={{ flex: 1, gap: 1 }}>
-        <Body color={chosen ? theme.color.accent : undefined}>
+
+      <View style={{ flex: 1 }}>
+        <Small color={chosen ? theme.color.accent : undefined} numberOfLines={2}>
           {target.title === '' ? 'Untitled' : target.title}
-        </Body>
-        {target.isProgram ? (
-          <Micro color={theme.color.inkSoft}>The ministry itself, not a level inside it</Micro>
-        ) : null}
+        </Small>
       </View>
+
+      {/* At the end of the line rather than under it, and lowercase, so it
+          reads as a note on the row instead of a second row. */}
+      {target.isProgram ? (
+        <Micro color={theme.color.inkFaint} numberOfLines={1}>
+          whole ministry
+        </Micro>
+      ) : null}
     </Pressable>
   );
 }

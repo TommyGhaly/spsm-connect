@@ -143,6 +143,23 @@ export function CameraScreen() {
   const [flash, setFlash] = useState<FlashMode>('off');
   const [mode, setMode] = useState<CameraMode>('picture');
   const [zoom, setZoom] = useState(0);
+
+  /*
+   * The lenses this phone turns out to have, and which of them is in use.
+   *
+   * iOS only, and that is the platform's doing rather than a decision here:
+   * `selectedLens` picks a physical `AVCaptureDevice`, and expo-camera's
+   * Android side has no equivalent — its `zoom` is CameraX's zoom ratio with a
+   * floor of 1, so an Android ultra-wide cannot be reached through this API at
+   * all. The row simply does not appear there, which is also what happens on
+   * an iPhone with one camera. See `lensChoices`.
+   *
+   * `null` is "whatever the platform opens by default", which is the wide
+   * angle on every iPhone — a name is only ever held here for a lens the
+   * sender has actually asked for.
+   */
+  const [lenses, setLenses] = useState<string[]>([]);
+  const [lens, setLens] = useState<string | null>(null);
   const [autofocus, setAutofocus] = useState<'on' | 'off'>('on');
   const [focusAt, setFocusAt] = useState<{ x: number; y: number; at: number } | null>(null);
 
@@ -590,6 +607,17 @@ export function CameraScreen() {
   const flipCamera = useCallback(() => {
     if (runRef.current !== null) return;
     setFacing((current) => (current === 'back' ? 'front' : 'back'));
+    /*
+     * The other side of the phone has its own lenses — usually one — and the
+     * name held here belongs to the side being left. Dropped rather than
+     * carried: an unmatched name falls back to the default lens silently, so
+     * the row would go on showing 0.5× lit while the camera was at 1×.
+     *
+     * The list is emptied for the same reason and refills itself: the native
+     * side emits `onAvailableLensesChanged` whenever the device changes.
+     */
+    setLens(null);
+    setLenses([]);
   }, []);
 
   const handleTap = useCallback((x: number, y: number) => {
@@ -721,6 +749,16 @@ export function CameraScreen() {
           mode={mode}
           videoQuality={VIDEO_QUALITY}
           zoom={zoom}
+          /*
+           * Which physical lens, on iOS. `undefined` rather than `null` when
+           * nothing is chosen: the prop's native handler reads a missing value
+           * as "go back to the default device", which is the wide angle.
+           */
+          selectedLens={lens ?? undefined}
+          // Emitted when the session opens and whenever the device changes, so
+          // this is how the row finds out there is an ultra wide to offer. No
+          // Android equivalent; `lenses` simply stays empty there.
+          onAvailableLensesChanged={(event) => setLenses(event.lenses)}
           autofocus={autofocus}
           // The torch is the only thing "flash on" can mean while a movie is
           // recording; a strobe at the start of a clip is not a light.
@@ -750,9 +788,30 @@ export function CameraScreen() {
       */}
       <FocusRing key={focusAt?.at ?? 'none'} focusAt={focusAt} />
 
+      {/*
+        How far in the pinch has gone, and the way back out of it.
+        ------------------------------------------------------------------------
+        It was a label. Pinching in is easy and pinching all the way back out is
+        fiddly — two fingers, a couple of passes, on a phone somebody is holding
+        one-handed over a crowd — and until this was pressable the only reliable
+        way back to 1× was to leave the tab and return. The badge is already
+        where the eye goes to check the zoom, so it is where the finger should
+        be able to undo it.
+
+        Still an estimate, and honestly so: the factor a given `zoom` produces
+        depends on the lens's own maximum, which neither platform reports to
+        JavaScript — and the two do not even agree on the curve (iOS raises the
+        maximum to the power of `zoom`, Android multiplies by it). The number is
+        the app's own scale rather than the lens's, which is why the lens row
+        below is the only place an exact `0.5×` is claimed.
+      */}
       {zoom > 0.01 ? (
-        <View
-          style={{
+        <Pressable
+          onPress={() => setZoom(0)}
+          accessibilityRole="button"
+          accessibilityLabel="Zoomed in. Press to go back to the full picture."
+          hitSlop={theme.space.sm}
+          style={({ pressed }) => ({
             position: 'absolute',
             alignSelf: 'center',
             top: insets.top + 56,
@@ -760,11 +819,11 @@ export function CameraScreen() {
             paddingVertical: 2,
             borderRadius: theme.radius.full,
             backgroundColor: theme.color.deep,
-            opacity: 0.8,
-          }}
+            opacity: pressed ? 0.6 : 0.8,
+          })}
         >
           <Micro color={theme.color.inkInverse}>{`${(1 + zoom * 9).toFixed(1)}×`}</Micro>
-        </View>
+        </Pressable>
       ) : null}
 
       {/* -------------------------------------------------------------- */}
@@ -856,6 +915,23 @@ export function CameraScreen() {
           </View>
         ) : null}
 
+        <LensRow
+          lenses={lenses}
+          chosen={lens}
+          // Switching device reconfigures the session, which is the same
+          // hazard the flip button is greyed out for mid-recording.
+          disabled={recording}
+          onChoose={(next) => {
+            setLens(next);
+            /*
+             * Back to the new lens's own framing. Digital zoom carried across a
+             * switch is what makes "0.5×" arrive at 3× — the sender pressed the
+             * wide angle and got the opposite of one.
+             */
+            setZoom(0);
+          }}
+        />
+
         <DestinationBar
           destination={destination.destination}
           fallback={destination.fallback}
@@ -911,6 +987,168 @@ export function CameraScreen() {
 /* -------------------------------------------------------------------------- */
 /* The pieces                                                                  */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * One lens this phone actually has, as a pill.
+ *
+ * `name` is what goes to `selectedLens`, or null for the device the platform
+ * opens by itself.
+ */
+interface Lens {
+  label: string;
+  name: string | null;
+}
+
+/**
+ * Which lenses to offer, out of the names iOS hands back.
+ *
+ * ---------------------------------------------------------------------------
+ * ## What the platform gives us, which is not what the documentation implies
+ *
+ * The docs give `'builtInWideAngleCamera'` as the default for `selectedLens`,
+ * which reads like the prop takes `AVCaptureDevice.DeviceType` constants. It
+ * does not. `CameraSessionManager.updateDevice` matches on `localizedName` —
+ * "Back Ultra Wide Camera", "Back Camera", "Back Telephoto Camera", and the
+ * virtual combinations "Back Dual Wide Camera" and "Back Triple Camera" — and
+ * `getAvailableLenses` returns exactly those names, sorted. So the only way to
+ * tell an ultra wide from a telephoto here is to read the name.
+ *
+ * ## Which is localized, and what that costs
+ *
+ * `localizedName` is the user's language, so these patterns are English ones.
+ * A phone set to another language returns names none of them match, and the
+ * row then offers nothing rather than lighting the wrong pill — a sender on a
+ * Spanish phone keeps the camera they have always had, and the app does not
+ * claim a lens it cannot identify. Every word of this app's own interface is
+ * English, so this is a real edge and a narrow one.
+ *
+ * ## Why the virtual devices are skipped
+ *
+ * "Back Triple Camera" and "Back Dual Wide Camera" are the system's automatic
+ * switchers, and choosing one means the framing is decided by iOS rather than
+ * by the pill that was pressed — press 0.5× and get whatever the scene's light
+ * argues for. The pills here are a promise about the picture, so each one is a
+ * single physical lens.
+ *
+ * ## And why 1× has no name
+ *
+ * `null` is the device default, which is the wide angle on every iPhone with
+ * more than one camera. Naming it would mean picking "Back Camera" out of the
+ * list and hoping that is what it is — the default is the platform's own
+ * answer to the same question, and it is right on phones this code has never
+ * seen.
+ *
+ * The row is empty when there is nothing to choose between: one lens, one
+ * pill, and a control with a single option is furniture.
+ * ---------------------------------------------------------------------------
+ */
+function lensChoices(available: string[]): Lens[] {
+  const ultraWide = available.find((name) => /ultra\s*wide/i.test(name));
+  const telephoto = available.find((name) => /telephoto/i.test(name));
+
+  if (!ultraWide && !telephoto) return [];
+
+  return [
+    // 0.5× is the one number here that is exact rather than estimated: an
+    // iPhone's ultra wide is 13mm against the main camera's 24mm on every
+    // model that has one.
+    ...(ultraWide ? [{ label: '0.5×', name: ultraWide }] : []),
+    { label: '1×', name: null },
+    /*
+     * "Tele" and not a number, deliberately. The telephoto is 2×, 2.5×, 3×, 4×
+     * or 5× depending on the model, and nothing in this API says which — a pill
+     * reading "2×" on a phone whose telephoto is 5× is a lie told every time
+     * the camera is opened. The word is what the lens is.
+     */
+    ...(telephoto ? [{ label: 'Tele', name: telephoto }] : []),
+  ];
+}
+
+/**
+ * The lens pills, over the viewfinder and above the destination.
+ *
+ * Where every phone camera puts them, because that is where a thumb already
+ * goes looking. It is also the only *optical* control on this screen: the
+ * pinch is a crop of whatever lens is chosen, and pressing 0.5× is a different
+ * piece of glass rather than a wider crop of the same one.
+ */
+function LensRow({
+  lenses,
+  chosen,
+  disabled,
+  onChoose,
+}: {
+  lenses: string[];
+  chosen: string | null;
+  /** Mid-recording: switching device would reconfigure the session. */
+  disabled: boolean;
+  onChoose: (lens: string | null) => void;
+}) {
+  const theme = useTheme();
+  const choices = lensChoices(lenses);
+
+  if (choices.length === 0) return null;
+
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignSelf: 'center',
+        alignItems: 'center',
+        gap: 2,
+        padding: 3,
+        borderRadius: theme.radius.full,
+        backgroundColor: theme.color.deep,
+        opacity: disabled ? 0.4 : 0.9,
+      }}
+    >
+      {choices.map((choice) => {
+        const active = choice.name === chosen;
+
+        return (
+          <Pressable
+            key={choice.label}
+            onPress={() => onChoose(choice.name)}
+            disabled={disabled}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active, disabled }}
+            accessibilityLabel={
+              choice.name === null
+                ? 'The main camera'
+                : choice.label === '0.5×'
+                  ? 'The wide angle lens'
+                  : 'The telephoto lens'
+            }
+            style={({ pressed }) => ({
+              minWidth: 40,
+              height: 34,
+              paddingHorizontal: theme.space.xs,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: theme.radius.full,
+              /*
+                The chosen lens is the light one, which is the inverse of every
+                other selected thing in this app — and right here, because the
+                whole of this chrome is light-on-dark over a photograph. Filled
+                in the church's cream rather than its red: red on the deep scrim
+                is barely a change at arm's length in sunlight.
+              */
+              backgroundColor: active
+                ? theme.color.inkInverse
+                : pressed
+                  ? theme.color.deep
+                  : 'transparent',
+            })}
+          >
+            <Micro color={active ? theme.color.deep : theme.color.inkInverse}>
+              {choice.label}
+            </Micro>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
 
 /** A round control on the scrim. The two at the top corners are both this. */
 function Round({
