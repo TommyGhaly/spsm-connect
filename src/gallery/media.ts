@@ -19,7 +19,7 @@
  * emulator suite can set `EXPO_PUBLIC_STORAGE_ORIGIN` to the host's LAN address.
  * Unset — which is every real install — it is production, from shared.
  */
-import { FIREBASE_STORAGE_ORIGIN, posterUrlFor, videoUrlFor } from '@spsm/shared';
+import { FIREBASE_STORAGE_ORIGIN, mediaUrl, posterUrlFor, videoUrlFor } from '@spsm/shared';
 
 /** What `posterUrl`/`videoUrl` need of a document. Deliberately not `GalleryMedia`. */
 export interface MediaLike {
@@ -48,6 +48,35 @@ function origin(): string {
 /** What a grid cell shows: the photograph, or a video's poster frame. */
 export function posterUrl(media: MediaLike): string | null {
   return posterUrlFor(bucket(), media, origin());
+}
+
+/**
+ * Any world-readable object in the bucket, by its path.
+ *
+ * The website's `lib/storage.ts` under a shorter name, and it lives here rather
+ * than beside its caller for the reason this file's header gives: the bucket
+ * and the origin are answered in one place, and the last time they were not, a
+ * build pointed entirely at the emulators still fetched from the parish's real
+ * bucket. An event's `heroImagePath` is the caller that made this general —
+ * `posterUrl` above takes a gallery document and there is no document here,
+ * only a path somebody typed into `events/{slug}/`.
+ *
+ * Null rather than a broken URL when the path is empty or the bucket is unset:
+ * a missing photograph is a gap the page lays out around, and a broken image
+ * looks like a fault in the app.
+ *
+ * Only for prefixes `storage.rules` makes world-readable — `events/`,
+ * `clergy/`, `content/`, `products/`, `galleries/`. Pointed at `submissions/`
+ * it produces a URL that 403s, which is the quarantine working.
+ */
+export function storageUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+
+  const name = path.replace(/^\/+/, '');
+  const target = bucket();
+  if (!target || !name) return null;
+
+  return mediaUrl(target, name, origin());
 }
 
 /** The clip itself. Null for a photograph, or a video still being transcoded. */

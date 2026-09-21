@@ -19,6 +19,15 @@
  * in `@spsm/shared`, and this screen does not second-guess it. See the header of
  * `gallery/tree.ts` for why "newest first" is the wrong answer.
  *
+ * ## It also answers for the church's authored event pages
+ *
+ * `/events/christmas-festival` is not a ministry, it is a document in the
+ * `events` collection with a photograph and a description — the pages the Wix
+ * site kept one route each for. They share this stretch of the address space
+ * with the galleries on both surfaces, and until this route fell through to
+ * them, a link from the calendar to one landed on "No such gallery". See the
+ * lookup below, and `src/events/EventScreen.tsx`.
+ *
  * ## One read, not one per level
  *
  * The whole tree and one window of media come back in two queries, and every
@@ -43,6 +52,7 @@ import {
 } from '@spsm/shared';
 
 import { Rich } from '@/about/Rich';
+import { AdminFab } from '@/components/AdminFab';
 import { Card, Screen } from '@/components/Surface';
 import { Body, Label, Lede, Small, Title } from '@/components/Type';
 import { AddPictures } from '@/gallery/AddPictures';
@@ -55,6 +65,8 @@ import {
   shelfNote,
   type ShelfItem,
 } from '@/gallery/SubgroupShelf';
+import { EventScreen } from '@/events/EventScreen';
+import { getEventBySlug, type EventDoc } from '@/events/data';
 import {
   getProgram,
   getProgramNodes,
@@ -63,6 +75,10 @@ import {
   type NodeRow,
   type ProgramRow,
 } from '@/gallery/data';
+import { listLevelsForAdmin, type AdminNodeRow } from '@/gallery/adminData';
+import { LevelDetailsSheet, NewLevelSheet } from '@/gallery/LevelAdmin';
+import { mayAdminProgram, mayAdminProgramEvent } from '@/firebase/grants';
+import { useGrants } from '@/session/SessionProvider';
 import { useTheme } from '@/theme/ThemeProvider';
 
 /** What one successful pair of reads gives the screen. */
@@ -89,10 +105,12 @@ interface Level {
  */
 type State =
   | { for: string; kind: 'missing' }
+  | { for: string; kind: 'event'; event: EventDoc }
   | { for: string; kind: 'ready'; level: Level };
 
 export default function GalleryLevel() {
   const theme = useTheme();
+  const grants = useGrants();
   const { trail } = useLocalSearchParams<{ trail: string | string[] }>();
   const [state, setState] = useState<State | null>(null);
   /*
@@ -134,11 +152,49 @@ export default function GalleryLevel() {
       const program = await getProgram(programSlug);
       if (cancelled) return;
       if (!program) {
-        setState({ for: key, kind: 'missing' });
+        /*
+         * Not a ministry. It may still be one of the church's authored event
+         * pages — `/events/christmas-festival` — which live in the `events`
+         * collection and share this stretch of the address space with the
+         * galleries.
+         *
+         * The website resolves the same two the other way round: its
+         * `/events/[slug]` route is the event, and Hosting falls through to the
+         * gallery rewrite when nothing was exported at that path. The order is
+         * the cheap one on each surface and the answers agree, because a slug
+         * cannot be both — the website's editor checks that before it will
+         * create an event, and `generateStaticParams` de-duplicates what slips
+         * through.
+         *
+         * Only for a bare slug. `/events/summercamp/2026-week-1` with no such
+         * ministry is a gallery trail that did not resolve, and looking for an
+         * event called `summercamp` underneath it would answer a question
+         * nobody asked.
+         */
+        const event = rest.length === 0 ? await getEventBySlug(programSlug) : null;
+        if (cancelled) return;
+        setState(event ? { for: key, kind: 'event', event } : { for: key, kind: 'missing' });
         return;
       }
 
-      const tree = buildGalleryTree(await getProgramNodes(program.id));
+      /*
+       * An administrator reads a different tree from a visitor, and it is the
+       * same difference the website's shell makes: `getProgramNodes` filters on
+       * `published`, which it must — the rules judge a list by what it *could*
+       * return, so an unfiltered public query is denied outright — and that
+       * filter would hide the week somebody created a moment ago from the only
+       * person who can finish it. `listLevelsForAdmin` asks the wider question
+       * and falls back to the narrow one for anybody it is refused to, so the
+       * branch cannot lock a visitor out of the gallery.
+       *
+       * It also carries `published` and `endAt`, which the panel needs and the
+       * public reader has no use for.
+       */
+      const tree = buildGalleryTree(
+        mayAdminProgram(grants, program.id)
+          ? await listLevelsForAdmin(program.id)
+          : await getProgramNodes(program.id),
+      );
       if (cancelled) return;
 
       /*
@@ -170,7 +226,7 @@ export default function GalleryLevel() {
     // `segments` is memoised on `key`; listing the key keeps the dependency
     // honest without re-running on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, reload]);
+  }, [key, reload, grants]);
 
   // A result for a different trail is this trail's loading state. See `State`.
   if (state === null || state.for !== key) {
@@ -184,16 +240,28 @@ export default function GalleryLevel() {
     );
   }
 
+  if (state.kind === 'event') {
+    // The title comes from the event itself, inside `EventScreen`, because it
+    // changes as somebody edits it.
+    return <EventScreen event={state.event} />;
+  }
+
   if (state.kind === 'missing') {
     return (
       <>
         <Stack.Screen options={{ title: 'Not found' }} />
         <Screen>
           <Card>
-            <Label>No such gallery</Label>
+            {/* Two kinds of address land here now — a gallery trail that does
+                not resolve, and a bare slug that is neither a ministry nor one
+                of the church's event pages — so the words name both rather than
+                telling somebody who followed a link to a deleted festival that
+                their *gallery* has moved. */}
+            <Label>Nothing here</Label>
             <Body color={theme.color.inkSoft}>
-              This gallery has been moved or is no longer published. The church&rsquo;s photographs
-              are under Photos, and on the website.
+              There is no gallery or event at this address. It may have been moved or taken
+              down. The church&rsquo;s photographs are under Photos, and what it has coming up is
+              on the Calendar.
             </Body>
           </Card>
         </Screen>
@@ -206,7 +274,23 @@ export default function GalleryLevel() {
 
 function LevelView({ level, onChanged }: { level: Level; onChanged: () => void }) {
   const theme = useTheme();
+  const router = useRouter();
+  const grants = useGrants();
   const { program, tree, node, media } = level;
+
+  /*
+   * Whether to draw the pill, and the two different questions behind it.
+   *
+   * On a level it is `mayAdminProgramEvent`, which admits somebody granted that
+   * one gathering as well as somebody granted the whole ministry — the split
+   * `firestore.rules` makes on `/programEvents`. On the ministry's own page
+   * there is no level to be scoped to, so it is the ministry grant.
+   */
+  const mayEdit = node
+    ? mayAdminProgramEvent(grants, program.id, node.id)
+    : mayAdminProgram(grants, program.id);
+
+  const [editing, setEditing] = useState(false);
 
   const title = node?.title ?? program.name;
   const description = node?.description ?? program.description;
@@ -375,6 +459,61 @@ function LevelView({ level, onChanged }: { level: Level; onChanged: () => void }
         of camp, which is where most of the photographs are — are untouched.
       */}
       <SubgroupShelf legend={childLabel} items={shelf} />
+
+      {/*
+        "Edit this page", in the bottom-right corner, over everything.
+
+        Outside `Screen` for the same reason the shelf is: it must not scroll
+        with the gallery. See `EditPageButton` on why that corner and not
+        another.
+      */}
+      {mayEdit ? (
+        <AdminFab
+          label="Edit this page"
+          actions={[{ label: 'Edit this page', onPress: () => setEditing(true) }]}
+        />
+      ) : null}
+
+      {/*
+        What it opens depends on what this page *is*. A level has details of its
+        own — name, dates, visibility, removal — and the sheet carries "add
+        something inside" with them. The ministry's own page has no level
+        document to edit: its name and description are administered in the
+        directory's edit mode, where the website keeps them too, so the pill
+        here does the one thing that cannot be done from there.
+      */}
+      {mayEdit && editing && node ? (
+        <LevelDetailsSheet
+          // See the note on `listLevelsForAdmin` in the effect above: when
+          // `mayAdminProgram` is true the tree was read with the administrator's
+          // query, so every node genuinely carries `published` and `endAt`.
+          node={node as AdminNodeRow}
+          program={program}
+          open
+          onClose={() => setEditing(false)}
+          onChanged={onChanged}
+          onRemoved={() => {
+            setEditing(false);
+            // The page being read no longer exists, so staying on it would show
+            // a level that is gone. Up one, which is where its photographs went.
+            router.back();
+          }}
+        />
+      ) : null}
+
+      {mayEdit && editing && !node ? (
+        <NewLevelSheet
+          open
+          programId={program.id}
+          parentId={null}
+          parts={childLabel}
+          onClose={() => setEditing(false)}
+          onCreated={() => {
+            setEditing(false);
+            onChanged();
+          }}
+        />
+      ) : null}
     </>
   );
 }

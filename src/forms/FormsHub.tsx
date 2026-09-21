@@ -17,12 +17,20 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { Pressable, View } from 'react-native';
-import { builtInForms, type FormDefinition } from '@spsm/shared';
+import {
+  NO_PAYMENT,
+  builtInForms,
+  toFormSlug,
+  type FormDefinition,
+  type FormDraft,
+} from '@spsm/shared';
 
+import { Problem } from '@/components/Fields';
 import { Icon, isIconName } from '@/components/Icon';
 import { Screen } from '@/components/Surface';
 import { Body, Heading, Small } from '@/components/Type';
 import { useCampSignUpOpen } from '@/camp/useCampConfig';
+import { AdminFab } from '@/components/AdminFab';
 import { mayAdminScreen } from '@/firebase/grants';
 import { useGrants } from '@/session/SessionProvider';
 import { siteUrl } from '@/about/media';
@@ -30,6 +38,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 
 import { ManagedForms } from './admin/ManagedForms';
 import { formImageUrl, watchPublishedForms } from './data';
+import { writeForm } from './adminData';
 
 export interface HubCard {
   slug: string;
@@ -139,8 +148,34 @@ export function FormsHub() {
   const [managing, setManaging] = useState(false);
   const inManageMode = mayAdmin && managing;
 
+  /** A refused creation, from the pill. Cleared by the next attempt. */
+  const [problem, setProblem] = useState<string | null>(null);
+
+  /**
+   * Make an empty form and open the builder on it.
+   *
+   * Up here rather than in `ManagedForms`, which is where it used to live,
+   * because the control that calls it is up here now: the pill is an overlay
+   * and has to be a sibling of `Screen` rather than something inside its
+   * scroller. Nothing is lost by the move — this navigates away the moment it
+   * succeeds, and the managed list refreshes itself on focus when somebody
+   * comes back.
+   */
+  async function create() {
+    const id = `form-${Date.now().toString(36)}`;
+    setProblem(null);
+    try {
+      await writeForm(id, blankForm(id));
+    } catch (cause) {
+      setProblem(cause instanceof Error ? cause.message : 'That form could not be created.');
+      return;
+    }
+    router.push(`/forms/admin/${id}` as never);
+  }
+
   return (
-    <Screen>
+    <>
+      <Screen>
       {mayAdmin ? <ManagedForms managing={managing} onManaging={setManaging} /> : null}
 
       {inManageMode ? null : (
@@ -169,8 +204,84 @@ export function FormsHub() {
           </Small>
         </>
       )}
-    </Screen>
+      </Screen>
+
+      {/*
+        The office's controls, in the corner rather than across the top.
+
+        This tab is two audiences on one screen and the row of buttons was the
+        thing standing between them — it opened the hub, for everybody, on four
+        controls most people may not press. See `components/AdminFab`; the shop,
+        the ministry directory and every gallery page moved to the same corner
+        at the same time.
+
+        Outside `Screen`, because it is an overlay and must not scroll away.
+      */}
+      {mayAdmin ? (
+        <AdminFab
+          label={inManageMode ? 'Editing' : 'Manage'}
+          actions={
+            inManageMode
+              ? [
+                  { label: 'New form', onPress: () => void create() },
+                  { label: 'Import a form', onPress: () => router.push('/forms/admin/import' as never) },
+                  { label: 'Submissions', onPress: () => router.push('/forms/admin/submissions' as never) },
+                  { label: 'Stop editing', onPress: () => setManaging(false) },
+                ]
+              : [
+                  /*
+                   * Submissions is here in both modes, and first out of edit
+                   * mode, for the reason the shop puts Orders there: it is what
+                   * somebody opens this tab for on a Monday morning, and it has
+                   * nothing to do with managing the list.
+                   */
+                  { label: 'Submissions', onPress: () => router.push('/forms/admin/submissions' as never) },
+                  { label: 'Manage the forms', onPress: () => setManaging(true) },
+                ]
+          }
+        />
+      ) : null}
+
+      {/* A creation that was refused. The managed list has its own slot for its
+          own writes; this one belongs to the pill, which has nowhere to put a
+          sentence. */}
+      {problem ? (
+        <View
+          style={{
+            position: 'absolute',
+            left: theme.space.gutter,
+            right: theme.space.gutter,
+            bottom: theme.space.lg,
+          }}
+        >
+          <Problem>{problem}</Problem>
+        </View>
+      ) : null}
+    </>
   );
+}
+
+/** A new form, in the shape the builder expects. Matches the website's `blankForm`. */
+function blankForm(id: string): FormDraft {
+  return {
+    slug: toFormSlug(id),
+    title: 'New form',
+    blurb: '',
+    icon: 'file',
+    image: null,
+    order: 100,
+    published: false,
+    open: true,
+    closedMessage: null,
+    kind: 'native',
+    externalUrl: null,
+    pushesToTaksis: false,
+    fields: [],
+    payment: { ...NO_PAYMENT },
+    notifyEmails: [],
+    confirmationMessage: 'Thank you — the church office has your submission.',
+    confirmationEmailBody: '',
+  };
 }
 
 /**

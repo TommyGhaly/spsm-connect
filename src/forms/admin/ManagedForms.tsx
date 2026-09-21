@@ -43,12 +43,9 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Pressable, View } from 'react-native';
 import {
   DEFAULT_FORMS_PAGE_CONFIG,
-  NO_PAYMENT,
   isBuiltInForm,
   keepsNoSubmissions,
-  toFormSlug,
   type FormDefinition,
-  type FormDraft,
   type FormsPageConfig,
 } from '@spsm/shared';
 
@@ -65,9 +62,7 @@ import {
   setFormFlags,
   setFormOrder,
   setFormsPageConfig,
-  writeForm,
 } from '../adminData';
-import { ManageBar } from './ManageBar';
 
 const KIND_LABEL: Record<FormDefinition['kind'], string> = {
   native: 'built here',
@@ -123,6 +118,21 @@ export function ManagedForms({
   const [forms, setForms] = useState<WithId<FormDefinition>[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
+  /*
+   * Which delete is armed, *given that the mode is on*.
+   *
+   * Derived rather than cleared, and the difference matters twice. Leaving the
+   * mode has to disarm a confirmation — a "delete for good" left waiting behind
+   * a Done, until the next visit, is a press nobody would remember arming — and
+   * the bar used to do that in its own handler, because the bar owned the
+   * switch. The pill in the corner owns it now and lives on the hub, a
+   * component away.
+   *
+   * Syncing it back with an effect is what `react-hooks/set-state-in-effect`
+   * exists to catch, so the rule is written as a derivation instead: nothing is
+   * armed while the mode is off, whoever turned it off.
+   */
+  const armed = managing ? confirming : null;
 
   /*
    * The office's two settings, of which this draws one.
@@ -165,18 +175,6 @@ export function ManagedForms({
       void refresh();
     }, [refresh]),
   );
-
-  async function create() {
-    const id = `form-${Date.now().toString(36)}`;
-    try {
-      await writeForm(id, blankForm(id));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'That form could not be created.');
-      return;
-    }
-    await refresh();
-    router.push(`/forms/admin/${id}` as never);
-  }
 
   /**
    * Take the row at `from` out and put it back at `to`, then renumber.
@@ -244,27 +242,34 @@ export function ManagedForms({
 
   return (
     <>
-      <ManageBar
-        managing={managing}
-        onManaging={(next) => {
-          // Leaving the mode closes a confirmation with it. A "delete for good"
-          // left open behind a Done, waiting on the next visit, is a press
-          // nobody would remember arming.
-          if (!next) setConfirming(null);
-          onManaging(next);
-        }}
-        onSubmissions={() => router.push('/forms/admin/submissions' as never)}
-        onNewForm={() => void create()}
-        onImport={() => router.push('/forms/admin/import' as never)}
-      />
-
-      {/* The bar is drawn in both modes; everything below it belongs to the
-          mode. An error from a write is the exception — it is shown either way,
-          because a refused write is worth reading after a Done. */}
+      {/* Everything below belongs to the mode. An error from a write is the
+          exception — it is shown either way, because a refused write is worth
+          reading after a Done. */}
       {error ? <Problem>{error}</Problem> : null}
 
       {!managing ? null : (
         <>
+          {/*
+            Said once, here, rather than on every card: a fragment of this
+            sentence on each of seven cards reads as seven repetitions of a
+            warning.
+
+            It is the one part of the old `ManageBar` that stayed on the page
+            when the controls moved to the pill in the corner — it is guidance
+            about the cards below it, not a control, and an action sheet is the
+            wrong place for a paragraph nobody asked to see.
+
+            The thing worth saying is that nothing here waits for a Save. Every
+            control on a card is one field on one document, written as it is
+            pressed, which is the opposite of the shop — where counts and
+            categories queue behind the Save bar. A volunteer who has used both
+            should be told which one they are in.
+          */}
+          <Micro color={theme.color.inkFaint}>
+            Every tick here saves as you press it. Drag a form by its handle to change the
+            order on this page. Tap a form to edit its questions, title and picture.
+          </Micro>
+
           {forms === null ? <Body color={theme.color.inkSoft}>Loading…</Body> : null}
           {forms !== null && forms.length === 0 ? (
             <Body color={theme.color.inkSoft}>No forms yet.</Body>
@@ -410,7 +415,7 @@ export function ManagedForms({
                     happened, and somebody reaching for Delete usually wants
                     Unpublish.
                   */}
-                  {confirming === form.id ? (
+                  {armed === form.id ? (
                     <Card gap={theme.space.sm}>
                       <Label>DELETE {form.title.toUpperCase()}?</Label>
                       <Small color={theme.color.inkSoft}>
@@ -493,27 +498,4 @@ function ManagedPlate({
       </View>
     </Pressable>
   );
-}
-
-/** A new form, in the shape the builder expects. Matches the website's `blankForm`. */
-function blankForm(id: string): FormDraft {
-  return {
-    slug: toFormSlug(id),
-    title: 'New form',
-    blurb: '',
-    icon: 'file',
-    image: null,
-    order: 100,
-    published: false,
-    open: true,
-    closedMessage: null,
-    kind: 'native',
-    externalUrl: null,
-    pushesToTaksis: false,
-    fields: [],
-    payment: { ...NO_PAYMENT },
-    notifyEmails: [],
-    confirmationMessage: 'Thank you — the church office has your submission.',
-    confirmationEmailBody: '',
-  };
 }

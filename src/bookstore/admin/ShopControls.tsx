@@ -28,33 +28,15 @@
  */
 import { View } from 'react-native';
 
-import { Button } from '@/components/Surface';
 import { Micro } from '@/components/Type';
 import { useTheme } from '@/theme/ThemeProvider';
 
-export function ShopAdminBar({
-  canEdit,
-  editing,
-  onEditing,
-  onOrders,
-  onMetrics,
-  onAddBook,
-  onCategories,
-}: {
-  canEdit: boolean;
-  editing: boolean;
-  onEditing: (next: boolean) => void;
-  onOrders: () => void;
-  onMetrics: () => void;
-  onAddBook: () => void;
-  onCategories: () => void;
-}) {
+export function ShopEditingNote() {
   const theme = useTheme();
 
   return (
     <View
       style={{
-        gap: theme.space.sm,
         padding: theme.space.sm,
         borderRadius: theme.radius.sm,
         borderWidth: 1,
@@ -62,47 +44,22 @@ export function ShopAdminBar({
         backgroundColor: theme.color.paperSunken,
       }}
     >
-      <View style={{ flexDirection: 'row', gap: theme.space.sm }}>
-        <View style={{ flex: 1 }}>
-          <Button label="Orders" tone="quiet" onPress={onOrders} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Button label="Figures" tone="quiet" onPress={onMetrics} />
-        </View>
-        {canEdit ? (
-          <View style={{ flex: 1 }}>
-            <Button
-              label={editing ? 'Done' : 'Edit shop'}
-              tone={editing ? 'primary' : 'quiet'}
-              onPress={() => onEditing(!editing)}
-            />
-          </View>
-        ) : null}
-      </View>
+      {/*
+        What is left of `ShopAdminBar` once its buttons moved to the pill in the
+        bottom-right corner — see `components/AdminFab`. The sentence stays on
+        the page because it is guidance about the cards below it rather than a
+        control, and because it is only true while somebody is editing: an
+        action sheet is the wrong place for a paragraph nobody asked to read.
 
-      {editing ? (
-        <>
-          <View style={{ flexDirection: 'row', gap: theme.space.sm }}>
-            <View style={{ flex: 1 }}>
-              <Button label="Add a book" tone="quiet" onPress={onAddBook} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Button label="Categories" tone="quiet" onPress={onCategories} />
-            </View>
-          </View>
-
-          {/*
-            Said once, here, rather than on every card: which controls wait for
-            Save and which do not. The website's cards each carried a fragment
-            of this sentence and it read as eleven repetitions of a warning.
-          */}
-          <Micro color={theme.color.inkFaint}>
-            Counts, categories and pictures wait for the Save bar. Adding a book, removing
-            one, and the categories themselves happen straight away. Tap a book for its
-            title, price, description and pictures.
-          </Micro>
-        </>
-      ) : null}
+        Said once, here, rather than on every card: which controls wait for Save
+        and which do not. The website's cards each carried a fragment of it and
+        that read as eleven repetitions of a warning.
+      */}
+      <Micro color={theme.color.inkFaint}>
+        Counts, categories and pictures wait for the Save bar. Adding a book, removing
+        one, and the categories themselves happen straight away. Tap a book for its
+        title, price, description and pictures.
+      </Micro>
     </View>
   );
 }

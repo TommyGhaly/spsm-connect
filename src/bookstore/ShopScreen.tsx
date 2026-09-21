@@ -61,7 +61,8 @@ import { Book } from './Book';
 import { ProductSheet } from './ProductSheet';
 import { AddProduct } from './admin/AddProduct';
 import { CategoryEditor } from './admin/CategoryEditor';
-import { ShopAdminBar } from './admin/ShopControls';
+import { AdminFab } from '@/components/AdminFab';
+import { ShopEditingNote } from './admin/ShopControls';
 import { PendingEditsProvider, SaveBar, usePendingEdits } from './admin/pendingEdits';
 import { useBookstoreAdmin } from './admin/session';
 import { useCart } from './cart';
@@ -453,17 +454,10 @@ function Shelf({
         paddingBottom: theme.space.md,
       }}
     >
-      {canReview ? (
-        <ShopAdminBar
-          canEdit={canEdit}
-          editing={editing}
-          onEditing={onEditing}
-          onOrders={() => router.push('/bookstore/orders' as never)}
-          onMetrics={() => router.push('/bookstore/metrics' as never)}
-          onAddBook={() => setAdding(true)}
-          onCategories={() => setCategories(true)}
-        />
-      ) : null}
+      {/* The controls moved to the pill in the bottom-right corner; what is
+          left on the page is the sentence about which of them wait for Save,
+          and only while somebody is editing. See `AdminFab` below. */}
+      {canReview && editing ? <ShopEditingNote /> : null}
 
       {/* What the last Save came back with. One notice above the shelf rather
           than an error slot on every card — eleven cards with eleven slots is
@@ -556,6 +550,53 @@ function Shelf({
           count={basket.count}
           subtotal={basket.subtotal}
           onPress={() => setBasketOpen(true)}
+        />
+      ) : null}
+
+      {/*
+        The office's controls, in the corner rather than across the top of the
+        shelf — the same move the forms hub, the ministry directory and every
+        gallery page made. A visitor used to scroll past "Orders · Figures ·
+        Edit shop" to reach the books.
+
+        Lifted clear of whichever bar is along the bottom, because those are
+        overlays too and they share this corner. The two constants are the same
+        ones the shelf's own bottom padding is worked out from, so the pill sits
+        exactly one bar's height up rather than at a number chosen by eye.
+      */}
+      {canReview ? (
+        <AdminFab
+          label={editing ? 'Editing' : 'Manage'}
+          raisedBy={
+            held.count > 0
+              ? SAVE_BAR_SPACE
+              : basket.count > 0
+                ? BASKET_BAR_SPACE
+                : 0
+          }
+          actions={
+            editing
+              ? [
+                  { label: 'Add a book', onPress: () => setAdding(true) },
+                  { label: 'Categories', onPress: () => setCategories(true) },
+                  { label: 'Orders', onPress: () => router.push('/bookstore/orders' as never) },
+                  { label: 'Figures', onPress: () => router.push('/bookstore/metrics' as never) },
+                  { label: 'Stop editing', onPress: () => onEditing(false) },
+                ]
+              : [
+                  /*
+                   * Orders first, because it is what somebody opens this tab
+                   * for on a Monday morning and it has nothing to do with
+                   * editing the shop.
+                   */
+                  { label: 'Orders', onPress: () => router.push('/bookstore/orders' as never) },
+                  { label: 'Figures', onPress: () => router.push('/bookstore/metrics' as never) },
+                  // Only the people the rules will let write see the way in.
+                  ...(canEdit
+                    ? [{ label: 'Edit the shop', onPress: () => onEditing(true) }]
+                    : []),
+                ]
+          }
         />
       ) : null}
 

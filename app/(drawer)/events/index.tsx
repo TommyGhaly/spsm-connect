@@ -19,19 +19,32 @@
  * for the same ministry on the same day.
  */
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable } from 'react-native';
-import { hasRenderableFile } from '@spsm/shared';
+import { useCallback, useEffect, useState } from 'react';
+import { Pressable, View } from 'react-native';
+import { hasRenderableFile, isSuperadmin } from '@spsm/shared';
 
+import { AdminFab } from '@/components/AdminFab';
 import { Card, Screen } from '@/components/Surface';
 import { Body, Label, Lede, Small, Title } from '@/components/Type';
 import { NoPictures, Picture } from '@/gallery/Picture';
+import {
+  NewProgramSheet,
+  NoMinistriesYet,
+  ProgramDetailsSheet,
+  TileControls,
+} from '@/gallery/ProgramAdmin';
+import {
+  listProgramsForAdmin,
+  reorderPrograms,
+  type AdminProgramRow,
+} from '@/gallery/adminData';
 import {
   getProgramMedia,
   listPrograms,
   type MediaRow,
   type ProgramRow,
 } from '@/gallery/data';
+import { useGrants } from '@/session/SessionProvider';
 import { useTheme } from '@/theme/ThemeProvider';
 
 /**
@@ -52,15 +65,40 @@ interface Tile {
 }
 
 export default function Directory() {
-  const theme = useTheme();
+  const grants = useGrants();
   const [tiles, setTiles] = useState<Tile[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [reload, setReload] = useState(0);
+
+  /*
+   * Editing the ministries is the superadmin's and nobody else's, which is not
+   * this screen's opinion — it is `allow create, delete: if isSuper()` on
+   * /programs, and it is the same gate the website puts on the same page
+   * (`EditModeProvider allowed={admin.canManagePrograms}`). A program lead edits
+   * the ministry they were given from its own page, where the rule that admits
+   * them is `adminsProgram(programId)`.
+   */
+  const mayManage = isSuperadmin(grants.claims);
+  const [editing, setEditing] = useState(false);
+  const [adding, setAdding] = useState(false);
+  /** Which ministry's details are open, by id. */
+  const [chosen, setChosen] = useState<string | null>(null);
+
+  const again = useCallback(() => setReload((count) => count + 1), []);
+
+  /*
+   * `editing &&`, not `mayManage &&`: the mode is what takes the page away from
+   * the reading view, so leaving it must put every draft back out of sight. It
+   * also means a superadmin browsing the section sees exactly what the parish
+   * sees until they ask not to.
+   */
+  const asAdmin = mayManage && editing;
 
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
-      const programs = await listPrograms();
+      const programs = asAdmin ? await listProgramsForAdmin() : await listPrograms();
       if (cancelled) return;
 
       if (programs.length === 0) {
@@ -95,50 +133,201 @@ export default function Directory() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [asAdmin, reload]);
+
+  return (
+    <>
+      <Screen>
+      <Ministries
+        tiles={tiles}
+        failed={failed}
+        editing={asAdmin}
+        onEdit={setChosen}
+        onReordered={again}
+      />
+
+      {asAdmin ? (
+        <NewProgramSheet
+          open={adding}
+          onClose={() => setAdding(false)}
+          nextOrder={(tiles?.length ?? 0) + 1}
+          onCreated={() => {
+            setAdding(false);
+            again();
+          }}
+        />
+      ) : null}
+
+      {/*
+        Mounted from the chosen id rather than kept as a copy of the row, so the
+        sheet is rebuilt against the re-read after every write and cannot show a
+        name the document no longer has.
+      */}
+      {asAdmin && chosen
+        ? (() => {
+            const program = adminProgramsOf(tiles).find((one) => one.id === chosen);
+            if (!program) return null;
+
+            return (
+              <ProgramDetailsSheet
+                key={program.id}
+                program={program}
+                open
+                onClose={() => setChosen(null)}
+                onChanged={again}
+                onRemoved={() => {
+                  setChosen(null);
+                  again();
+                }}
+              />
+            );
+          })()
+        : null}
+      </Screen>
+
+      {/*
+        The way in, in the corner, rather than a bar across the top of the page.
+
+        Outside `Screen` because it is an overlay: it must not scroll with the
+        ministries, and a control somebody has to scroll to find is a control
+        they do not find. Absent entirely for everybody else — including a
+        program lead, who has no business with the *list* of ministries; they
+        edit the one they were given from its own page.
+      */}
+      {mayManage ? (
+        <AdminFab
+          label={editing ? 'Editing' : 'Manage'}
+          note={
+            editing
+              ? 'Hidden ministries are listed here too, marked. Each one’s own page is where its gatherings and photographs are arranged.'
+              : undefined
+          }
+          actions={
+            editing
+              ? [
+                  { label: 'Add a ministry', onPress: () => setAdding(true) },
+                  { label: 'Stop editing', onPress: () => setEditing(false) },
+                ]
+              : [{ label: 'Edit the ministries', onPress: () => setEditing(true) }]
+          }
+        />
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * The tiles' programs as administrator rows.
+ *
+ * A cast in one place with a reason written on it, rather than a second piece
+ * of state holding the same list twice. When `asAdmin` is true the read above
+ * was `listProgramsForAdmin`, so every row genuinely carries `published` and
+ * `order`; nothing outside that branch calls this.
+ */
+function adminProgramsOf(tiles: Tile[] | null): AdminProgramRow[] {
+  return (tiles ?? []).map((tile) => tile.program as AdminProgramRow);
+}
+
+/**
+ * The ministries, or the sentence that stands in for them.
+ *
+ * Split out of `Directory` when the admin strip arrived, and only for that: the
+ * four outcomes below used to be four `return`s with a `Screen` each, which
+ * meant anything that had to be on the page in *all* of them had to be written
+ * four times. Nothing about what any one of them draws has changed.
+ */
+function Ministries({
+  tiles,
+  failed,
+  editing,
+  onEdit,
+  onReordered,
+}: {
+  tiles: Tile[] | null;
+  failed: boolean;
+  editing: boolean;
+  onEdit: (programId: string) => void;
+  onReordered: () => void;
+}) {
+  const theme = useTheme();
+
+  /**
+   * Move one ministry a place, and write the whole order.
+   *
+   * Optimistic about nothing: the list is re-read when the batch lands, so a
+   * refused write leaves the order as the parish's document has it rather than
+   * as the press suggested. Five tiles is fast enough that the round trip reads
+   * as the press taking effect.
+   */
+  async function move(index: number, by: -1 | 1) {
+    const programs = (tiles ?? []).map((tile) => tile.program as AdminProgramRow);
+    const to = index + by;
+    if (to < 0 || to >= programs.length) return;
+
+    const next = [...programs];
+    const [moved] = next.splice(index, 1);
+    if (!moved) return;
+    next.splice(to, 0, moved);
+
+    try {
+      await reorderPrograms(next);
+    } catch (error) {
+      console.error('[programs] could not write the new order:', error);
+    } finally {
+      onReordered();
+    }
+  }
 
   if (failed) {
     return (
-      <Screen>
-        <Card>
-          <Label>Not loaded</Label>
-          <Body color={theme.color.inkSoft}>
-            The church&rsquo;s photographs could not be fetched. They are on the website, and this
-            screen will show them again when the connection is back.
-          </Body>
-        </Card>
-      </Screen>
+      <Card>
+        <Label>Not loaded</Label>
+        <Body color={theme.color.inkSoft}>
+          The church&rsquo;s photographs could not be fetched. They are on the website, and this
+          screen will show them again when the connection is back.
+        </Body>
+      </Card>
     );
   }
 
   if (tiles === null) {
-    return (
-      <Screen>
-        <Lede color={theme.color.inkSoft}>Finding our ministries…</Lede>
-      </Screen>
-    );
+    return <Lede color={theme.color.inkSoft}>Finding our ministries…</Lede>;
   }
 
   if (tiles.length === 0) {
     return (
-      <Screen>
-        <Card>
-          <Label>Nothing yet</Label>
-          <Body color={theme.color.inkSoft}>
-            Nothing has been published here yet.
-          </Body>
-        </Card>
-      </Screen>
+      <Card>
+        <Label>Nothing yet</Label>
+        {/* Two different facts, and the words follow which one it is: a visitor
+            is told the church has published nothing, an administrator in edit
+            mode is told there is nothing at all and how to change that. */}
+        {editing ? (
+          <NoMinistriesYet />
+        ) : (
+          <Body color={theme.color.inkSoft}>Nothing has been published here yet.</Body>
+        )}
+      </Card>
     );
   }
 
   return (
-    <Screen>
+    <>
       <Title>Our activities</Title>
-      {tiles.map((tile) => (
-        <ProgramTile key={tile.program.id} tile={tile} />
+      {tiles.map((tile, index) => (
+        <View key={tile.program.id} style={{ gap: theme.space.xs }}>
+          <ProgramTile tile={tile} />
+          {editing ? (
+            <TileControls
+              program={tile.program as AdminProgramRow}
+              first={index === 0}
+              last={index === tiles.length - 1}
+              onEdit={() => onEdit(tile.program.id)}
+              onMove={(by) => void move(index, by)}
+            />
+          ) : null}
+        </View>
       ))}
-    </Screen>
+    </>
   );
 }
 
