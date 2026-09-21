@@ -39,12 +39,20 @@
  *
  * ## The badge
  *
- * Cleared when the tray is opened, and only for as long as the app is running.
- * Not persisted, and that is a decision rather than a shortcut: the source is a
- * singleton the announcements project overwrites every week (see the header of
- * `schema/bulletin.ts`), so a stored "seen" set would be keyed on ids that
- * silently become another week's. A badge that is wrong on a Sunday morning is
- * worse than a badge that comes back after a relaunch.
+ * **Gold, always.** It used to go grey once the tray had been opened — a
+ * read/unread distinction carried in `seen`, which lived for as long as the app
+ * was running and no longer. It is gone at Tommy's direction: the badge was grey
+ * for most of any given session, and grey on the header's dark red is the one
+ * thing a badge must not be, which is hard to see. Gold is the chrome's
+ * documented second colour and the only one that clears 4.5:1 against `deep`.
+ *
+ * Nothing is lost with it. The count was never a count of *unread* notices — it
+ * has always been how many the week has, and three notices do not stop being
+ * three once they have been read — so the colour was answering a question the
+ * number was not asking. The state it needed was never persisted either, for a
+ * reason worth keeping on file: the source is a singleton the announcements
+ * project overwrites every week (see the header of `schema/bulletin.ts`), so a
+ * stored "seen" set would be keyed on ids that silently become another week's.
  */
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -101,7 +109,6 @@ export function AnnouncementsButton() {
   const { notices, weekLabel } = useBulletin();
 
   const [open, setOpen] = useState(false);
-  const [seen, setSeen] = useState(false);
 
   /*
    * Where the panel hangs from, in window coordinates.
@@ -142,7 +149,6 @@ export function AnnouncementsButton() {
 
   const show = useCallback(() => {
     setOpen(true);
-    setSeen(true);
 
     bell?.measureInWindow((x, y, width, height) => {
       // A view that has not been laid out measures as zeroes, or as NaN on
@@ -249,7 +255,6 @@ export function AnnouncementsButton() {
   const maxPanelHeight = Math.max(160, windowHeight - anchor.top - insets.bottom - inset);
 
   const count = notices.length;
-  const unread = count > 0 && !seen;
 
   return (
     <>
@@ -288,7 +293,7 @@ export function AnnouncementsButton() {
             <HeaderCapsule pressed={pressed}>
               <Icon name="bell" size={GLYPH} color={headerGlyphColor(theme)} />
             </HeaderCapsule>
-            {count > 0 ? <Badge count={count} unread={unread} /> : null}
+            {count > 0 ? <Badge count={count} /> : null}
           </View>
         )}
       </Pressable>
@@ -372,12 +377,10 @@ export function AnnouncementsButton() {
  * is the chrome's documented second colour and clears 4.5:1 against `deep` —
  * the theme's own note on `deep` says the pairing is what sets its ceiling.
  *
- * `unread` only changes the colour, never whether the number is there. The
- * count is a fact about the week — three notices do not stop being three once
- * they have been read — so dropping the badge on open would be answering a
- * different question than the one the bell asks.
+ * One colour, not two. See the header: the grey it used to turn once the tray
+ * had been opened is gone, because it failed the same test gold passes.
  */
-function Badge({ count, unread }: { count: number; unread: boolean }) {
+function Badge({ count }: { count: number }) {
   const theme = useTheme();
 
   /*
@@ -411,13 +414,13 @@ function Badge({ count, unread }: { count: number; unread: boolean }) {
         borderRadius: Math.min(theme.radius.full, size / 2),
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: unread ? theme.color.gold : theme.color.inkSoft,
+        backgroundColor: theme.color.gold,
         // Separates the badge from the bell's own stroke where they touch.
         borderWidth: 1,
         borderColor: theme.color.deep,
       }}
     >
-      <Micro color={unread ? theme.color.deep : theme.color.inkInverse}>
+      <Micro color={theme.color.deep}>
         {count > 9 ? '9+' : String(count)}
       </Micro>
     </View>
