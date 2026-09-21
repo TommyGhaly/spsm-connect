@@ -20,22 +20,25 @@
  *
  * ## Cards, stacked, rather than a grid of tiles
  *
- * Each card is an icon, a name, a sentence and two full-width buttons. Two of
+ * Each card is an icon, a name, a sentence and the two store badges. Two of
  * those side by side on a phone are two columns of mostly air. Stacked, each
- * reads as a paragraph with a button in it, which is what it is.
+ * reads as a paragraph with a pair of buttons in it, which is what it is.
  *
  * Everything here is static: the list is a literal in `stores.ts`, there is no
- * network call, and the only thing fetched is the two icons.
+ * network call, and the only thing fetched is the two app icons. The store
+ * badges are in the binary — `components/StoreBadges.tsx` says why the rule
+ * about fetching the website's pictures does not cover them.
  * ---------------------------------------------------------------------------
  */
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { Linking, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import type { ReactNode } from 'react';
 
 import { siteUrl } from '@/about/media';
 import { Icon } from '@/components/Icon';
-import { Button, Card, Screen } from '@/components/Surface';
+import { StoreBadges } from '@/components/StoreBadges';
+import { Card, Screen } from '@/components/Surface';
 import { Body, Label, Lede, Small, Subheading, Title } from '@/components/Type';
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -79,8 +82,8 @@ export function AppsScreen({ footer }: { footer?: ReactNode } = {}) {
       </View>
 
       {/* Both stores are offered on both platforms, as on the website, and this
-          says why rather than leaving an iPhone reader wondering what the second
-          button is for: somebody holding an iPhone is quite often the person
+          says why rather than leaving an iPhone reader wondering what the Play
+          badge is for: somebody holding an iPhone is quite often the person
           setting up a parent's Android. */}
       <Small color={theme.color.inkFaint}>
         Both stores are listed for each app, so you can send the right link to somebody on the other
@@ -117,7 +120,20 @@ function AppCard({ app }: { app: ChurchApp }) {
           style={{
             width: 64,
             height: 64,
-            borderRadius: theme.radius.md,
+            /*
+              `lg`, not `md`. A 64pt icon on a home screen is rounded at about
+              fourteen points, and at the old eight this square read as a
+              thumbnail of an app icon rather than as the icon — which matters
+              on the one screen whose job is to help somebody recognise the
+              thing they are about to look for in a store. 16 is the nearest
+              token and the closest this can get without writing a literal.
+
+              The hairline goes with it: Tithe.ly's icon is pale at the edges
+              and would otherwise dissolve into the card.
+            */
+            borderRadius: theme.radius.lg,
+            borderColor: theme.color.rule,
+            borderWidth: 1,
             backgroundColor: theme.color.paperSunken,
           }}
         />
@@ -134,23 +150,17 @@ function AppCard({ app }: { app: ChurchApp }) {
 
       <Body color={theme.color.inkSoft}>{app.what}</Body>
 
-      <View style={{ gap: theme.space.sm }}>
-        {/* `Linking` rather than the in-app browser, and rather than the stores'
-            own badge artwork — both calls are made and explained at length on
-            the Tithe.ly card in `giving/GivingScreen.tsx`. The short of it: a
-            store address is handled by the store app itself, and a button that
-            does not use the vendors' artwork cannot misuse it. */}
-        <Button
-          label="App Store"
-          tone="quiet"
-          onPress={() => void Linking.openURL(app.ios)}
-        />
-        <Button
-          label="Google Play"
-          tone="quiet"
-          onPress={() => void Linking.openURL(app.android)}
-        />
-      </View>
+      {/* A hairline, because the badges are artwork and not this card's type:
+          without it the black pills sit directly under the sentence and read as
+          part of the paragraph rather than as the thing to tap. */}
+      <View style={{ height: 1, backgroundColor: theme.color.rule }} />
+
+      {/* The stores' own badges, as on the website — see `StoreBadges` for what
+          may and may not be done to them. Two words in a bordered box asked the
+          same thing, but a reader scanning for "the App Store button" is
+          looking for Apple's black pill, because that is what every other app
+          has shown them. */}
+      <StoreBadges ios={app.ios} android={app.android} appName={app.name} />
 
       {more ? (
         <Pressable

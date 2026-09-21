@@ -45,10 +45,11 @@
  */
 import { Image } from 'expo-image';
 import type { ReactNode } from 'react';
-import { Linking, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { siteUrl } from '@/about/media';
+import { StoreBadges } from '@/components/StoreBadges';
 import { Button, Card } from '@/components/Surface';
 import { Body, Heading, Label, Small, Subheading, Title } from '@/components/Type';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -300,15 +301,13 @@ function Appeal() {
  * store and find a blue app that is not named after this church, and the icon
  * and the publisher are how they know they have found it.
  *
- * ## Words rather than the stores' badge artwork
- *
- * The website draws Apple's and Google's official badges, copied byte for byte
- * because both vendors publish rules about altering them. Those files are an
- * SVG and a PNG sized for a web page; rendering them here would mean either
- * scaling artwork that is not to be scaled or bundling two more assets to be
- * kept in step with a stylesheet in another repository. Two plainly labelled
- * buttons ask the same thing, and a button that does not use the artwork cannot
- * misuse it.
+ * The stores' own badges, as on the website. This card used to carry two
+ * plainly labelled buttons instead, on the argument that a button which does
+ * not use the vendors' artwork cannot misuse it — but the same two links are
+ * shown on `/apps`, and two screens offering one app two different ways is the
+ * drift these headers exist to prevent. `components/StoreBadges.tsx` now owns
+ * both files and every rule about them, in one place, exactly as the website's
+ * component does.
  *
  * Both stores are offered on both platforms, as on the website — somebody
  * holding an iPhone is quite often the person setting up a parent's Android.
@@ -333,7 +332,11 @@ function TheApp() {
             style={{
               width: 64,
               height: 64,
-              borderRadius: theme.radius.md,
+              // `lg` and a hairline, matching the icon on `/apps` — the note
+              // there says why an app icon is not rounded like a thumbnail.
+              borderRadius: theme.radius.lg,
+              borderColor: theme.color.rule,
+              borderWidth: 1,
               backgroundColor: theme.color.paperSunken,
             }}
           />
@@ -345,22 +348,9 @@ function TheApp() {
 
         <Body color={theme.color.inkSoft}>{TITHELY_APP.what}</Body>
 
-        <View style={{ gap: theme.space.sm }}>
-          {/* `Linking` rather than the in-app browser: an `apps.apple.com` or
-              `play.google.com` address is handled by the store app itself, and
-              a store page rendered in a browser is a page with a second button
-              on it that opens the store. */}
-          <Button
-            label="App Store"
-            tone="quiet"
-            onPress={() => void Linking.openURL(TITHELY_APP.ios)}
-          />
-          <Button
-            label="Google Play"
-            tone="quiet"
-            onPress={() => void Linking.openURL(TITHELY_APP.android)}
-          />
-        </View>
+        <View style={{ height: 1, backgroundColor: theme.color.rule }} />
+
+        <StoreBadges ios={TITHELY_APP.ios} android={TITHELY_APP.android} appName={TITHELY_APP.name} />
       </Card>
     </Band>
   );
