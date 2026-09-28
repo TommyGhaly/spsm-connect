@@ -52,7 +52,7 @@ export function SuperadminOnly({ children }: { children: ReactNode }) {
         {!isPerson ? (
           <Body color={theme.color.inkSoft}>
             Allocating areas is a superadmin&rsquo;s alone, and you are not signed in with a
-            church Microsoft account.
+            church account.
           </Body>
         ) : (
           <>

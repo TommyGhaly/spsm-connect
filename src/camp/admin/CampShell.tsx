@@ -205,7 +205,7 @@ function SignInFirst() {
           backgroundColor: pressed ? theme.color.accentStrong : theme.color.accent,
         })}
       >
-        <Small color={theme.color.inkInverse}>Sign in with Microsoft</Small>
+        <Small color={theme.color.inkInverse}>Sign in with church account</Small>
       </Pressable>
     </Card>
   );

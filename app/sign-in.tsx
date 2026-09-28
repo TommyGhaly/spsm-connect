@@ -1,6 +1,12 @@
 /**
  * Signing in, which for this church means Microsoft and nothing else.
  *
+ * The labels say "church account", not "Microsoft": App Review read "Sign in
+ * with Microsoft" as a third-party login service and rejected 1.0 (8) under
+ * Guideline 4.8. It is the church's own single-tenant directory, which is the
+ * 4.8 exception — see Part D of `docs/app-review-notes.md`. The Microsoft
+ * sheet that opens still shows Microsoft's branding, which is accurate.
+ *
  * The Firebase project has exactly one identity provider configured, and the
  * Entra app registration behind it is **single-tenant — that is the security
  * control**, not a convenience. `servantEvents` is readable on `signedIn()`
@@ -60,10 +66,11 @@ export default function SignIn() {
       <Card gap={theme.space.sm}>
         <Label>For servants and staff</Label>
         <Body color={theme.color.inkSoft}>
-          Sign in with your church Microsoft account to see the servants&rsquo; rota and anything
-          you have been given to look after.
+          Sign in with the account the church issued you to see the servants&rsquo; rota and
+          anything you have been given to look after. There is no sign-up: accounts are created
+          by the parish office for those who serve.
         </Body>
-        <Button label="Sign in with Microsoft" onPress={() => void go()} busy={busy} />
+        <Button label="Sign in with church account" onPress={() => void go()} busy={busy} />
       </Card>
 
       {problem ? (

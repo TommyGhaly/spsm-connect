@@ -11,6 +11,7 @@
  * The Functions in this project write their refusals to be shown verbatim.
  * Where one has spoken, prefer its words to anything invented here.
  */
+import { Platform } from 'react-native';
 
 /**
  * The message for an `unattested` 401.
@@ -23,7 +24,7 @@
  */
 export const UNATTESTED =
   'This copy of the app could not prove it is genuine, so the church cannot accept photographs from it. ' +
-  'If you installed it from the App Store or Google Play, please report this — it is not something you can fix.';
+  `If you installed it from ${Platform.OS === 'android' ? 'Google Play' : 'the App Store'}, please report this — it is not something you can fix.`;
 
 /**
  * Explain a failed PUT to Cloud Storage.

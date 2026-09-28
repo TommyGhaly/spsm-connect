@@ -14,7 +14,8 @@
  *
  * ## The claims, and what makes each one true
  *
- * Checked against the code on 16 September 2026. **A change to any of these is
+ * Checked against the code on 16 September 2026; made platform-specific on
+ * 28 September 2026. **A change to any of these is
  * a change to this file, in the same commit.**
  *
  *   - "no analytics service, no third-party crash reporter, no advertising
@@ -105,8 +106,23 @@
  * ---------------------------------------------------------------------------
  */
 
+import { Platform } from 'react-native';
+
 /** The date the words below last changed. Updated by hand, and only then. */
-export const UPDATED = '16 September 2026';
+export const UPDATED = '28 September 2026';
+
+/**
+ * Whether this notice is being read on an iPhone or iPad.
+ *
+ * The iOS build names no Google platform — App Review rejected 1.0 (8) under
+ * Guideline 2.3.10 for Google Play references in the binary. Every sentence
+ * that mentions Android, Play Integrity, Google Play or Google Pay has an iOS
+ * reading that says the same thing about Apple alone.
+ */
+const IOS = Platform.OS === 'ios';
+
+/** The wallets Square's sheet and Tithe.ly's page offer on this platform. */
+const WALLETS = IOS ? 'Apple Pay' : 'Apple Pay and Google Pay';
 
 /** A labelled point — the website's `<li><strong>`. */
 export type Point = { term: string; detail: string };
@@ -136,7 +152,9 @@ export const SECTIONS: readonly PrivacySection[] = [
     body: [
       'Opening the app and reading it does not identify you. There is no advertising library in it, no analytics service — not Google Analytics, not Firebase Analytics, not any other — and no crash reporter belonging to anybody but the church. It holds no advertising identifier, which is why it never shows you the tracking permission: there would be nothing to ask for.',
       'When the app itself breaks, it writes down what broke — the error, and which screen you were on — and sends that to the church’s own database so the fault can be fixed. It is deliberately not sent to Google, to Apple, or to any crash-reporting company. It carries no name, no account and nothing that identifies your phone, it is readable only by the people who run the church’s systems, and it is deleted after thirty days.',
-      'It never asks for your location, either. There is no location permission in the app at all — and on Android it also declines the separate permission that would let it read the place a photograph was taken, so the system removes that from the file before the app ever sees it.',
+      IOS
+        ? 'It never asks for your location, either. There is no location permission in the app at all.'
+        : 'It never asks for your location, either. There is no location permission in the app at all — and on Android it also declines the separate permission that would let it read the place a photograph was taken, so the system removes that from the file before the app ever sees it.',
       'Two things happen without you doing anything:',
     ],
     points: [
@@ -165,7 +183,9 @@ export const SECTIONS: readonly PrivacySection[] = [
     eyebrow: 'Before the church will take a photograph',
     title: 'Proving the app is genuine',
     body: [
-      'The church’s server will not accept a photograph or a form attachment from an app that cannot prove it is a real copy running on a real device. On an iPhone or iPad that proof is **Apple’s App Attest**; on Android it is **Google’s Play Integrity**. The question is answered by Apple or by Google, and the app passes their answer on.',
+      IOS
+        ? 'The church’s server will not accept a photograph or a form attachment from an app that cannot prove it is a real copy running on a real device. That proof is **Apple’s App Attest**. The question is answered by Apple, and the app passes Apple’s answer on.'
+        : 'The church’s server will not accept a photograph or a form attachment from an app that cannot prove it is a real copy running on a real device. On an iPhone or iPad that proof is **Apple’s App Attest**; on Android it is **Google’s Play Integrity**. The question is answered by Apple or by Google, and the app passes their answer on.',
       'That check carries no name, no account, and nothing about what is being sent. It exists so that a script cannot empty the parish’s budget overnight, and it is the reason the app sometimes says it could not prove it is genuine and refuses to send — that refusal is this, working.',
     ],
   },
@@ -205,8 +225,8 @@ export const SECTIONS: readonly PrivacySection[] = [
     eyebrow: 'The bookstore and the offering',
     title: 'Buying and giving',
     body: [
-      '**The bookstore.** Checkout asks for a first and last name, an email address, and a postal address if you want the order posted rather than put aside for collection after the Liturgy. The card is typed into **Square’s own card sheet** — that screen belongs to Square, not to this app — or paid with Apple Pay or Google Pay where the church has the wallet set up. What the app sends the church is a single-use token; a card number never reaches the church’s systems and there is nowhere in them to keep one. There is also deliberately no price in that request: the church’s server prices the basket from its own catalogue. Your email address is where the receipt goes. Square keeps its own record of the payment under its own privacy policy, and a refund is made through Square by a member of staff.',
-      '**Giving.** The Give button opens Tithe.ly’s own form in the system browser, sliding up over the app with the address bar showing, rather than in a rectangle this app drew — so you can see whose page you are typing a card into, and so Apple Pay and Google Pay keep working. What you enter there goes to Tithe.ly, under their privacy policy, and the church receives your contribution record from Tithe.ly. This app never sees your card, your bank details, or the amount.',
+      `**The bookstore.** Checkout asks for a first and last name, an email address, and a postal address if you want the order posted rather than put aside for collection after the Liturgy. The card is typed into **Square’s own card sheet** — that screen belongs to Square, not to this app — or paid with ${WALLETS} where the church has the wallet set up. What the app sends the church is a single-use token; a card number never reaches the church’s systems and there is nowhere in them to keep one. There is also deliberately no price in that request: the church’s server prices the basket from its own catalogue. Your email address is where the receipt goes. Square keeps its own record of the payment under its own privacy policy, and a refund is made through Square by a member of staff.`,
+      `**Giving.** The Give button opens Tithe.ly’s own form in the system browser, sliding up over the app with the address bar showing, rather than in a rectangle this app drew — so you can see whose page you are typing a card into, and so ${WALLETS} keep${IOS ? 's' : ''} working. What you enter there goes to Tithe.ly, under their privacy policy, and the church receives your contribution record from Tithe.ly. This app never sees your card, your bank details, or the amount.`,
     ],
   },
   {
@@ -249,13 +269,13 @@ export const SECTIONS: readonly PrivacySection[] = [
           'The database, file storage, sign-in, and the church’s server. Everything the app stores off your phone is stored here.',
       },
       {
-        term: 'Apple App Attest, Google Play Integrity',
+        term: IOS ? 'Apple App Attest' : 'Apple App Attest, Google Play Integrity',
         detail: 'The check that this is a genuine copy of the app on a real device.',
       },
       {
         term: 'Square',
         detail:
-          'Bookstore payments, Apple Pay and Google Pay, and any form that charges a fee.',
+          `Bookstore payments, ${WALLETS}, and any form that charges a fee.`,
       },
       { term: 'Tithe.ly', detail: 'The offering, on the giving screen.' },
       { term: 'Microsoft', detail: 'Sign-in for servants and staff.' },
@@ -271,9 +291,10 @@ export const SECTIONS: readonly PrivacySection[] = [
         detail: 'The church’s parking app, which receives vehicle registrations.',
       },
       {
-        term: 'The App Store and Google Play',
-        detail:
-          'Where the app was installed from. Apple and Google keep their own record of that and show the church counts — how many installed it, how often it crashed — which name nobody. On an iPhone the church sees a crash report only from people who have turned on sharing with developers in iOS Settings.',
+        term: IOS ? 'The App Store' : 'The App Store and Google Play',
+        detail: IOS
+          ? 'Where the app was installed from. Apple keeps its own record of that and shows the church counts — how many installed it, how often it crashed — which name nobody. The church sees a crash report only from people who have turned on sharing with developers in iOS Settings.'
+          : 'Where the app was installed from. Apple and Google keep their own record of that and show the church counts — how many installed it, how often it crashed — which name nobody. On an iPhone the church sees a crash report only from people who have turned on sharing with developers in iOS Settings.',
       },
     ],
   },

@@ -683,7 +683,7 @@ function SignInOffer({ onOpenPage }: { onOpenPage?: (href: string) => void }) {
         Serving? Sign in and your rota appears in the calendar above, marked.
       </Small>
       <Button
-        label={busy ? 'Opening Microsoft…' : 'Sign in with Microsoft'}
+        label={busy ? 'Opening sign-in…' : 'Sign in with church account'}
         tone="quiet"
         onPress={() => void go()}
         busy={busy}

@@ -309,8 +309,8 @@ function Appeal() {
  * both files and every rule about them, in one place, exactly as the website's
  * component does.
  *
- * Both stores are offered on both platforms, as on the website — somebody
- * holding an iPhone is quite often the person setting up a parent's Android.
+ * Unlike the website, each platform shows only its own store's badge —
+ * `StoreBadges` says why (Guideline 2.3.10).
  */
 function TheApp() {
   const theme = useTheme();

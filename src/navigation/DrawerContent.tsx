@@ -828,11 +828,11 @@ function Account({ go }: { go: (href: Href) => void }) {
             </View>
           </View>
           <Small color={theme.color.inkSoft}>
-            Sign in with your church Microsoft account to see the servants&rsquo; rota and
+            Sign in with the account the church issued you to see the servants&rsquo; rota and
             anything you have been given to look after. You do not need one to send photographs.
           </Small>
           <View style={{ paddingTop: theme.space.xs }}>
-            <Button label="Sign in with Microsoft" onPress={() => go('/sign-in')} />
+            <Button label="Sign in with church account" onPress={() => go('/sign-in')} />
           </View>
         </Padded>
       </Group>
@@ -913,7 +913,7 @@ function Identity({
 }) {
   const theme = useTheme();
   const name = user?.displayName?.trim() || user?.email || 'Signed in';
-  const second = user?.displayName?.trim() ? user.email : 'Church Microsoft account';
+  const second = user?.displayName?.trim() ? user.email : 'Church account';
 
   return (
     <Pressable
@@ -1114,8 +1114,8 @@ function DeleteAccount({ superadmin }: { superadmin: boolean }) {
     >
       <Small color={theme.color.accent}>Delete this account?</Small>
       <Small color={theme.color.inkSoft}>
-        Your sign-in and everything you have been given to look after are removed. Your church
-        Microsoft account is not touched, and signing in again will make a new account with no
+        Your sign-in and everything you have been given to look after are removed. The account the
+        church issued you is not touched, and signing in again will make a new account with no
         areas.
       </Small>
 

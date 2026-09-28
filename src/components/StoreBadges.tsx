@@ -1,6 +1,11 @@
 /**
  * The two store badges, for any app the church links to.
  *
+ * Each platform draws only its own store's badge: the App Store on iOS, Google
+ * Play on Android. App Review rejects a binary that mentions Google Play
+ * (Guideline 2.3.10); `storeArtwork.ts` keeps the other store's artwork out of
+ * the bundle, and that store's URL is ignored.
+ *
  * ---------------------------------------------------------------------------
  * The website's `components/StoreBadges.tsx`, in React Native. Same two files,
  * same two heights, same rules — because a reader who taps through from the
@@ -57,6 +62,8 @@ import type { ImageSourcePropType } from 'react-native';
 
 import { useTheme } from '@/theme/ThemeProvider';
 
+import { APPLE_BADGE, PLAY_BADGE } from './storeArtwork';
+
 /**
  * The height both black pills are drawn at, and the only number to change if
  * they ever want to be bigger.
@@ -80,8 +87,6 @@ const PLAY_BOX_WIDTH = (PLAY_BOX_HEIGHT * PLAY_FILE.width) / PLAY_FILE.height;
 /** The clear space at this size, which is what the negative margin gives back. */
 const PLAY_INSET = (PLAY_BOX_HEIGHT * PLAY_FILE.inset) / PLAY_FILE.height;
 
-const APPLE_BADGE = require('../../assets/brand/app-store-badge.png') as ImageSourcePropType;
-const PLAY_BADGE = require('../../assets/brand/google-play-badge.png') as ImageSourcePropType;
 
 /**
  * Either URL may be omitted. An app on one store shows one badge, and an app on
@@ -89,8 +94,8 @@ const PLAY_BADGE = require('../../assets/brand/google-play-badge.png') as ImageS
  * something that cannot be installed.
  */
 export function StoreBadges({
-  ios,
-  android,
+  ios: iosUrl,
+  android: androidUrl,
   /**
    * Names the app in each badge's accessible name.
    *
@@ -108,6 +113,11 @@ export function StoreBadges({
 }) {
   const theme = useTheme();
 
+  // Only this platform's store — see `storeArtwork.ts`. An App Store app that
+  // shows Google Play is a 2.3.10 rejection, so the link goes with the artwork.
+  const ios = APPLE_BADGE ? iosUrl : undefined;
+  const android = PLAY_BADGE ? androidUrl : undefined;
+
   if (!ios && !android) return null;
 
   return (
@@ -124,7 +134,7 @@ export function StoreBadges({
         gap: theme.space.md,
       }}
     >
-      {ios ? (
+      {ios && APPLE_BADGE ? (
         <Badge
           source={APPLE_BADGE}
           url={ios}
@@ -133,7 +143,7 @@ export function StoreBadges({
           height={PILL_HEIGHT}
         />
       ) : null}
-      {android ? (
+      {android && PLAY_BADGE ? (
         <Badge
           source={PLAY_BADGE}
           url={android}

@@ -70,7 +70,7 @@ export function AppsScreen({ footer }: { footer?: ReactNode } = {}) {
         <Title>Our apps</Title>
         <Lede color={theme.color.inkSoft}>
           Two to install: Taksis, which is the church’s own, and Tithe.ly, which the church uses for
-          the offering. Both are on the App Store and on Google Play.
+          the offering.
         </Lede>
       </View>
 
@@ -81,14 +81,6 @@ export function AppsScreen({ footer }: { footer?: ReactNode } = {}) {
         {footer}
       </View>
 
-      {/* Both stores are offered on both platforms, as on the website, and this
-          says why rather than leaving an iPhone reader wondering what the Play
-          badge is for: somebody holding an iPhone is quite often the person
-          setting up a parent's Android. */}
-      <Small color={theme.color.inkFaint}>
-        Both stores are listed for each app, so you can send the right link to somebody on the other
-        kind of phone.
-      </Small>
     </Screen>
   );
 }

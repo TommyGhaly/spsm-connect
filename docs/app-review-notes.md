@@ -283,83 +283,77 @@ Thank you again for the review. We are happy to provide anything further.
 
 ---
 
-# Part B — the App Review Information Notes field
+# Part B — the 4,000-character version
 
-> Under 4,000 characters. Paste into **App Store Connect → App Review
-> Information → Notes**, and keep it there for every future submission. Update
-> only the credentials.
+> Answers Apple's six items in their own numbering, in 3,919 characters. This is
+> what actually gets sent: paste it as the **Resolution Center reply** and into
+> **App Store Connect → App Review Information → Notes**, where it stays for
+> every future submission. Part A above is the same content at full length, for
+> a reply box with no cap. Re-count after substituting the credentials — there
+> is only about 80 characters of headroom.
 
-WHAT THIS APP IS
+1. RECORDING
+Attached: a physical iPhone on current iOS, from a cold launch. The app
+has NO account registration - no sign-up, no email/password, no social sign-in.
+The only identity provider is the church's single-tenant Microsoft Entra
+directory; accounts exist solely for volunteers who administer content. Account deletion is implemented anyway and is shown (drawer > account
+card > Delete account): it removes the auth user and member record, and states
+that it cannot remove the person's separate church Microsoft account. The
+recording also covers the photograph flow, bookstore and giving.
+
+2. PURPOSE AND AUDIENCE
 SPSM Connect is the free parish app of St. Philopater Mercurius & St. Mina
 Coptic Orthodox Church, a 501(c)(3) congregation in Wayland, Massachusetts,
-published by the church itself, for its congregation and visitors. It provides
-the parish calendar, the livestream and its archive, photograph galleries by
-ministry, the church's forms, its bookstore, its giving page, and an
-introduction to the liturgy.
+published by the church itself. Audience: its congregation, visitors, and anyone
+curious about the Coptic Orthodox faith. It replaces parish news on paper and in
+chats that scroll away. The app carries the parish calendar, livestream
+and archive, photograph galleries, the church's forms, bookstore, giving page
+and an introduction to the liturgy - all read live from the church's database,
+so the office can change them without a release.
+Guideline 3.2: this is a public app, not an employee one. Every feature above
+works with no account. A few admin screens (approving photographs, reviewing
+submissions, camp attendance) are reserved for ministry volunteers and hidden
+from everyone else; they exist only so the public content stays current.
 
-NO ACCOUNT IS NEEDED (Guideline 3.2)
-Every public feature works signed out: calendar, forms, bookstore, giving,
-galleries, livestream, sending a photograph. There is no registration or
-sign-up. The only identity provider is the church's single-tenant Microsoft
-Entra directory, and accounts exist solely for volunteers who administer
-content. This is a public app, not an employee one; the admin screens are a
-small minority, hidden from everyone else, and exist so the public content
-stays current.
+3. SETUP AND ACCESS
+No setup, login or sample files are needed: everything listed in item 2 works
+signed out.
+UGC: the only user-generated content is photographs sent to the church, and they
+are pre-moderated server-side. A submission is quarantined where even its sender
+cannot read it back, waits in a named ministry administrator's queue, and is
+shown to nobody until approved; server rules reject any gallery query not
+filtered to approved, so a modified client cannot bypass it. Senders are told
+this; administrators can remove anything later.
+Reporting/blocking: a user can never encounter unreviewed content, and there is
+no user-to-user interaction - no profiles, comments, messages or feeds.
+Submitters are anonymous, so there is no account to block and no channel between
+users. Objections reach the parish office from the in-app Contact and Privacy
+screens. We will gladly add a report control if you prefer one.
+Demo accounts (drawer > Sign in with church account; MFA disabled):
+Admin: <<ACCOUNT_1>> / <<PASSWORD_1>>
+Disposable, for deletion testing: <<ACCOUNT_2>> / <<PASSWORD_2>>
+The first reveals the approval queue (drawer > Photos > a ministry), Forms >
+Admin and camp administration. Please do not use a live card; the build uses
+Square production. We can supply a sandbox build on request.
 
-DEMO ACCOUNTS (drawer -> Sign in with Microsoft; MFA disabled on both)
-Administrator: <<APPLE_DEMO_ACCOUNT_1>> / <<APPLE_DEMO_PASSWORD_1>>
-Disposable, for account deletion: <<APPLE_DEMO_ACCOUNT_2>> / <<APPLE_DEMO_PASSWORD_2>>
-The first reveals the photograph approval queue (drawer -> Photos -> a
-ministry), Forms -> Admin, and camp administration.
-
-ACCOUNT DELETION
-Drawer -> account card -> Delete account. Removes the authentication user and
-the member record. It does not remove the person's separate church Microsoft
-account, which this app does not own; the confirmation says so.
-
-USER-GENERATED CONTENT AND MODERATION
-The only user-generated content is photographs sent to the church, and they are
-pre-moderated. A submission is quarantined where even its sender cannot read it
-back, waits in a named ministry administrator's queue, and is shown to nobody
-until approved; server-side rules enforce the approved-only filter, so a
-modified client cannot bypass it. Senders are told this. There is no
-user-to-user interaction -- no profiles, comments, messages, follows or
-feeds -- and submitters are anonymous, so there is no account to block and no
-channel between users. Removal requests reach the parish office from the in-app
-Contact and Privacy screens.
-
-NO IN-APP PURCHASE, AND WHY
-The bookstore sells physical books (Square). Forms charge for real-world
-services such as car-park registration and summer camp (Square). Giving is a
-charitable donation to a 501(c)(3), on the church's Tithe.ly page in the system
-browser. There is no digital content, subscription or paid unlock, so there are
-no IAP products.
-
-EXTERNAL SERVICES
-Google Firebase (Auth, Firestore, Storage, Functions, Cloud Messaging, App
-Check/App Attest); Microsoft Entra ID, single-tenant, staff only; Square In-App
+4. EXTERNAL SERVICES
+Google Firebase (Auth, Firestore, Storage, Functions, Messaging, App Check); Microsoft Entra ID, single-tenant, staff only; Square In-App
 Payments; Tithe.ly for donations, in the system browser; Castr for the live
 stream; YouTube for the archive; and the church's own site and API at
-www.spsmwayland.org. NO AI or machine-learning services are used, and there are
-no advertising, analytics or tracking SDKs. Fault reports go anonymously to the
-church's own database, kept thirty days.
+www.spsmwayland.org. NO AI or machine-learning services are used.
+No IAP (3.1.1): the bookstore sells physical books, forms charge for real-world
+services, and giving is a donation to a 501(c)(3) via Tithe.ly in the browser.
+There is no digital content, subscription or paid unlock.
 
-REGIONAL DIFFERENCES
-None. There is no geographic gating anywhere; features and content are
-identical in every region. Prices are USD and the calendar US Eastern, because
-the parish is in Massachusetts.
+5. REGIONAL DIFFERENCES
+None - no geographic gating anywhere; features and content are identical in
+every region. Prices are USD and the calendar US Eastern, because the parish
+is in Massachusetts.
 
-REGULATED INDUSTRY / THIRD-PARTY MATERIAL
+6. REGULATED INDUSTRY / THIRD-PARTY MATERIAL
 Not a regulated industry. All text, photographs and video are the church's own,
-on its own channels. Book covers identify physical stock sold by the parish.
-Third-party app icons appear unmodified only to identify Tithe.ly and Taksis on
-a recommendations screen. The 501(c)(3) letter is available on request.
-
-APP CLIP
-org.spsm.connect.Clip is invoked only by NFC tags and App Clip Codes in the
-church building, at https://www.spsmwayland.org/c/<name>. To test, register a
-Local Experience (Settings -> Developer -> Local Experiences) with that prefix
-and the clip bundle ID.
+on its own Castr and YouTube channels, and third-party app icons appear
+unmodified only to identify Tithe.ly and Taksis (also ours). The 501(c)(3) letter is available on request.
 
 > End of Part B.
 
@@ -384,9 +378,10 @@ and the clip bundle ID.
 - [ ] **The approval queue is not empty.** Send two or three photographs from an
       unsigned device beforehand so the reviewer sees a queue with items in it.
 - [ ] **A published gallery has photographs in it**, for the same reason.
-- [ ] **Placeholders replaced** — `<<APPLE_DEMO_ACCOUNT_1>>`,
-      `<<APPLE_DEMO_PASSWORD_1>>`, `<<APPLE_DEMO_ACCOUNT_2>>`,
-      `<<APPLE_DEMO_PASSWORD_2>>` appear in both Part A and Part B.
+- [ ] **Placeholders replaced in both parts.** Part A uses
+      `<<APPLE_DEMO_ACCOUNT_1>>` and friends; Part B uses the shorter
+      `<<ACCOUNT_1>>` / `<<PASSWORD_1>>` because it is counting characters.
+      Re-count Part B afterwards — the cap is 4,000 and it sits at 3,919.
 - [ ] **The exact submitted build launches on a physical iPhone.** Not the
       simulator. A Release build that drops Square's nested frameworks dies at
       launch under dyld with no crash report, which a reviewer would report as
@@ -427,7 +422,7 @@ out, because that is the answer to Guideline 3.2.
    address bar visible.
 9. **Drawer → Livestream**, and **Contact**, and **Privacy**. Contact and
    Privacy matter: they are where Part A says a removal request goes.
-10. **Sign in with Microsoft**, using **account 1**. Show the Microsoft sheet.
+10. **Sign in with church account**, using **account 1**. Show the Microsoft sheet.
 11. **The approval queue** — approve one photograph, then show it appearing in
     the gallery. This closes the loop opened at step 5 and is the single most
     persuasive thing in the recording.
@@ -464,3 +459,111 @@ demo accounts change, when a service in item 4 is added or dropped, or when the
 moderation model changes, **edit Part B in the same sitting and paste it back
 into App Store Connect.** A Notes field that describes last year's app is how a
 smooth submission becomes a 2.1.
+
+
+---
+
+# Part D — the second rejection, 1.0 (8), 28 September 2026
+
+Two findings: **2.3.10** (Google Play references in the binary) and **4.8**
+(Login Services). 2.3.10 is fixed in code. **4.8 is not being changed, and that
+is decided:** the church will not add Sign in with Apple or any other sign-in
+option. Sign-in exists only to reveal administrative screens to servants the
+church has already provisioned; it is not a feature offered to users. D2 is the
+reply that says so.
+
+## D1. What changed in the binary
+
+**2.3.10 — each platform shows only its own store.**
+
+- `components/storeArtwork.ts` / `storeArtwork.android.ts` — the App Store
+  badge is bundled on iOS only and the Google Play badge on Android only.
+  `StoreBadges` drops the other store's link. Covers the Apps screen and the
+  Giving screen's Tithe.ly card.
+- `apps/AppsScreen.tsx` — the "App Store and Google Play" line and the "both
+  stores are listed" footer are gone.
+- `privacy/notice.ts` — every Google/Android sentence has an iOS reading.
+- `upload/errors.ts` — the unattested message names the platform's own store.
+
+**4.8 — the sign-in is labelled for what it is.** Every button that said "Sign
+in with Microsoft" now says **"Sign in with church account"**, and the sign-in
+screen says there is no sign-up and that the parish office creates accounts.
+The reviewer read the old label as a third-party social login; the Microsoft
+sheet that opens is unchanged and still shows Microsoft's branding.
+
+Content read live from Firestore or the website is not in the binary; check it
+does not mention Google Play before resubmitting. Resubmit as a new build
+number.
+
+## D2. The Resolution Center reply
+
+> Paste from here to the end of D2.
+
+Thank you for the review.
+
+**Guideline 2.3.10 — resolved.** All references to Google Play have been removed
+from the iOS binary in the build now submitted. The app's store badges now show
+only the App Store, and the in-app privacy notice no longer refers to Google
+Play or other Google platforms.
+
+**Guideline 4.8 — we believe this guideline does not apply, and ask that the
+app be reconsidered as submitted.** We will not be adding another login
+service, for the reasons below.
+
+SPSM Connect does not offer a login service to its users. Sign-in exists for
+one purpose: to reveal administrative screens — approving submitted
+photographs, reviewing form submissions, and camp administration — to the
+volunteers who serve our congregation in those ministries. It is not required
+for, and unlocks nothing in, any feature intended for the public. The calendar,
+livestream, galleries, forms, bookstore, giving and all other content work
+fully with no account.
+
+The account used is the church's own organisational account, not a
+third-party or social login:
+
+- **Accounts are issued by the church.** The church's single-tenant Microsoft
+  Entra ID directory is its organisational account system. The parish office
+  creates an account in it for a volunteer who has been given a ministry to
+  administer, and removes it when they stop.
+- **Users cannot create an account.** There is no sign-up anywhere in the app.
+  A personal Microsoft account, or any account outside the church's directory,
+  is refused.
+- **Another login option could not work.** Administrative access is granted to
+  specific accounts in the church's directory. An account from Sign in with
+  Apple or any other service would not be in that directory, could not be given
+  access, and would reveal nothing — a member of the public signing in that way
+  would gain no feature at all.
+
+This is the case Guideline 4.8 exempts: an app that exclusively uses the
+organisation's own account setup and sign-in system, and that requires the
+user to sign in with an existing account issued by that organisation. To make
+this clearer in the app itself, the sign-in button now reads "Sign in with
+church account", and the sign-in screen states that there is no sign-up and
+that accounts are created by the parish office. The demo accounts in the App
+Review Information are accounts in this same directory, created by the church
+for App Review.
+
+The screenshots in the app's metadata do not show a sign-in screen and are
+unaffected.
+
+We are happy to provide anything further, or to discuss this by phone.
+
+> End of D2.
+
+## D3. The Notes-field addendum
+
+Append this to Part B in App Store Connect → App Review Information → Notes,
+so the next reviewer does not raise 4.8 again. Part B is 3,923 characters and
+this is 212, so the total runs about 140 over the 4,000 cap: cut that much from
+item 2's purpose paragraph before pasting, and re-count after the credentials.
+
+> SIGN-IN (4.8): not a login service. "Sign in with church account" only
+> reveals admin screens to volunteers holding accounts the church issued in
+> its single-tenant directory. No sign-up; the public never signs in.
+
+## D4. If Apple rejects this again
+
+Ask for a phone call through the Resolution Center before changing anything,
+and if it still stands, appeal to the App Review Board. Removing sign-in from
+the public binary (a Custom App or TestFlight for servants) is a fallback, not
+a first answer.
