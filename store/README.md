@@ -101,23 +101,22 @@ about it an hour after an upload.
 
 ## Custom product pages
 
-`product-pages/` holds one screenshot set per **custom product page**: a second
-copy of the App Store listing with its own screenshots, promotional text and
-URL, for somebody who arrives for one errand — the giving tag by the door, the
-bookstore table, a newcomer sent the link. The six pages follow the App Clip
-experiences, and each one's deep link is that experience's `/c/<slug>` URL.
+`custom-product-pages/` holds the App Store's alternate listings, built the same
+way as Taksis's (`Taksis/screenshots/custom-product-pages/`): one folder per page,
+and inside it one numbered folder per App Store Connect slot, ready to drag in,
+with `promotional-text.txt` and `deep-link.txt` to paste. `listing/` is the
+default listing done the same way, with its subtitle, keywords and description.
+Its own README has the table of pages and the upload steps.
 
-The table is `scripts/product-pages.mjs`. `npm run store` writes the
-screenshots and `product-pages/README.md`, which has the copy to paste into App
-Store Connect for each page. That generated README is the one place listing copy
-lives in this directory.
-
-Three of the screens are not in the main listing (Welcome, Future Plans,
-Livestream). `capture-screenshots.sh` takes them into `raw/pages/`; to take
-only those without re-shooting the main five:
+The captions and frames come from `custom-product-pages/src/shots.html`; the
+screens inside the frames are the real captures from `raw/`. Unlike Taksis's,
+nothing here needs recreating with made-up names, because none of these screens
+shows anybody's details. The calendar can, depending on the week, so the pages
+take their own copy of it (`raw/pages/`) that can be retaken on a clean day.
 
 ```bash
-PAGES_ONLY=1 npm run screenshots:ios
+PAGES_ONLY=1 npm run screenshots:ios     # the captures only the pages use
+./store/custom-product-pages/src/render.sh
 ```
 
 ## The screenshots themselves
