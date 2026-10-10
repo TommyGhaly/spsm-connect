@@ -28,7 +28,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlashList } from '@shopify/flash-list';
 import { Pressable, View } from 'react-native';
-import { toDate, type FulfillmentStatus } from '@spsm/shared';
+import {
+  FLAT_SHIPPING_LABEL,
+  splitOrderTotal,
+  toDate,
+  type FulfillmentStatus,
+} from '@spsm/shared';
 
 import { Close, Field, Problem, Sheet } from '@/components/Fields';
 import { Button, Card } from '@/components/Surface';
@@ -296,6 +301,25 @@ function OrderCard({
   const units = (order.lineItems ?? []).reduce((sum, line) => sum + (line.quantity || 0), 0);
 
   /*
+   * The total's parts — books, delivery, sales tax — by the same split the
+   * Figures screen and the website's orders list use: recorded on orders taken
+   * since the checkout started writing them, reconstructed for older ones so
+   * the parts still add up to what Square charged. See `splitOrderTotal`.
+   */
+  const parts = splitOrderTotal({
+    contactEmail: order.contactEmail ?? '',
+    status: order.status,
+    shipping: Boolean(order.shipping),
+    total: order.total ?? { amount: 0 },
+    lineItems: order.lineItems ?? [],
+    day: '',
+    subtotal: order.subtotal ?? null,
+    tax: order.tax ?? null,
+    shippingCents: order.shippingCents ?? null,
+    handlingCents: order.handlingCents ?? null,
+  });
+
+  /*
    * Whether there is anything to do to this order at all. Every control below
    * is gated on `status === 'paid'`, so a pending, failed or refunded order has
    * none — and without this the actions row is a stray rule under an order
@@ -342,8 +366,32 @@ function OrderCard({
           {(order.lineItems ?? []).map((line, index) => (
             <Micro key={`${order.id}-${index}`} color={theme.color.inkSoft}>
               {line.quantity}× {line.name}
+              {/* The SKU and the price each, where the order kept them — so a
+                  question about one line can be answered from here. Older
+                  orders have neither and just print the name. */}
+              {line.sku ? ` · ${line.sku}` : ''}
+              {line.unitPrice ? ` · ${money(line.unitPrice.amount)} each` : ''}
             </Micro>
           ))}
+        </View>
+
+        {/* What the total was made of, so a refund or a question about a
+            charge can be answered from here rather than from Square's
+            dashboard. The delivery line names the service the buyer paid for,
+            which is also the one to buy at the post office. */}
+        <View style={{ gap: 2 }}>
+          <Micro color={theme.color.inkSoft}>Books {money(parts.salesCents)}</Micro>
+          {order.shipping ? (
+            <Micro color={theme.color.inkSoft}>
+              {order.shippingService ?? FLAT_SHIPPING_LABEL}{' '}
+              {money(parts.postageCents + parts.handlingCents)}
+              {parts.handlingCents > 0 ? ` (incl. ${money(parts.handlingCents)} handling)` : ''}
+            </Micro>
+          ) : null}
+          {parts.taxCents > 0 ? (
+            <Micro color={theme.color.inkSoft}>Sales tax {money(parts.taxCents)}</Micro>
+          ) : null}
+          <Small color={theme.color.ink}>Total {money(order.total?.amount ?? 0)}</Small>
         </View>
 
         {/* Only on a delivery, and only when there is one. It is the one piece

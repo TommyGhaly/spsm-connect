@@ -25,12 +25,13 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import type { BookstoreSection } from '@spsm/shared';
 
-import { Close, Field, Picker, Problem, Sheet } from '@/components/Fields';
+import { Close, Field, Problem, Sheet } from '@/components/Fields';
 import { Button } from '@/components/Surface';
 import { Body, Heading, Label, Micro } from '@/components/Type';
 import { useTheme } from '@/theme/ThemeProvider';
 
 import { PictureRow, PictureSource, PictureTile } from './Pictures';
+import { CategoryChecklist, ShippingFields, TaxableField } from './ProductFields';
 import { parsePrice } from './ProductSettings';
 import type { PickedPicture } from './picture';
 
@@ -59,7 +60,15 @@ export function AddProduct({
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
-  const [section, setSection] = useState('');
+  const [categoryIds, setCategoryIds] = useState<readonly string[]>([]);
+  const [shipping, setShipping] = useState<{ weightOz: number | null; mediaMail: boolean }>({
+    weightOz: null,
+    // Most of what the shop sells is books, so the box starts ticked — the
+    // website's default, and the one fewer tap for the usual case.
+    mediaMail: true,
+  });
+  // Off, like every product: nothing is taxed until somebody says so.
+  const [taxable, setTaxable] = useState(false);
   const [pictures, setPictures] = useState<PickedPicture[]>([]);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
@@ -81,7 +90,14 @@ export function AddProduct({
         name: title,
         description: description.trim(),
         priceCents: cents,
-        section: section === '' ? null : section,
+        /* All four on the create, not afterwards: `squareCreateProduct` files
+           the item in Square and writes the parish's fields into the mirror
+           in the one request, so a new book never spends a moment unfiled,
+           unweighed or untaxed by mistake. */
+        categoryIds: [...categoryIds],
+        weightOz: shipping.weightOz,
+        mediaMail: shipping.mediaMail,
+        taxable,
       });
 
       for (const picture of pictures) {
@@ -163,17 +179,31 @@ export function AddProduct({
       />
 
       {sections.length > 0 ? (
-        <Picker
-          label="Category"
-          value={section}
-          options={[
-            { value: '', label: 'No category' },
-            ...sections.map((row) => ({ value: row.id, label: row.label })),
-          ]}
-          onChange={setSection}
-          disabled={busy}
-        />
+        <View style={{ gap: theme.space.xs }}>
+          <Label>Categories</Label>
+          <CategoryChecklist
+            sections={sections}
+            chosen={categoryIds}
+            busy={busy}
+            onChange={setCategoryIds}
+          />
+        </View>
       ) : null}
+
+      <View style={{ gap: theme.space.xs }}>
+        <Label>Shipping</Label>
+        <ShippingFields
+          weightOz={shipping.weightOz}
+          mediaMail={shipping.mediaMail}
+          busy={busy}
+          onChange={setShipping}
+        />
+      </View>
+
+      <View style={{ gap: theme.space.xs }}>
+        <Label>Sales tax</Label>
+        <TaxableField taxable={taxable} busy={busy} onChange={setTaxable} />
+      </View>
 
       <View style={{ gap: theme.space.sm }}>
         <Label>Pictures</Label>

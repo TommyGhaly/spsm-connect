@@ -56,9 +56,10 @@ export function ShopEditingNote() {
         that read as eleven repetitions of a warning.
       */}
       <Micro color={theme.color.inkFaint}>
-        Counts, categories and pictures wait for the Save bar. Adding a book, removing
-        one, and the categories themselves happen straight away. Tap a book for its
-        title, price, description and pictures.
+        Counts, categories, weights, sales tax and pictures wait for the Save bar. Adding a
+        book, removing one, the categories themselves, and the shop’s shipping and tax
+        settings happen straight away. Tap a book for its title, price, description,
+        weight and pictures.
       </Micro>
     </View>
   );

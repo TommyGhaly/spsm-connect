@@ -204,6 +204,18 @@ export interface CheckoutDetails {
    * succeeds. Each attempt needs a *new nonce* and the *same key*.
    */
   idempotencyKey: string;
+  /**
+   * The postage option the buyer chose, as `/api/shipping/quote` returned it.
+   *
+   * Not a price. The id *is* a signed quote — service, cents, ZIP, basket and
+   * an expiry under an HMAC only the Functions hold — and `squareCheckout`
+   * charges the cents inside it only if the signature, the ZIP and the basket
+   * all still match. Absent means the flat delivery charge, which is what the
+   * basket shows whenever the server could not quote. A token that no longer
+   * verifies is refused with `quote-expired` rather than silently re-priced;
+   * see `BasketSheet`, which re-quotes and shows the new figure.
+   */
+  shippingOptionId?: string;
 }
 
 export interface CheckoutResult {
@@ -223,6 +235,7 @@ function charge(nonce: string, details: CheckoutDetails): Promise<CheckoutResult
     fulfillment: details.fulfillment,
     address: details.address,
     idempotencyKey: details.idempotencyKey,
+    ...(details.shippingOptionId ? { shippingOptionId: details.shippingOptionId } : {}),
   });
 }
 
@@ -374,15 +387,39 @@ export async function chargeWithWallet<T>(
 /* The bookstore's two, in terms of the two above                              */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * The checkout request, with a look at any refusal on its way past.
+ *
+ * `onRefused` is how the basket hears about a refusal that happens *inside* a
+ * payment sheet. The card sheet keeps a refusal to itself — it prints the
+ * message and waits for another card — so without this the basket would never
+ * know that, say, the postage quote expired and needs fetching again. The
+ * error still propagates unchanged; this only watches it.
+ */
+function chargeWatched(
+  nonce: string,
+  details: CheckoutDetails,
+  onRefused: ((error: unknown) => void) | undefined,
+): Promise<CheckoutResult> {
+  return charge(nonce, details).catch((error: unknown) => {
+    onRefused?.(error);
+    throw error;
+  });
+}
+
 /** Square's card sheet, charging a basket through `/api/square/checkout`. */
-export function payWithCard(details: CheckoutDetails): Promise<CheckoutResult | null> {
-  return chargeWithCard((nonce) => charge(nonce, details));
+export function payWithCard(
+  details: CheckoutDetails,
+  onRefused?: (error: unknown) => void,
+): Promise<CheckoutResult | null> {
+  return chargeWithCard((nonce) => chargeWatched(nonce, details, onRefused));
 }
 
 /** The same basket, through whichever wallet this platform has. */
 export function payWithWallet(
   details: CheckoutDetails,
   price: string,
+  onRefused?: (error: unknown) => void,
 ): Promise<CheckoutResult | null> {
-  return chargeWithWallet(price, (nonce) => charge(nonce, details));
+  return chargeWithWallet(price, (nonce) => chargeWatched(nonce, details, onRefused));
 }

@@ -26,6 +26,26 @@
  *
  * So every total printed here is a *quote*, shown so nobody authorises one
  * number and is charged another. It is never sent.
+ *
+ * ## The three parts of the figure, and why each is the server's
+ *
+ * The checkout now charges more than the books, and every part of the total
+ * printed above the Pay button is one the server will charge:
+ *
+ *   - **the books**, which Square prices from its own catalog;
+ *   - **sales tax**, on the books the parish has marked taxable, at the shop's
+ *     rate — both read by the Function from Firestore, and worked out here the
+ *     way Square works it out (`salesTaxCents`: each line on its own, half to
+ *     even), so the line shown is the figure Square then charges;
+ *   - **delivery**: either the flat charge, or — once the shop uses USPS rates
+ *     and a ZIP is typed — a live quote from `/api/shipping/quote`. A live
+ *     option's id is a signed quote and the Function charges exactly the cents
+ *     inside it; no id is the flat charge on both sides.
+ *
+ * A quote expires after thirty minutes. The Function then refuses with
+ * `quote-expired` rather than quietly re-pricing, and this sheet fetches a
+ * fresh one and shows it before anybody can press Pay again — a buyer is never
+ * charged a postage figure they were not shown.
  * ---------------------------------------------------------------------------
  */
 import { randomUUID } from 'expo-crypto';
@@ -36,9 +56,13 @@ import {
   cleanName,
   isUsableAddress,
   looksLikeEmail,
+  salesTaxCents,
+  taxLabel,
+  usableZip,
   type BookstoreConfig,
 } from '@spsm/shared';
 
+import { ApiError } from '@/api/client';
 import { Button, Card } from '@/components/Surface';
 import { Choice, Close, Field, Pair, Problem, Sheet } from '@/components/Fields';
 import { Body, Heading, Label, Micro, Small } from '@/components/Type';
@@ -53,6 +77,7 @@ import {
 import { useTheme } from '@/theme/ThemeProvider';
 
 import { Cover } from './Cover';
+import { useShippingQuote } from './shippingQuote';
 import { track } from './track';
 import type { Basket } from './cart';
 import type { ShopProduct } from './data';
@@ -62,7 +87,10 @@ interface Receipt {
   orderId: string;
   email: string;
   shipping: boolean;
-  lines: { name: string; quantity: number; amount: number }[];
+  lines: { name: string; sku: string | null; quantity: number; amount: number }[];
+  /** The delivery line, so the lines add up to "Paid". Null on a collection. */
+  postage: { label: string; cents: number } | null;
+  tax: { label: string; cents: number } | null;
   total: number;
 }
 
@@ -295,10 +323,13 @@ function BasketLines({
           </View>
 
           {/* Said here and not only on the payment screen: somebody deciding
-              whether to go on should know delivery is extra before they meet a
-              form, not after. */}
+              whether to go on should know delivery — and tax, where a book in
+              the basket carries it — is extra before they meet a form, not
+              after. */}
           <Micro color={theme.color.inkFaint}>
-            Delivery, if you choose it, is added at the next step.
+            {basket.lines.some((line) => line.product.taxable)
+              ? 'Sales tax, and delivery if you choose it, are added at the next step.'
+              : 'Delivery, if you choose it, is added at the next step.'}
           </Micro>
 
           <Button label="Checkout" onPress={onCheckout} />
@@ -379,6 +410,9 @@ function Line({
           {quantity} × {money(product.amount, product.currency)} ={' '}
           {money(product.amount * quantity, product.currency)}
         </Micro>
+        {/* The SKU, small, where the sync has given one — the number the
+            receipt and the order email print beside the book. */}
+        {product.sku ? <Micro color={theme.color.inkFaint}>{product.sku}</Micro> : null}
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.xs }}>
           <Tap
@@ -484,6 +518,16 @@ function Checkout({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [wallet, setWallet] = useState(false);
+  /** Set when checkout refused a stale postage quote and a fresh one was asked for. */
+  const [requoted, setRequoted] = useState(false);
+
+  const cart = useMemo(
+    () => basket.lines.map((line) => ({ slug: line.product.slug, quantity: line.quantity })),
+    [basket.lines],
+  );
+  const quote = useShippingQuote({ enabled: shipping, cart, postalCode: address.postalCode });
+  /** The service the buyer picked, by name, so it survives a re-quote. */
+  const [chosenService, setChosenService] = useState<string | null>(null);
 
   const available = paymentsAvailable();
 
@@ -536,8 +580,46 @@ function Checkout({
     for (const line of basket.lines) track('checkoutStart', { slug: line.product.slug });
   }, [basket.lines]);
 
-  const delivery = shipping ? settings.deliveryCents : 0;
-  const charge = basket.subtotal + delivery;
+  /*
+   * Postage, as the server quoted it.
+   *
+   * A live option's cents are inside its signed id, and checkout charges
+   * exactly those; with no live option (or no answer at all) the flat figure is
+   * shown and no id is sent, which is the flat charge on both sides. Cheapest
+   * first, and preselected — the same option the list shows at the top. A
+   * chosen service that a fresh quote no longer offers falls back to the
+   * cheapest, and the breakdown below shows which.
+   */
+  const liveShipping = settings.shipping.mode === 'usps';
+  const zipKnown = usableZip(address.postalCode) !== null;
+  const options = quote.status === 'ready' ? quote.options : [];
+  const chosen = options.find((option) => option.service === chosenService) ?? options[0] ?? null;
+  const flatCents = quote.status === 'ready' ? quote.fallbackCents : settings.deliveryCents;
+  const postage = !shipping ? 0 : chosen ? chosen.cents : flatCents;
+  /* Only a settled answer can be paid against; a figure still being fetched is
+     not one anybody has been shown. */
+  const quoting = shipping && liveShipping && zipKnown && quote.status === 'loading';
+  /* Live postage with no ZIP yet, or a quote in flight: no total is settled. */
+  const awaitingPostage = shipping && liveShipping && (!zipKnown || quoting);
+
+  /*
+   * Sales tax, worked out the way Square works it out — each taxable line on
+   * its own, half to even — from the same flag and rate the checkout Function
+   * reads. Never on delivery. Null when nothing in the basket is taxed, so the
+   * breakdown has no "Sales tax $0.00" line in a shop that taxes nothing.
+   */
+  const tax = useMemo(() => {
+    const cents = salesTaxCents(
+      basket.lines.map((line) => ({
+        amountCents: line.product.amount * line.quantity,
+        taxable: line.product.taxable,
+      })),
+      settings.taxRateBps,
+    );
+    return cents > 0 ? { label: taxLabel(settings.taxRateBps), cents } : null;
+  }, [basket.lines, settings.taxRateBps]);
+
+  const charge = basket.subtotal + postage + (tax?.cents ?? 0);
 
   const addressIncomplete = shipping && !isUsableAddress(address);
   /*
@@ -554,7 +636,11 @@ function Checkout({
     cleanName(firstName) !== null &&
     cleanName(lastName) !== null &&
     looksLikeEmail(email) &&
-    !addressIncomplete;
+    !addressIncomplete &&
+    /* The website blocks only while a quote is in flight; here a live-postage
+       delivery with no usable ZIP is blocked too, because the Pay button
+       carries a figure and there is no honest one to put on it yet. */
+    !awaitingPostage;
 
   const details = useCallback(
     () => ({
@@ -568,8 +654,29 @@ function Checkout({
       fulfillment: (shipping ? 'ship' : 'collect') as 'ship' | 'collect',
       address: shipping ? address : undefined,
       idempotencyKey,
+      ...(shipping && chosen ? { shippingOptionId: chosen.id } : {}),
     }),
-    [basket.lines, email, firstName, lastName, shipping, address, idempotencyKey],
+    [basket.lines, email, firstName, lastName, shipping, address, idempotencyKey, chosen],
+  );
+
+  /*
+   * Watching for the one refusal the basket can do something about.
+   *
+   * The quote outlived its thirty minutes, or the ZIP no longer matches it.
+   * The card sheet shows the Function's own sentence and stays open — but the
+   * request it would retry carries the same stale id, so it can only be
+   * refused again, never charged a different figure. Out here, a fresh quote
+   * is asked for, and once the buyer closes the sheet the breakdown and the
+   * button already show the new price.
+   */
+  const onRefused = useCallback(
+    (cause: unknown) => {
+      if (cause instanceof ApiError && cause.code === 'quote-expired') {
+        setRequoted(true);
+        quote.refresh();
+      }
+    },
+    [quote],
   );
 
   /**
@@ -583,6 +690,7 @@ function Checkout({
     async (pay: () => Promise<{ orderId: string; total: number } | null>) => {
       setBusy(true);
       setError(null);
+      setRequoted(false);
       try {
         /*
          * Read off the basket *before* paying, not after.
@@ -594,9 +702,14 @@ function Checkout({
          */
         const lines = basket.lines.map((line) => ({
           name: line.product.name,
+          sku: line.product.sku,
           quantity: line.quantity,
           amount: line.product.amount * line.quantity,
         }));
+        const paidPostage = shipping
+          ? { label: chosen ? chosen.label : 'Delivery', cents: postage }
+          : null;
+        const paidTax = tax;
 
         const result = await pay();
         if (!result) return;
@@ -606,6 +719,8 @@ function Checkout({
           email: email.trim(),
           shipping,
           lines,
+          postage: paidPostage,
+          tax: paidTax,
           // Square's own total, not the quote above it. They agree unless the
           // catalog moved under the basket, and when they disagree the bank
           // statement will say Square's number.
@@ -619,7 +734,7 @@ function Checkout({
         setBusy(false);
       }
     },
-    [basket.lines, email, shipping, onPaid],
+    [basket.lines, email, shipping, onPaid, chosen, postage, tax],
   );
 
   return (
@@ -636,6 +751,15 @@ function Checkout({
       {error ? (
         <Problem>
           <Body>{error}</Body>
+        </Problem>
+      ) : null}
+
+      {requoted ? (
+        <Problem>
+          <Body>
+            The postage price had expired, so it has been checked again. The delivery line
+            below is the new figure — look it over, then pay again.
+          </Body>
         </Problem>
       ) : null}
 
@@ -681,7 +805,13 @@ function Checkout({
           {
             value: 'ship',
             label: 'Deliver it to me',
-            note: settings.deliveryCents > 0 ? money(settings.deliveryCents) : 'Free',
+            /* The figure, not the promise of one, when there is a single
+               figure. With live postage there is not until a ZIP is known. */
+            note: liveShipping
+              ? 'USPS, by ZIP'
+              : settings.deliveryCents > 0
+                ? money(settings.deliveryCents)
+                : 'Free',
           },
         ]}
         chosen={[shipping ? 'ship' : 'collect']}
@@ -710,11 +840,65 @@ function Checkout({
         </View>
       ) : null}
 
+      {/*
+        The postage choices, once there is a ZIP to price them to.
+
+        Under the address because the ZIP is what produced them, and a list of
+        prices appearing somewhere else on the screen when a box is filled in
+        is a list nobody connects to the box.
+      */}
+      {shipping && liveShipping && zipKnown ? (
+        quote.status === 'loading' ? (
+          <Micro color={theme.color.inkFaint}>Pricing postage…</Micro>
+        ) : options.length > 0 ? (
+          <Choice
+            label="Postage"
+            options={options.map((option) => ({
+              value: option.service,
+              label: option.label,
+              note: `${option.days} · ${money(option.cents)}`,
+            }))}
+            chosen={chosen ? [chosen.service] : []}
+            onChange={(next) => setChosenService(next[0] ?? null)}
+          />
+        ) : (
+          /* No live option — an unweighed book, USPS down, or the request
+             failed. The flat charge, which is also what the Function will
+             take when no option id is sent. */
+          <Micro color={theme.color.inkSoft}>{money(flatCents)} delivery.</Micro>
+        )
+      ) : null}
+
+      {/*
+        The breakdown, directly above the buttons that charge it.
+
+        Every figure here is one the server will charge — the books Square
+        prices, the tax Square applies to the taxable ones, and the postage
+        inside the signed quote or the flat charge — so these lines always add
+        up to the number on the button. While a quote is on its way the
+        delivery line says so rather than showing a figure about to change.
+      */}
       <Card gap={theme.space.xs}>
         <Row label={`${basket.count} ${basket.count === 1 ? 'book' : 'books'}`} value={money(basket.subtotal)} />
-        {shipping ? <Row label="Delivery" value={money(delivery)} /> : null}
+        {!shipping ? (
+          <Row label="Collect at the church" value="Free" />
+        ) : quoting ? (
+          <Row label="Delivery" value="Pricing…" />
+        ) : chosen ? (
+          <>
+            <Row label={chosen.label} value={money(chosen.cents - chosen.handlingCents)} />
+            {chosen.handlingCents > 0 ? (
+              <Row label="Packing & handling" value={money(chosen.handlingCents)} />
+            ) : null}
+          </>
+        ) : liveShipping && !zipKnown ? (
+          <Row label="Delivery" value="Enter your ZIP" />
+        ) : (
+          <Row label="Delivery" value={money(flatCents)} />
+        )}
+        {tax ? <Row label={tax.label} value={money(tax.cents)} /> : null}
         <View style={{ height: 1, backgroundColor: theme.color.rule, marginVertical: theme.space.xs }} />
-        <Row label="Total" value={money(charge)} strong />
+        <Row label="Total" value={awaitingPostage ? '—' : money(charge)} strong />
       </Card>
 
       {/*
@@ -749,16 +933,18 @@ function Checkout({
              * It is a *display* total regardless. What is charged is decided by
              * Square from its own catalog — see the header of this file.
              */
-            onPress={() => void settle(() => payWithWallet(details(), (charge / 100).toFixed(2)))}
+            onPress={() =>
+              void settle(() => payWithWallet(details(), (charge / 100).toFixed(2), onRefused))
+            }
           />
         ) : null}
 
         <Button
-          label={`Pay ${money(charge)} by card`}
+          label={awaitingPostage ? 'Pay by card' : `Pay ${money(charge)} by card`}
           tone={wallet ? 'quiet' : 'primary'}
           busy={busy}
           disabled={!ready}
-          onPress={() => void settle(() => payWithCard(details()))}
+          onPress={() => void settle(() => payWithCard(details(), onRefused))}
         />
       </View>
 
@@ -773,7 +959,11 @@ function Checkout({
             ? 'There is nothing in the basket.'
             : addressIncomplete
               ? 'A full delivery address is needed — street, town, state and ZIP.'
-              : 'A first name, a last name and an email address are needed.'}
+              : quoting
+                ? 'Pricing postage for your ZIP code…'
+                : awaitingPostage
+                  ? 'A five-digit ZIP code is needed to price the postage.'
+                  : 'A first name, a last name and an email address are needed.'}
         </Micro>
       ) : null}
     </>
@@ -825,10 +1015,18 @@ function Done({
         {receipt.lines.map((line) => (
           <Row
             key={line.name}
-            label={line.quantity > 1 ? `${line.quantity} × ${line.name}` : line.name}
+            label={`${line.quantity > 1 ? `${line.quantity} × ${line.name}` : line.name}${
+              line.sku ? ` · ${line.sku}` : ''
+            }`}
             value={money(line.amount)}
           />
         ))}
+        {/* So the lines add up to "Paid" below — the website's receipt gained
+            the same two rows with live postage and sales tax. */}
+        {receipt.postage ? (
+          <Row label={receipt.postage.label} value={money(receipt.postage.cents)} />
+        ) : null}
+        {receipt.tax ? <Row label={receipt.tax.label} value={money(receipt.tax.cents)} /> : null}
         <View style={{ height: 1, backgroundColor: theme.color.rule, marginVertical: theme.space.xs }} />
         <Row label="Paid" value={money(receipt.total)} strong />
       </Card>

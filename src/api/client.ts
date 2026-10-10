@@ -145,11 +145,20 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
     let message = `${path} failed: ${response.status}`;
     let code: string | null = null;
     try {
-      const problem = (await response.json()) as { error?: unknown };
+      const problem = (await response.json()) as { error?: unknown; code?: unknown };
       if (typeof problem.error === 'string') {
         message = problem.error;
         code = problem.error;
       }
+      /*
+       * A separate machine-readable `code`, where the Function sends one beside
+       * its sentence — `squareCheckout` answers a stale postage quote with
+       * `{ error: "The postage quote has expired…", code: "quote-expired" }`,
+       * and the basket has to tell that apart from a declined card. Preferred
+       * over the sentence, which is what `code` falls back to for the endpoints
+       * (`unattested`) that put the code in `error` itself.
+       */
+      if (typeof problem.code === 'string' && problem.code !== '') code = problem.code;
     } catch {
       // Not JSON. Keep the status-based message.
     }

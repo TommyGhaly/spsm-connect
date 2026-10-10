@@ -9,8 +9,9 @@
  *
  * ## What is held, and what deliberately is not
  *
- * Held: the stock count, whether stock is counted at all, the category, and
- * pictures added or taken off.
+ * Held: the stock count, whether stock is counted at all, the categories, the
+ * shipping weight and Media Mail flag, whether sales tax applies, and pictures
+ * added or taken off.
  *
  * Not held — these still act immediately, and it is not an oversight:
  *
@@ -50,6 +51,7 @@ import { Button } from '@/components/Surface';
 import { Micro, Small } from '@/components/Type';
 import { useTheme } from '@/theme/ThemeProvider';
 
+import type { ShopProduct } from '../data';
 import type { PickedPicture } from './picture';
 
 export type PendingImage = PickedPicture;
@@ -57,8 +59,17 @@ export type PendingImage = PickedPicture;
 export interface PendingEdit {
   /** A number, or `null` for "not counted". Absent means untouched. */
   stockCount?: number | null;
-  /** A category id, or `null` for none. Absent means untouched. */
-  section?: string | null;
+  /**
+   * The Square subcategories the book is filed in — several allowed, empty for
+   * none. Absent means untouched. Saved through Square: `setProductCategories`.
+   */
+  categoryIds?: readonly string[];
+  /** Ounces per copy, or `null` for not weighed. The parish's own field. */
+  weightOz?: number | null;
+  /** Media Mail eligible. Held together with `weightOz` — see `setShipping`. */
+  mediaMail?: boolean;
+  /** Sales tax applies. The parish's own field. */
+  taxable?: boolean;
   /** Photographs chosen here and not yet uploaded, in the order chosen. */
   addImages?: PendingImage[];
   /** Already-saved Square URLs marked to come off. */
@@ -68,7 +79,74 @@ export interface PendingEdit {
 /** What one book currently *is*, so a held edit can be compared against it. */
 export interface ActualValues {
   stockCount: number | null;
-  section: string | null;
+  /** Optional so callers that never show the categories need not pass them. */
+  categoryIds?: readonly string[];
+  /** Optional, for the same reason, on the shipping and tax fields. */
+  weightOz?: number | null;
+  mediaMail?: boolean;
+  taxable?: boolean;
+}
+
+/**
+ * A book's saved values, whole — for every caller of `usePendingEdit`.
+ *
+ * The website lets a caller that never shows the shipping fields pass a
+ * partial `actual`, and that is a trap worth not porting: the card's stepper
+ * releases a book when every field "matches", and a missing weight reads as
+ * "not weighed" — so a held *cleared* weight would match a partial `actual` and
+ * be dropped by the next tap on +. One function, used by the card, the sheet,
+ * the stepper and the pictures alike, means they all compare against the same
+ * thing.
+ */
+export function actualValues(product: ShopProduct): ActualValues {
+  return {
+    stockCount: product.stockCount ?? null,
+    categoryIds: product.categoryIds,
+    weightOz: product.weightOz,
+    mediaMail: product.mediaMail,
+    taxable: product.taxable,
+  };
+}
+
+/** The held fields that are plain values — everything but the pictures. */
+const FIELDS = ['stockCount', 'categoryIds', 'weightOz', 'mediaMail', 'taxable'] as const;
+type HeldField = (typeof FIELDS)[number];
+
+/**
+ * A category list as one comparable value. Order does not matter — ticking A
+ * then B is the same filing as B then A — so it is sorted before it is joined.
+ */
+function categoryKey(ids: readonly string[] | undefined): string {
+  return [...(ids ?? [])].sort().join('\n');
+}
+
+function actualOf(actual: ActualValues, key: HeldField): unknown {
+  if (key === 'categoryIds') return categoryKey(actual.categoryIds);
+  if (key === 'weightOz') return actual.weightOz ?? null;
+  if (key === 'mediaMail' || key === 'taxable') return actual[key] ?? false;
+  return actual[key];
+}
+
+/** What a field reads as with this edit held over the real value. */
+function heldOf(edit: PendingEdit | undefined, actual: ActualValues, key: HeldField): unknown {
+  if (edit && key in edit) {
+    if (key === 'categoryIds') return categoryKey(edit.categoryIds);
+    return key === 'mediaMail' || key === 'taxable' ? (edit[key] ?? false) : (edit[key] ?? null);
+  }
+  return actualOf(actual, key);
+}
+
+/**
+ * True when every plain field of this edit is back to what is saved.
+ *
+ * One test for all of them, and that is the website's lesson rather than
+ * tidiness: the failure this file keeps guarding against is a check that
+ * compared the field it was about and forgot the *other* one, and so released
+ * a book with a change still held. With five fields there are five ways to
+ * forget; with one function there are none.
+ */
+function fieldsMatch(edit: PendingEdit | undefined, actual: ActualValues): boolean {
+  return FIELDS.every((key) => heldOf(edit, actual, key) === actualOf(actual, key));
 }
 
 interface PendingEditsValue {
@@ -105,10 +183,7 @@ export function settle(
   edit: PendingEdit,
   actual: ActualValues,
 ): Record<string, PendingEdit> {
-  const stock = 'stockCount' in edit ? (edit.stockCount ?? null) : actual.stockCount;
-  const section = 'section' in edit ? (edit.section ?? null) : actual.section;
-
-  if (stock === actual.stockCount && section === actual.section && !hasImageEdits(edit)) {
+  if (fieldsMatch(edit, actual) && !hasImageEdits(edit)) {
     if (!(slug in was)) return was;
     const next = { ...was };
     delete next[slug];
@@ -142,17 +217,16 @@ export function nextEditsAfterNudge(
   if (heldStock === null) return was;
 
   const nextStock = Math.max(0, Math.min(99_999, heldStock + by));
-  const heldSection = held && 'section' in held ? (held.section ?? null) : actual.section;
 
   /*
    * Back where it started, and nothing else held: stop calling it an edit.
    *
-   * `hasImageEdits` is part of that test for the same reason `heldSection` is —
-   * releasing the whole book the moment its count matched again would silently
-   * drop a picture added a second earlier, and the card would look clean and be
-   * sent as nothing.
+   * `hasImageEdits` is part of that test for the same reason the other fields
+   * are — releasing the whole book the moment its count matched again would
+   * silently drop a picture added, or a weight typed, a second earlier, and the
+   * card would look clean and be sent as nothing.
    */
-  if (nextStock === actual.stockCount && heldSection === actual.section && !hasImageEdits(held)) {
+  if (fieldsMatch({ ...held, stockCount: nextStock }, actual) && !hasImageEdits(held)) {
     if (!(slug in was)) return was;
     const next = { ...was };
     delete next[slug];
@@ -169,6 +243,7 @@ export function nextEditsAfterNudge(
  */
 const EMPTY_ADDS: readonly PendingImage[] = [];
 const EMPTY_REMOVES: readonly string[] = [];
+const EMPTY_IDS: readonly string[] = [];
 
 const PendingEditsContext = createContext<PendingEditsValue | null>(null);
 
@@ -282,8 +357,14 @@ export function PendingEditsProvider({
        writes that already succeeded. */
     const saved: string[] = [];
     try {
-      const { setProductStock, setProductSection, uploadProductImage, removeProductImage } =
-        await import('./adminData');
+      const {
+        setProductStock,
+        setProductCategories,
+        setProductShipping,
+        setProductTaxable,
+        uploadProductImage,
+        removeProductImage,
+      } = await import('./adminData');
 
       /*
        * Sequential, not `Promise.all`. Each stock change is a write to Square's
@@ -300,7 +381,16 @@ export function PendingEditsProvider({
        */
       for (const [slug, edit] of pending) {
         if ('stockCount' in edit) await setProductStock(slug, edit.stockCount ?? null);
-        if ('section' in edit) await setProductSection(slug, edit.section ?? null);
+        // Through Square, so the register files the book the same way.
+        if ('categoryIds' in edit) await setProductCategories(slug, [...(edit.categoryIds ?? [])]);
+        if ('taxable' in edit) await setProductTaxable(slug, edit.taxable ?? false);
+        // Both shipping fields in one write; `setShipping` always holds them together.
+        if ('weightOz' in edit || 'mediaMail' in edit) {
+          await setProductShipping(slug, {
+            weightOz: edit.weightOz ?? null,
+            mediaMail: edit.mediaMail ?? false,
+          });
+        }
 
         /*
          * Removals before additions, so the result matches the tiles that were
@@ -405,44 +495,59 @@ export function usePendingEdit(slug: string, actual: ActualValues) {
     usePendingEdits();
   const edit = edits[slug];
 
-  const stockCount = edit && 'stockCount' in edit ? (edit.stockCount ?? null) : actual.stockCount;
-  const section = edit && 'section' in edit ? (edit.section ?? null) : actual.section;
+  const stockCount = heldOf(edit, actual, 'stockCount') as number | null;
+  // The list itself, not the comparison key `heldOf` returns for it.
+  const categoryIds: readonly string[] =
+    edit && 'categoryIds' in edit ? (edit.categoryIds ?? EMPTY_IDS) : (actual.categoryIds ?? EMPTY_IDS);
+  const weightOz = heldOf(edit, actual, 'weightOz') as number | null;
+  const mediaMail = heldOf(edit, actual, 'mediaMail') as boolean;
+  const taxable = heldOf(edit, actual, 'taxable') as boolean;
   const addedImages = edit?.addImages ?? EMPTY_ADDS;
   const removedImages = edit?.removeImages ?? EMPTY_REMOVES;
-  const dirty =
-    stockCount !== actual.stockCount ||
-    section !== actual.section ||
-    addedImages.length > 0 ||
-    removedImages.length > 0;
+  const dirty = !fieldsMatch(edit, actual) || addedImages.length > 0 || removedImages.length > 0;
 
   /*
-   * One writer for both fields, because the "back to where it started" case has
-   * to consider the *other* field too. Releasing the whole book the moment its
-   * count matched again would silently drop a category change made a second
-   * earlier — the book would look clean and be sent as nothing.
+   * The parts of `actual` the callbacks below depend on, as primitives. The
+   * object itself is a fresh literal on every render of every caller, so
+   * listing it would rebuild every callback every time; its fields are what
+   * matter, and the category list is compared as its sorted key.
+   */
+  const actualKey = `${actual.stockCount}|${categoryKey(actual.categoryIds)}|${actual.weightOz ?? ''}|${actual.mediaMail ?? false}|${actual.taxable ?? false}`;
+
+  /*
+   * One writer for every field, because the "back to where it started" case
+   * has to consider the *other* fields too. Releasing the whole book the moment
+   * its count matched again would silently drop a category change made a
+   * second earlier — the book would look clean and be sent as nothing. Pictures
+   * count as well, for the same reason.
    */
   const setField = useCallback(
     (patch: PendingEdit) => {
-      const nextStock = 'stockCount' in patch ? (patch.stockCount ?? null) : stockCount;
-      const nextSection = 'section' in patch ? (patch.section ?? null) : section;
-
-      if (nextStock === actual.stockCount && nextSection === actual.section) release(slug);
+      if (fieldsMatch({ ...edit, ...patch }, actual) && !hasImageEdits(edit)) release(slug);
       else hold(slug, patch);
     },
-    [slug, stockCount, section, actual.stockCount, actual.section, hold, release],
+    [slug, edit, actualKey, hold, release], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const setStock = useCallback((next: number | null) => setField({ stockCount: next }), [setField]);
 
-  const setSection = useCallback(
-    (next: string | null) => setField({ section: next }),
+  const setCategories = useCallback(
+    (next: readonly string[]) => setField({ categoryIds: next }),
     [setField],
   );
+
+  /* Always both together, so Save sends one complete shipping write. */
+  const setShipping = useCallback(
+    (next: { weightOz: number | null; mediaMail: boolean }) => setField(next),
+    [setField],
+  );
+
+  const setTaxable = useCallback((next: boolean) => setField({ taxable: next }), [setField]);
 
   /* Relative, so a fast run of presses accumulates rather than collapsing. */
   const nudge = useCallback(
     (by: number) => nudgeStock(slug, by, actual),
-    [nudgeStock, slug, actual.stockCount, actual.section], // eslint-disable-line react-hooks/exhaustive-deps
+    [nudgeStock, slug, actualKey], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const holdImage = useCallback(
@@ -452,7 +557,7 @@ export function usePendingEdit(slug: string, actual: ActualValues) {
 
   const unholdImage = useCallback(
     (id: string) => dropAddedImage(slug, id, actual),
-    [dropAddedImage, slug, actual.stockCount, actual.section], // eslint-disable-line react-hooks/exhaustive-deps
+    [dropAddedImage, slug, actualKey], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const markImageRemoved = useCallback(
@@ -462,15 +567,20 @@ export function usePendingEdit(slug: string, actual: ActualValues) {
 
   const unmarkImageRemoved = useCallback(
     (url: string) => keepImage(slug, url, actual),
-    [keepImage, slug, actual.stockCount, actual.section], // eslint-disable-line react-hooks/exhaustive-deps
+    [keepImage, slug, actualKey], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   return {
     stockCount,
-    section,
+    categoryIds,
+    weightOz,
+    mediaMail,
+    taxable,
     dirty,
     setStock,
-    setSection,
+    setCategories,
+    setShipping,
+    setTaxable,
     nudge,
     addedImages,
     removedImages,
@@ -533,7 +643,8 @@ export function SaveBar() {
             are finished — not in a note further up the shelf they scrolled past
             several minutes ago. */}
         <Micro color={theme.color.inkFaint}>
-          Renaming and removing a book save on their own.
+          Renaming and removing a book, and the shop’s shipping and tax settings, save on
+          their own.
         </Micro>
       </View>
 

@@ -101,6 +101,8 @@ interface Answer {
   periodId: string;
   stats: BookstoreStats | null;
   names: Map<string, string>;
+  /** Slug → `SPSM-0007`, read in the same pass as the names. */
+  skus: Map<string, string>;
 }
 
 export function Metrics() {
@@ -128,13 +130,13 @@ export function Metrics() {
 
     void (async () => {
       try {
-        const { readStats, productNames } = await import('./adminData');
-        const [stats, names] = await Promise.all([
+        const { readStats, productDirectory } = await import('./adminData');
+        const [stats, { names, skus }] = await Promise.all([
           readStats(period.kind, period.key),
-          productNames(),
+          productDirectory(),
         ]);
         if (cancelled) return;
-        setAnswer({ periodId: period.id, stats, names });
+        setAnswer({ periodId: period.id, stats, names, skus });
         setReadFailed(null);
       } catch (cause) {
         if (cancelled) return;
@@ -232,7 +234,7 @@ export function Metrics() {
       ) : null}
 
       {ready && ready.stats ? (
-        <Report stats={ready.stats} names={ready.names} period={period} />
+        <Report stats={ready.stats} names={ready.names} skus={ready.skus} period={period} />
       ) : null}
 
       {canEdit ? (
@@ -251,15 +253,23 @@ export function Metrics() {
 function Report({
   stats,
   names,
+  skus,
   period,
 }: {
   stats: BookstoreStats;
   names: Map<string, string>;
+  skus: Map<string, string>;
   period: Period;
 }) {
   const theme = useTheme();
 
   const t = stats.totals;
+  /* Biggest first, so the service most buyers chose leads. `?? {}` because a
+     document rolled up before delivery was split has no such map at all —
+     `withStatsDefaults` fills it, and this is the belt to that brace. */
+  const services = Object.entries(stats.shippingByService ?? {}).sort(
+    (a, b) => b[1].cents - a[1].cents || a[0].localeCompare(b[0]),
+  );
   const computed = toDate(stats.computedAt);
   const nameOf = (slug: string) => names.get(slug) ?? slug;
 
@@ -307,11 +317,45 @@ function Report({
   return (
     <View style={{ gap: theme.space.md }}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm }}>
+        {/* "Taken", as the website now calls it: it is everything Square
+            charged, and once tax and postage are in it "Sold" read as the
+            books alone. */}
         <Tile
-          label="Sold"
+          label="Taken"
           value={money(t.revenue)}
           note={`${t.orders} ${t.orders === 1 ? 'order' : 'orders'}, ${t.unitsSold} books`}
         />
+
+        {/*
+          What "Taken" is made of — the books, the Commonwealth's tax, and what
+          buyers paid for delivery. The three add up to it; `splitOrderTotal`
+          in the shared rollup is what reconstructs orders from before the
+          parts were recorded. Only once something has been taken: three tiles
+          of $0.00 above a quiet day are furniture.
+        */}
+        {t.revenue > 0 ? (
+          <>
+            <Tile label="Books & goods" value={money(t.salesCents)} note="before tax" />
+            <Tile
+              label="Sales tax"
+              value={money(t.taxCents)}
+              note={
+                t.refundedTaxCents > 0
+                  ? `${money(t.taxCents - t.refundedTaxCents)} after refunds · owed to the state`
+                  : 'collected for the state'
+              }
+            />
+            <Tile
+              label="Delivery"
+              value={money(t.postageCents + t.handlingCents)}
+              note={
+                t.handlingCents > 0
+                  ? `${money(t.postageCents)} postage + ${money(t.handlingCents)} handling`
+                  : `${t.shippedOrders} delivered ${t.shippedOrders === 1 ? 'order' : 'orders'}`
+              }
+            />
+          </>
+        ) : null}
 
         {/* Net is shown only when there is something to net off. A permanent
             "refunded $0.00" tile is furniture. */}
@@ -381,9 +425,30 @@ function Report({
           key: row.slug,
           name: nameOf(row.slug),
           value: String(row.value),
-          note: row.stats.revenue > 0 ? money(row.stats.revenue) : '',
+          // The SKU first: it is the number somebody reads off the shelf
+          // label when they go to count what is left.
+          note: [skus.get(row.slug) ?? '', row.stats.revenue > 0 ? money(row.stats.revenue) : '']
+            .filter(Boolean)
+            .join(' · '),
         }))}
       />
+
+      {/* Only once something has been delivered. It is the table that tells
+          whoever posts the parcels which service buyers are choosing — and
+          what the parish has collected toward the postage it will pay. */}
+      {services.length > 0 ? (
+        <Table
+          title="Delivery by service"
+          hint="What buyers paid for postage and handling, by the service they chose."
+          empty=""
+          rows={services.map(([service, row]) => ({
+            key: service,
+            name: service,
+            value: money(row.cents),
+            note: `${row.orders} ${row.orders === 1 ? 'order' : 'orders'}`,
+          }))}
+        />
+      ) : null}
 
       <Table
         title="Most looked at"

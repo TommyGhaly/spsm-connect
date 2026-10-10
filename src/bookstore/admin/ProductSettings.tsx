@@ -23,7 +23,8 @@
  *
  * ## Two kinds of control, and the sheet says which is which
  *
- * Stock, category and pictures are **held** for the Save bar. The title, price
+ * Stock, categories, shipping, sales tax and pictures are **held** for the Save
+ * bar. The title, price
  * and description go **straight to Square** behind their own button, because
  * they are one book at a time, they change what the till charges as well as what
  * the shop shows, and an explicit button is the honest control for that.
@@ -34,7 +35,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import type { BookstoreSection } from '@spsm/shared';
 
-import { Field, Picker, Problem } from '@/components/Fields';
+import { Field, Problem } from '@/components/Fields';
 import { Icon } from '@/components/Icon';
 import { Button } from '@/components/Surface';
 import { Body, Label, Micro, Small } from '@/components/Type';
@@ -42,7 +43,8 @@ import { useTheme } from '@/theme/ThemeProvider';
 
 import type { ShopProduct } from '../data';
 import { PictureRow, PictureSource, PictureTile } from './Pictures';
-import { usePendingEdit, usePendingEdits } from './pendingEdits';
+import { CategoryChecklist, ShippingFields, TaxableField } from './ProductFields';
+import { actualValues, usePendingEdit, usePendingEdits } from './pendingEdits';
 
 /**
  * Run a write, and report on it.
@@ -114,10 +116,7 @@ export function ProductSettings({
   const [failed, setFailed] = useState<string | null>(null);
   const { busy, saved, write } = useWriter(setFailed);
   const held = usePendingEdits();
-  const pending = usePendingEdit(product.slug, {
-    stockCount: product.stockCount ?? null,
-    section: product.section ?? null,
-  });
+  const pending = usePendingEdit(product.slug, actualValues(product));
 
   return (
     <View
@@ -136,8 +135,8 @@ export function ProductSettings({
       </View>
 
       <Micro color={theme.color.inkFaint}>
-        Stock, category and pictures are saved with the bar at the foot of the shop. The
-        title, price and description go straight to Square.
+        Stock, categories, shipping, sales tax and pictures are saved with the bar at the
+        foot of the shop. The title, price and description go straight to Square.
       </Micro>
 
       {/* Every refusal on this sheet goes to one place. Six controls with six
@@ -183,17 +182,38 @@ export function ProductSettings({
       </View>
 
       {sections.length > 0 ? (
-        <Picker
-          label="Category"
-          value={pending.section ?? ''}
-          options={[
-            { value: '', label: 'No category' },
-            ...sections.map((row) => ({ value: row.id, label: row.label })),
-          ]}
-          onChange={(next) => pending.setSection(next === '' ? null : next)}
-          disabled={busy}
-        />
+        <View style={{ gap: theme.space.xs }}>
+          <Label>Categories</Label>
+          <CategoryChecklist
+            sections={sections}
+            chosen={pending.categoryIds}
+            busy={busy}
+            onChange={pending.setCategories}
+          />
+        </View>
       ) : null}
+
+      <View style={{ gap: theme.space.xs }}>
+        <Label>Shipping</Label>
+        {/* Keyed on the book so the weight box re-seeds when the sheet moves
+            to another one — and only then; see `ShippingFields`. */}
+        <ShippingFields
+          key={product.slug}
+          weightOz={pending.weightOz}
+          mediaMail={pending.mediaMail}
+          busy={busy}
+          onChange={pending.setShipping}
+        />
+        {/* Here, under the shipping fields, because it is the number on the
+            shelf label and the till — the one staff read out when they weigh
+            or count a book. Square's, and assigned by the Functions alone. */}
+        {product.sku ? <Micro color={theme.color.inkFaint}>SKU {product.sku}</Micro> : null}
+      </View>
+
+      <View style={{ gap: theme.space.xs }}>
+        <Label>Sales tax</Label>
+        <TaxableField taxable={pending.taxable} busy={busy} onChange={pending.setTaxable} />
+      </View>
 
       {/*
         Save, without closing the sheet to find the bar.
@@ -248,7 +268,7 @@ export function ProductSettings({
  * ---------------------------------------------------------------------------
  * Not held for the Save bar, and not saved on blur either.
  *
- * The bar exists for the stepper, the category and the pictures — edits that
+ * The bar exists for the stepper, the categories, the weights and the pictures — edits that
  * are cheap, reversible, and made across several books in a row. These are none
  * of those. Saving on blur was the website's first attempt at the title and is
  * worse than either: moving the keyboard off a field you only meant to read
@@ -395,10 +415,7 @@ function Pictures({
   onError: (message: string) => void;
 }) {
   const theme = useTheme();
-  const pending = usePendingEdit(product.slug, {
-    stockCount: product.stockCount ?? null,
-    section: product.section ?? null,
-  });
+  const pending = usePendingEdit(product.slug, actualValues(product));
 
   const saved = product.images;
 
@@ -467,10 +484,7 @@ function Pictures({
  */
 function StockStepper({ product, busy }: { product: ShopProduct; busy: boolean }) {
   const theme = useTheme();
-  const { stockCount, setStock, nudge } = usePendingEdit(product.slug, {
-    stockCount: product.stockCount ?? null,
-    section: product.section ?? null,
-  });
+  const { stockCount, setStock, nudge } = usePendingEdit(product.slug, actualValues(product));
 
   if (stockCount === null) {
     return (

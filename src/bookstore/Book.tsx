@@ -29,7 +29,7 @@ import { money } from '@/payments/money';
 import { useTheme } from '@/theme/ThemeProvider';
 
 import { Cover } from './Cover';
-import { usePendingEdit } from './admin/pendingEdits';
+import { actualValues, usePendingEdit } from './admin/pendingEdits';
 import type { ShopProduct } from './data';
 
 /**
@@ -95,10 +95,7 @@ export function Book({
    * is that every card re-renders when any held edit changes; the shop is
    * eleven titles, so that is a measurement nobody will ever take.
    */
-  const pending = usePendingEdit(product.slug, {
-    stockCount: product.stockCount ?? null,
-    section: product.section ?? null,
-  });
+  const pending = usePendingEdit(product.slug, actualValues(product));
 
   return (
     /*

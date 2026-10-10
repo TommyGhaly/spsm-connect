@@ -87,6 +87,10 @@ export function ProductSheet({
       <View style={{ gap: theme.space.xs }}>
         <Body color={theme.color.ink}>{money(product.amount, product.currency)}</Body>
         <Stock count={product.stockCount} />
+        {/* Under the stock line, small: the number somebody reads out when
+            they ring the office about a book, and the one on the till. Absent
+            until the catalog sync has numbered it. */}
+        {product.sku ? <Micro color={theme.color.inkFaint}>SKU {product.sku}</Micro> : null}
       </View>
 
       {/*

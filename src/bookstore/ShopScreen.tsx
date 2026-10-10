@@ -19,6 +19,13 @@
  * a book whose category was deleted falls into the catch-all rather than off
  * the shop, and no categories at all means no divisions.
  *
+ * The categories are Square's subcategories of "Bookstore" now, and Square
+ * nests them — so the row shows the top level, and choosing a category that
+ * has subcategories opens a second row of them beneath it ("Books" → "Arabic
+ * books", "English books"), as the website does. A category's pill holds
+ * everything filed in it *or anywhere beneath it*, and a book can sit in
+ * several.
+ *
  * ## The basket is a bar at the bottom, not a button at the top
  *
  * The website puts it in the head beside the search. Here it is a pinned bar
@@ -53,6 +60,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   DEFAULT_BOOKSTORE_CONFIG,
   UNSORTED_LABEL,
+  childSections,
   groupProducts,
   type BookstoreConfig,
 } from '@spsm/shared';
@@ -69,6 +77,7 @@ import { Book } from './Book';
 import { ProductSheet } from './ProductSheet';
 import { AddProduct } from './admin/AddProduct';
 import { CategoryEditor } from './admin/CategoryEditor';
+import { ShopSettings } from './admin/ShopSettings';
 import { AdminFab } from '@/components/AdminFab';
 import { ShopEditingNote } from './admin/ShopControls';
 import { PendingEditsProvider, SaveBar, usePendingEdits } from './admin/pendingEdits';
@@ -215,9 +224,10 @@ function Shelf({
   const [basketOpen, setBasketOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [categories, setCategories] = useState(false);
+  const [shopMoney, setShopMoney] = useState(false);
 
   /*
-   * Matched on the title and the description on every keystroke. Eleven books
+   * Matched on the title, the description and the SKU on every keystroke. Eleven books
    * need no index, no debounce and no request — the whole catalog is in memory,
    * and a search that waits to filter a list this size feels broken.
    */
@@ -274,9 +284,14 @@ function Shelf({
    * The catch-all keeps the opposite rule — it exists only when something is
    * actually unfiled, because "Everything else (0)" describes nothing.
    */
+  const countOf = useMemo(
+    () => new Map(groups.map((group) => [group.id, group.items.length])),
+    [groups],
+  );
+
   const rowPills = useMemo<Pill[]>(() => {
-    const countOf = new Map(groups.map((group) => [group.id, group.items.length]));
-    const row: Pill[] = settings.sections.map((section) => ({
+    // The top level only; a chosen category's subcategories get their own row.
+    const row: Pill[] = childSections(settings.sections, null).map((section) => ({
       id: section.id,
       label: section.label,
       count: countOf.get(section.id) ?? 0,
@@ -291,7 +306,7 @@ function Shelf({
       });
 
     return row;
-  }, [groups, settings.sections]);
+  }, [groups, countOf, settings.sections]);
 
   /*
    * A pill that stops existing — its category deleted, or its last unfiled book
@@ -312,6 +327,51 @@ function Shelf({
       : settings.sections.some((section) => section.id === pill))
       ? pill
       : undefined;
+
+  /*
+   * The second row.
+   *
+   * Choosing a category that has subcategories opens a row of them; choosing a
+   * subcategory keeps its siblings showing, so moving between "Arabic books"
+   * and "English books" is one press rather than a trip back up. `topOf` is
+   * which top-level pill stays lit while a subcategory is chosen — the
+   * website's rule, and the thing that says where in the tree you are.
+   *
+   * Only subcategories with something in them, unlike the top row: a second
+   * row of zeros under a category is a row that says nothing.
+   */
+  const sections = settings.sections;
+  const parentOf = useCallback(
+    (id: string) => sections.find((one) => one.id === id)?.parentId ?? null,
+    [sections],
+  );
+  const topOf = useCallback(
+    (id: string): string => {
+      let at = id;
+      for (let hops = 0; parentOf(at) && hops < 16; hops += 1) at = parentOf(at)!;
+      return at;
+    },
+    [parentOf],
+  );
+  const subParent =
+    typeof shelfPill === 'string'
+      ? childSections(sections, shelfPill).length > 0
+        ? shelfPill
+        : parentOf(shelfPill)
+      : null;
+  const subPills = useMemo<Pill[]>(
+    () =>
+      subParent
+        ? childSections(sections, subParent)
+            .map((section) => ({
+              id: section.id,
+              label: section.label,
+              count: countOf.get(section.id) ?? 0,
+            }))
+            .filter((one) => one.count > 0)
+        : [],
+    [subParent, sections, countOf],
+  );
 
   const shelf = useMemo(() => {
     if (shelfPill === undefined) return shown;
@@ -474,6 +534,7 @@ function Shelf({
           ? [
               { label: 'Add a book', onPress: () => setAdding(true) },
               { label: 'Categories', onPress: () => setCategories(true) },
+              { label: 'Shipping & tax', onPress: () => setShopMoney(true) },
               { label: 'Orders', onPress: () => router.push('/bookstore/orders' as never) },
               { label: 'Figures', onPress: () => router.push('/bookstore/metrics' as never) },
               { label: 'Stop editing', onPress: () => onEditing(false) },
@@ -533,7 +594,23 @@ function Shelf({
       />
 
       {rowPills.length > 0 ? (
-        <PillRow pills={rowPills} chosen={shelfPill} onChoose={setPill} />
+        <PillRow
+          pills={rowPills}
+          chosen={shelfPill}
+          lit={typeof shelfPill === 'string' ? topOf(shelfPill) : shelfPill}
+          onChoose={setPill}
+        />
+      ) : null}
+
+      {/* "All" on this row is everything in the parent category. */}
+      {subParent && subPills.length > 0 ? (
+        <PillRow
+          pills={subPills}
+          chosen={shelfPill}
+          lit={shelfPill}
+          all={{ id: subParent, count: countOf.get(subParent) ?? 0 }}
+          onChoose={setPill}
+        />
       ) : null}
 
       {failed ? (
@@ -659,9 +736,16 @@ function Shelf({
       {categories ? (
         <CategoryEditor
           sections={settings.sections}
-          counts={new Map(groups.map((group) => [group.id, group.items.length]))}
-          unfiled={groups.find((group) => group.id === null)?.items.length ?? null}
+          products={products}
           onClose={() => setCategories(false)}
+        />
+      ) : null}
+
+      {shopMoney ? (
+        <ShopSettings
+          settings={settings}
+          taxedCount={products.filter((one) => one.taxable).length}
+          onClose={() => setShopMoney(false)}
         />
       ) : null}
     </View>
@@ -685,17 +769,33 @@ function Shelf({
  * put them — so what is off the right edge is what the church thought mattered
  * least, and a row that visibly runs off the edge says there is more of it.
  *
- * A `FlashList` rather than a `ScrollView` would be machinery for at most
- * thirteen pills (`MAX_SECTIONS` is 12, plus the catch-all). This is the one
- * place in the shop where a plain horizontal scroller is right.
+ * A `FlashList` rather than a `ScrollView` would be machinery for a row of a
+ * dozen or so pills — the top level of the tree, or one category's children.
+ * This is the one place in the shop where a plain horizontal scroller is right.
+ *
+ * The same component draws both rows; `all` and `lit` are the only
+ * difference between them.
  */
 function PillRow({
   pills,
   chosen,
+  lit,
+  all,
   onChoose,
 }: {
   pills: Pill[];
   chosen: string | null | undefined;
+  /**
+   * Which pill is drawn as on. The chosen one, except on the top row while a
+   * subcategory is chosen — there it is the subcategory's top-level ancestor,
+   * so the row still says which category you are inside.
+   */
+  lit: string | null | undefined;
+  /**
+   * What "All" means on this row. Absent on the top row, where it is the whole
+   * shop; on a subcategory row it is the parent category, with its count.
+   */
+  all?: { id: string; count: number };
   onChoose: (id: string | null | undefined) => void;
 }) {
   const theme = useTheme();
@@ -724,16 +824,16 @@ function PillRow({
     >
       <PillButton
         label="All"
-        count={null}
-        on={chosen === undefined}
-        onPress={() => onChoose(undefined)}
+        count={all ? all.count : null}
+        on={chosen === (all ? all.id : undefined)}
+        onPress={() => onChoose(all ? all.id : undefined)}
       />
       {pills.map((entry) => (
         <PillButton
           key={entry.id ?? '·unfiled'}
           label={entry.label}
           count={entry.count}
-          on={chosen === entry.id}
+          on={lit === entry.id}
           onPress={() => onChoose(entry.id)}
         />
       ))}

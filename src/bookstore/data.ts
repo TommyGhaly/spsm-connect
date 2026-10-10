@@ -72,8 +72,29 @@ export interface ShopProduct {
   images: string[];
   /** Null means "not tracked"; 0 means sold out and is not the same thing. */
   stockCount: number | null;
-  /** Which division of the shop this belongs in. Null is unfiled, not hidden. */
-  section: string | null;
+  /**
+   * Which divisions of the shop this belongs in — Square's subcategories of
+   * "Bookstore", by Square category id, mirrored by the catalog sync. Several
+   * allowed, at any depth; empty is unfiled, not hidden.
+   *
+   * This replaced `section`, the parish's own single field, which neither
+   * surface reads any more. Reading `section` after the shared rebuild would
+   * have put every book under "Everything else", because `groupProducts` now
+   * files by `categoryIds` alone.
+   */
+  categoryIds: string[];
+  /** `SPSM-0007`, or null until the sync has numbered it. Square's, like the price. */
+  sku: string | null;
+  /** Ounces per copy, or null when nobody has weighed it. The parish's field. */
+  weightOz: number | null;
+  /** May go by USPS Media Mail — books and recorded media only. */
+  mediaMail: boolean;
+  /**
+   * Sales tax applies. The parish's field, read by the checkout Function too —
+   * which is why the basket can show the tax line Square is about to charge.
+   * Absent on the document means false: nothing is taxed until somebody says so.
+   */
+  taxable: boolean;
 }
 
 function toShopProduct(id: string, raw: Product): ShopProduct {
@@ -89,7 +110,14 @@ function toShopProduct(id: string, raw: Product): ShopProduct {
     currency: raw.price?.currency ?? 'USD',
     images: Array.isArray(raw.imagePaths) ? raw.imagePaths.filter((url) => typeof url === 'string') : [],
     stockCount: typeof raw.stockCount === 'number' ? raw.stockCount : null,
-    section: raw.section ?? null,
+    categoryIds: Array.isArray(raw.categoryIds)
+      ? raw.categoryIds.filter((id): id is string => typeof id === 'string')
+      : [],
+    sku: typeof raw.sku === 'string' && raw.sku !== '' ? raw.sku : null,
+    weightOz: typeof raw.weightOz === 'number' ? raw.weightOz : null,
+    // `=== true`, the website's rule: anything but an explicit yes is a no.
+    mediaMail: raw.mediaMail === true,
+    taxable: raw.taxable === true,
   };
 }
 
@@ -183,7 +211,9 @@ export function watchCatalog(
 /**
  * The shop's own search, over the fields a shopper would expect it to cover.
  *
- * Title and description, and nothing else. Not the section label — searching
+ * Title, description and SKU, and nothing else. The SKU because it is the
+ * number the office reads out on the phone and the till prints — "spsm-0007",
+ * or just "0007", should find the book they mean. Not the section label — searching
  * "icons" should find the books *about* icons, not every product filed under an
  * Icons heading, and a shopper who wants the heading has a pill for it two
  * inches above the box.
@@ -196,6 +226,7 @@ export function matches(product: ShopProduct, term: string): boolean {
   if (needle === '') return true;
   return (
     product.name.toLowerCase().includes(needle) ||
-    product.description.toLowerCase().includes(needle)
+    product.description.toLowerCase().includes(needle) ||
+    (product.sku?.toLowerCase().includes(needle) ?? false)
   );
 }
