@@ -85,7 +85,16 @@ const { withDangerousMod } = require('@expo/config-plugins');
 const fs = require('node:fs');
 const path = require('node:path');
 
-/** Written by `react-native-square-in-app-payments`' own config plugin. */
+/**
+ * Written by `react-native-square-in-app-payments`' own config plugin for the
+ * app target, and by `plugins/withNativeClip.js` for the App Clip.
+ *
+ * Matched as a **prefix**, not an equality, and that is not tidiness. Square's
+ * plugin skips its work entirely if a phase with its exact name already exists
+ * anywhere in the project, so the clip's copy is named
+ * `… Setup (Clip)` to stay out of its way — see the note beside `SETUP_PHASE`
+ * in that file. Both need moving, and both start with this.
+ */
 const PHASE = '[CP] Square In-App Payments SDK Setup';
 
 /** Added by CocoaPods during `pod install`. */
@@ -115,7 +124,7 @@ def square_setup_phase_runs_last(installer)
     changed = false
     project.native_targets.each do |target|
       phases = target.build_phases
-      setup = phases.find { |p| p.respond_to?(:name) && p.name == '${PHASE}' }
+      setup = phases.find { |p| p.respond_to?(:name) && p.name.to_s.start_with?('${PHASE}') }
       next if setup.nil?
 
       embed = phases.find { |p| p.respond_to?(:name) && p.name == '${EMBED}' }
@@ -139,7 +148,7 @@ end
 `;
 
 /**
- * Move the phase to last in the .pbxproj, in place.
+ * Move each setup phase after its own target's embed phase, in the .pbxproj.
  *
  * A dangerous mod rather than a `withXcodeProject` one, and that is forced
  * rather than chosen. `withXcodeProject` mods compose by wrapping, so the
@@ -151,9 +160,21 @@ end
  * pipeline, after the project has been written, so this one sees the finished
  * file and needs no ordering at all.
  *
- * Edited as text rather than through `xcode`: the mod already has the Podfile
- * open as a string, the change is moving one line within one array, and
- * parsing a 1,500-line pbxproj to do it would be the larger risk.
+ * Edited as text rather than through `xcode`: the change is moving one line
+ * within one array, and parsing a 1,500-line pbxproj to do it would be the
+ * larger risk.
+ *
+ * ## Per target, since there are two
+ *
+ * This walked the whole file once and moved the first match, which was right
+ * while only the app linked Square. The App Clip has its own copy of the
+ * framework now — an App Clip is an independent bundle and embeds its own — so
+ * there are two setup phases and two embed phases, and pairing them across
+ * targets would move the app's phase after the clip's embed and fix neither.
+ *
+ * So the work is done inside each `buildPhases = ( … );` list, which is
+ * exactly one target's, and a target with only one of the two phases is left
+ * alone.
  */
 function reorderProject(platformProjectRoot) {
   const candidates = fs
@@ -164,29 +185,33 @@ function reorderProject(platformProjectRoot) {
 
   for (const file of candidates) {
     const contents = fs.readFileSync(file, 'utf8');
-
-    /*
-     * Both phases are referenced by `UUID /* Name *\/,` lines inside a
-     * target's `buildPhases = ( ... );`. Only the app target has Square's
-     * phase, so matching on the line is enough to find the right list without
-     * parsing which target it belongs to.
-     */
-    const setup = new RegExp(`^\\t*[A-F0-9]{24} /\\* ${escapeRe(PHASE)} \\*/,\\n`, 'm');
-    const embed = new RegExp(`^\\t*[A-F0-9]{24} /\\* ${escapeRe(EMBED)} \\*/,\\n`, 'm');
-
-    const setupMatch = contents.match(setup);
-    const embedMatch = contents.match(embed);
-    if (!setupMatch || !embedMatch) continue;
-    if (setupMatch.index > embedMatch.index) continue;
-
-    // Lift Square's line out and put it back directly after the embed line.
-    const without = contents.replace(setup, '');
-    const embedAgain = without.match(embed);
-    if (!embedAgain) continue;
-
-    const at = embedAgain.index + embedAgain[0].length;
-    fs.writeFileSync(file, without.slice(0, at) + setupMatch[0] + without.slice(at));
+    const next = contents.replace(/buildPhases = \(\n[\s\S]*?\n(\s*)\);/g, reorderList);
+    if (next !== contents) fs.writeFileSync(file, next);
   }
+}
+
+/**
+ * One target's phase list, with Square's line moved after the embed line.
+ *
+ * Both phases are referenced by `UUID /* Name *\/,` lines. The name is matched
+ * as a prefix so that the clip's `… Setup (Clip)` is caught by the same pass.
+ */
+function reorderList(list) {
+  const setup = new RegExp(`^\\t*[A-F0-9]{24} /\\* ${escapeRe(PHASE)}[^*]*\\*/,\\n`, 'm');
+  const embed = new RegExp(`^\\t*[A-F0-9]{24} /\\* ${escapeRe(EMBED)} \\*/,\\n`, 'm');
+
+  const setupMatch = list.match(setup);
+  const embedMatch = list.match(embed);
+  if (!setupMatch || !embedMatch) return list;
+  if (setupMatch.index > embedMatch.index) return list;
+
+  // Lift Square's line out and put it back directly after the embed line.
+  const without = list.replace(setup, '');
+  const embedAgain = without.match(embed);
+  if (!embedAgain) return list;
+
+  const at = embedAgain.index + embedAgain[0].length;
+  return without.slice(0, at) + setupMatch[0] + without.slice(at);
 }
 
 function escapeRe(text) {

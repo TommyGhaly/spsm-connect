@@ -22,6 +22,7 @@
  * website's — both groups are parenthesised, so neither contributes a segment.
  */
 import { Drawer } from 'expo-router/drawer';
+import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BulletinProvider } from '@/calendar/BulletinProvider';
@@ -32,6 +33,9 @@ import { useTheme } from '@/theme/ThemeProvider';
 export default function DrawerLayout() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  // See the same line in `(tabs)/_layout.tsx`: `barHeight` sizes the bar from
+  // the window as well as the inset.
+  const window = useWindowDimensions();
 
   /*
    * The bulletin is read here, above the navigator, because the announcements
@@ -60,7 +64,7 @@ export default function DrawerLayout() {
            * it was. The trade is that no screen in this app now puts a different
            * control in the same corner as another.
            */
-          ...headerChrome(theme, insets.top),
+          ...headerChrome(theme, insets.top, window),
           ...headerRoot,
           /*
            * Opens from the left, which is where a menu is on every other app on

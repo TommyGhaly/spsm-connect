@@ -60,15 +60,19 @@ export function PictureTools({
   tree,
   /** Re-read the page, so a moved or deleted photograph leaves this gallery. */
   onChanged,
+  /** A smaller control, for a tile in the mosaic rather than a full-width cell. */
+  compact = false,
 }: {
   media: MediaRow;
   program: ProgramRow;
   tree: GalleryTree<NodeRow>;
   onChanged: () => void;
+  compact?: boolean;
 }) {
   const theme = useTheme();
   const grants = useGrants();
   const [open, setOpen] = useState(false);
+  const disc = compact ? 28 : 36;
 
   if (!mayAdminProgramEvent(grants, program.id, media.programEventId)) return null;
 
@@ -91,8 +95,8 @@ export function PictureTools({
           position: 'absolute',
           top: theme.space.xs,
           right: theme.space.xs,
-          width: 36,
-          height: 36,
+          width: disc,
+          height: disc,
           borderRadius: theme.radius.full,
           alignItems: 'center',
           justifyContent: 'center',
@@ -100,7 +104,7 @@ export function PictureTools({
           opacity: pressed ? 1 : 0.82,
         })}
       >
-        <Icon name="pencil" size={18} color={theme.color.inkInverse} />
+        <Icon name="pencil" size={compact ? 14 : 18} color={theme.color.inkInverse} />
       </Pressable>
 
       {/*
@@ -110,7 +114,7 @@ export function PictureTools({
         would quietly write the old one back.
       */}
       {open ? (
-        <ToolSheet
+        <PictureSheet
           onClose={() => setOpen(false)}
           media={media}
           program={program}
@@ -122,7 +126,19 @@ export function PictureTools({
   );
 }
 
-function ToolSheet({
+/**
+ * The editor itself, reachable without the corner button.
+ *
+ * Exported because the picture manager opens the same thing on a photograph
+ * picked out of a grid — see `PictureManager`. One editor, so "edit this
+ * photograph" means the same three acts wherever it is reached from, and a
+ * fourth act added here appears in both places.
+ *
+ * It mounts already open and unmounts to close, which is the caller's job on
+ * purpose: seeding the caption from the document on every opening is what stops
+ * a sheet writing back a stale one somebody else has since changed.
+ */
+export function PictureSheet({
   onClose,
   media,
   program,

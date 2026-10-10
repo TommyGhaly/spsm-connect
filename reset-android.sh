@@ -23,15 +23,28 @@ cd "$(dirname "$0")"
 # Usage:
 #   ./reset-android.sh              sandbox Square, debug signing — development
 #   ./reset-android.sh --store      production Square, upload key required, AAB
+#                                   (bumps the versionCode; see below)
+#   ./reset-android.sh --bump       bump the versionCode without a store build
+#   ./reset-android.sh --store --no-bump
+#                                   rebuild the same versionCode — only when the
+#                                   last one never reached Play
 
 fail() { echo "   ✗ $1" >&2; exit 1; }
 note() { echo "   · $1"; }
 
 STORE_BUILD=0
-if [ "${1:-}" = "--store" ]; then
-  STORE_BUILD=1
-  export SQUARE_ENV=production
-fi
+BUMP=
+for arg in "$@"; do
+  case "$arg" in
+    --store)   STORE_BUILD=1; export SQUARE_ENV=production ;;
+    --bump)    BUMP=1 ;;
+    --no-bump) BUMP=0 ;;
+    *) fail "Unknown option '$arg'. Usage: ./reset-android.sh [--store] [--bump|--no-bump]" ;;
+  esac
+done
+
+# A store build bumps unless told not to. Everything else leaves it alone.
+BUMP="${BUMP:-$STORE_BUILD}"
 
 if [ "$STORE_BUILD" = "1" ]; then
   echo "→ Square: PRODUCTION — this build can take real money"
@@ -106,6 +119,73 @@ if [ "$STORE_BUILD" = "1" ]; then
   fi
 fi
 
+# ── The versionCode, before anything reads it ───────────────────────────────
+#
+# Play refuses a versionCode it has already seen, and it refuses it **after the
+# whole AAB has uploaded** — so the cost of forgetting is a full build and a
+# full upload, and the cost of bumping when you did not need to is a gap in a
+# sequence nobody reads. Those are not close, which is why this is automatic on
+# --store rather than a flag somebody has to remember.
+#
+# It edits the committed default in app.config.ts, which is the only thing that
+# actually moves the number: `ANDROID_VERSION_CODE` is read from the
+# environment first, and nothing sets it. iOS is deliberately not touched — its
+# build number is pinned at 1, and the long note beside these two constants
+# explains why they are separate counters now.
+#
+# Before the wipe, because `expo prebuild` reads app.config.ts to write
+# android/app/build.gradle. Bumping afterwards would leave the file changed and
+# the AAB still carrying the old number.
+VERSION_CODE_PATTERN='ANDROID_VERSION_CODE ?? '
+
+if [ "$BUMP" = "1" ]; then
+  # An override in the environment wins over the committed default, so bumping
+  # the file would change nothing about the build while still dirtying the
+  # working tree — worth refusing rather than doing quietly.
+  [ -z "${ANDROID_VERSION_CODE:-}" ] \
+    || fail "ANDROID_VERSION_CODE=$ANDROID_VERSION_CODE is set in the environment and wins over app.config.ts, so bumping the file would not change this build. Unset it, or drop --bump and let the variable carry the number."
+
+  CURRENT=$(grep -o "${VERSION_CODE_PATTERN}[0-9]*" app.config.ts | grep -o '[0-9]*$')
+  [ -n "$CURRENT" ] \
+    || fail "Could not find '${VERSION_CODE_PATTERN}<number>' in app.config.ts. If that constant was renamed, this bump has to be renamed with it — otherwise every store build from here reuses a versionCode Play has seen."
+
+  NEXT=$((CURRENT + 1))
+
+  # Shown, not required: Enter takes the bump straight away, typing a number
+  # uses that instead, and leaving it alone takes the bump after 10 seconds, so
+  # an unattended run is never stuck here. No terminal attached (a task runner,
+  # CI) skips the prompt. The same question Taksis's reset-android.sh asks.
+  if [ -t 0 ]; then
+    while true; do
+      ANSWER=""
+      # `|| echo ""`: a timeout or Ctrl-D is a non-zero `read`, which under
+      # set -e would end the script; it means "accept", and the echo ends the
+      # prompt's line.
+      read -r -t 10 -p "→ Android versionCode $CURRENT → $NEXT — Enter (or wait 10s) to accept, or type another: " ANSWER || echo ""
+      [ -z "$ANSWER" ] && break
+      if [[ "$ANSWER" =~ ^[0-9]+$ ]] && [ "$ANSWER" -gt "$CURRENT" ]; then
+        NEXT="$ANSWER"
+        break
+      fi
+      echo "   '$ANSWER' is not a whole number above $CURRENT — Play only accepts a higher versionCode."
+    done
+  fi
+
+  # The pattern is matched again on the way in rather than trusting a line
+  # number, and the result is read back, because a sed that silently matched
+  # nothing looks exactly like a successful bump.
+  sed -i '' "s/${VERSION_CODE_PATTERN}${CURRENT}/${VERSION_CODE_PATTERN}${NEXT}/" app.config.ts
+
+  WROTE=$(grep -o "${VERSION_CODE_PATTERN}[0-9]*" app.config.ts | grep -o '[0-9]*$')
+  [ "$WROTE" = "$NEXT" ] \
+    || fail "Tried to bump the versionCode to $NEXT and app.config.ts still reads $WROTE."
+
+  echo "→ versionCode $CURRENT → $NEXT (committed in app.config.ts)"
+else
+  CURRENT=$(grep -o "${VERSION_CODE_PATTERN}[0-9]*" app.config.ts | grep -o '[0-9]*$' || true)
+  note "versionCode left at ${ANDROID_VERSION_CODE:-${CURRENT:-?}}"
+fi
+
 # ── Wipe and regenerate ──────────────────────────────────────────────────────
 echo "→ Stopping Gradle daemons"
 pkill -f "GradleDaemon" 2>/dev/null || true
@@ -163,6 +243,10 @@ if [ "$STORE_BUILD" = "1" ]; then
   echo "✓ Done"
   echo "   $OUT"
   echo "   $(du -h "$OUT" | cut -f1)"
+  echo
+  echo "  versionCode $(grep -o 'ANDROID_VERSION_CODE ?? [0-9]*' app.config.ts | grep -o '[0-9]*$')."
+  echo "  Commit app.config.ts with the release — an uploaded versionCode that is"
+  echo "  not in the history is one the next build will reuse."
   echo
   echo "  Upload at play.google.com/console → Production → Create new release."
   echo "  The '[spsm] release signing' line above says which key signed it; it must"

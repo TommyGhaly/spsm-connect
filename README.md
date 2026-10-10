@@ -244,7 +244,7 @@ with. `../Website/docs/app-clip-experiences.md` is the other end of it.
 | `/c/apps` | Taksis and Tithe.ly, plus a card for this app the full app does not show |
 | `/c/welcome` | The liturgy tour, for a visitor at the door |
 | `/c/plans` | The expansion plans; the flythrough in Safari |
-| `/c/bookstore` | Explains, then hands off — Square's SDK is not in this target |
+| `/c/bookstore` | The shelf, and Apple Pay under it; hands off only when it cannot charge |
 | `/c/forms` | Opens on `config/forms.nfcFormSlug`; the list is one press away |
 | `/c/photos` | The camera, filed against `config/events.mainSection` — changeable from the pill |
 

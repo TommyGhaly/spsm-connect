@@ -8,13 +8,29 @@
  * sheet per thing rather than a column beside it. A phone is too narrow for an
  * inspector that sits next to the page.
  *
- * ## The same five questions the website asks, in the same order
+ * ## The same questions the website asks, in the same order
  *
  * Name, description, what its parts are called, visible to everyone, remove.
  * That list is `ProgramDetails` and nothing has been added to it or left out —
  * the point of the exercise was that an administrator holding a phone can do
- * what an administrator holding a laptop can do, and a sixth control here or a
- * missing fifth is the two surfaces drifting on the first day.
+ * what an administrator holding a laptop can do, and a control here the
+ * website has not got is the two surfaces drifting on the first day.
+ *
+ * ## The sheet is also the ministry's own page, which asks two more
+ *
+ * `ProgramDetailsSheet` is opened from two places now. From the directory it
+ * is exactly the list above. From a ministry's own gallery page it also
+ * carries the two settings the website keeps in that page's review panel —
+ * whether the parish is collecting photographs, and where an upload lands
+ * when the sender does not choose — plus the way in to adding a level, which
+ * is what that page's pill used to do and all it used to do. Tommy: *"the top
+ * level node in the events should have more settings than just adding
+ * subnodes."*
+ *
+ * They are behind the `tree` prop rather than always drawn, because the
+ * directory has not read a ministry's levels and "photographs go to" is a
+ * list of them. That is the same split the website makes: the review panel
+ * exists on the gallery page and nowhere else.
  *
  * ## Superadmin, matching the website and matching the rules
  *
@@ -37,11 +53,12 @@
  * nobody can read. The sheet also gives the destructive control somewhere to
  * live that is not one thumb-width from the ministry's own page.
  */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View } from 'react-native';
+import { flattenGalleryTree, type GalleryTree } from '@spsm/shared';
 
 import { Button } from '@/components/Surface';
-import { Check, Close, Field, Problem, Sheet } from '@/components/Fields';
+import { Check, Close, Field, Picker, Problem, Sheet } from '@/components/Fields';
 import { Body, Heading, Label, Micro, Small } from '@/components/Type';
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -51,6 +68,8 @@ import {
   updateProgram,
   type AdminProgramRow,
 } from './adminData';
+import type { NodeRow } from './data';
+import { NewLevelSheet } from './LevelAdmin';
 
 /** The website's `DEFAULT_CHILD_LABEL`, and `[...trail].tsx`'s fallback. */
 const DEFAULT_CHILD_LABEL = 'Inside';
@@ -73,12 +92,36 @@ const DEFAULT_CHILD_LABEL = 'Inside';
  */
 export function ProgramDetailsSheet({
   program,
+  tree,
+  mayRemove,
   open,
   onClose,
   onChanged,
   onRemoved,
 }: {
   program: AdminProgramRow;
+  /**
+   * The ministry's levels, when the caller has them.
+   *
+   * Present on the ministry's own gallery page, which has already read the
+   * whole tree to draw itself; absent in the directory, which lists ministries
+   * and knows nothing about what is inside them. It is what the two submission
+   * settings and "add something inside" need, and they are drawn only when it
+   * is here — an empty tree is a real answer, a ministry with no levels yet,
+   * and still gets both.
+   */
+  tree?: GalleryTree<NodeRow>;
+  /**
+   * Whether to offer removal.
+   *
+   * Not a matter of taste: `firestore.rules` is `allow create, delete: if
+   * isSuper()` on `/programs` while `allow update: if adminsProgram(programId)`.
+   * So a program lead editing their own ministry from its page may rename it
+   * and may not retire it, and drawing the red button for them would be a
+   * control whose every press is refused with nothing on screen saying why.
+   * The directory is superadmin-only and passes true.
+   */
+  mayRemove: boolean;
   open: boolean;
   onClose: () => void;
   /** Re-read. A name or a description shows on the page behind the sheet. */
@@ -101,6 +144,29 @@ export function ProgramDetailsSheet({
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [adding, setAdding] = useState(false);
+
+  /**
+   * Every level of this ministry as one indented list, for the picker.
+   *
+   * `flattenGalleryTree` is the shared walk the website's own submission
+   * settings use, and the indentation is why: "Day 1" appears three times in a
+   * ministry with three weeks, and without a depth per row there is nothing to
+   * tell them apart.
+   */
+  const levels = useMemo(() => (tree ? flattenGalleryTree(tree) : []), [tree]);
+
+  /*
+   * A stored priority naming a level that is no longer there reads as "no
+   * priority" rather than as a blank picker, which is the website's own
+   * handling: the level can have been deleted since it was chosen, and the
+   * fallback is what a stale id actually produces anyway — see
+   * `defaultSubmissionNode`.
+   */
+  const priority = program.prioritySubmissionNodeId ?? '';
+  const chosenPriority = levels.some((row) => row.node.id === priority) ? priority : '';
+
+  const parts = program.childLabel ?? DEFAULT_CHILD_LABEL;
 
   async function write(what: string, run: () => Promise<void>) {
     setBusy(true);
@@ -158,8 +224,9 @@ export function ProgramDetailsSheet({
             void write('edit this ministry', () => updateProgram(program.id, { description }));
           }}
           lines={5}
+          format
           placeholder="What this ministry is, when it meets, how somebody joins."
-          hint="A blank line starts a new paragraph. *italic* and **bold** work."
+          hint="A blank line starts a new paragraph. The two buttons write the markers; typing them by hand works too."
         />
 
         {/* What this ministry's parts are called. Shows on the side menu of its
@@ -195,68 +262,168 @@ export function ProgramDetailsSheet({
           }
         />
 
+        {/*
+          The two submission settings, and only where the ministry's levels are
+          known — see the `tree` prop.
+
+          The website keeps both in the review panel on this same page, beside
+          the queue, because they are the other half of the same decision:
+          whether the parish is collecting at all, and where what arrives
+          lands. They are not in this app's `ReviewQueue` for one reason — it
+          draws nothing when nothing is waiting, so the flag that *stops*
+          submissions would be reachable only while submissions were still
+          coming in.
+
+          Neither write changes anything the page behind this is drawing, but
+          both go through `write` anyway, so a refusal is a sentence rather
+          than a control that springs back with no explanation.
+        */}
+        {tree ? (
+          <>
+            <Check
+              label="Collecting photographs"
+              checked={program.submissionsOpen}
+              disabled={busy}
+              onChange={(submissionsOpen) =>
+                void write('open or close this ministry to photographs', () =>
+                  updateProgram(program.id, { submissionsOpen }),
+                )
+              }
+              hint={
+                program.submissionsOpen
+                  ? 'The parish can send photographs to this ministry and everything inside it.'
+                  : 'Nobody can send photographs here. The “Add photographs” offer disappears from every level.'
+              }
+            />
+
+            <Picker
+              label="Photographs go to"
+              value={chosenPriority}
+              disabled={busy}
+              options={[
+                // Null is a real answer and the default one: the sender's own
+                // choice stands. First, because it is what a ministry that has
+                // never thought about this already does.
+                { value: '', label: 'Wherever they are sent from' },
+                ...levels.map((row) => ({
+                  value: row.node.id,
+                  // Plain spaces, as `PictureTools` indents the same kind of
+                  // list with. The website needs non-breaking ones because a
+                  // native `<select>` collapses whitespace; an RN `Text`
+                  // keeps it.
+                  label: `${'  '.repeat(Math.min(row.depth, 6))}${row.node.title}`,
+                })),
+              ]}
+              onChange={(next) =>
+                void write('set where photographs go', () =>
+                  updateProgram(program.id, { prioritySubmissionNodeId: next || null }),
+                )
+              }
+              hint="Where an upload lands when whoever sent it did not pick a level — the week that is running now, usually."
+            />
+
+            {/*
+              Adding a level, which is what this page's pill did before it did
+              anything else. Last of the ministry's own settings and above
+              Remove, in the same place `LevelDetailsSheet` puts it, so the two
+              sheets read the same way at every depth.
+            */}
+            <View style={{ gap: theme.space.xs }}>
+              <Label>{parts.toUpperCase()}</Label>
+              <Button
+                label="Add something inside this"
+                tone="quiet"
+                onPress={() => setAdding(true)}
+              />
+            </View>
+          </>
+        ) : null}
+
         {problem ? <Problem>{problem}</Problem> : null}
 
         {/*
-          Removal, behind a confirmation, at the bottom, and last.
+          Removal, behind a confirmation, at the bottom, and last — and only
+          for somebody the rules will let do it. See `mayRemove`.
 
           The note is the website's own and it is the thing somebody needs
           before they press it: the photographs are not destroyed. Saying so is
           what makes the refusal above it — gatherings first — read as an order
           of operations rather than as the app being obstructive.
         */}
-        <View style={{ gap: theme.space.xs }}>
-          <Label>REMOVE</Label>
-          <Micro color={theme.color.inkSoft}>
-            Its gatherings have to be removed first, on the website. The photographs are not
-            deleted — they become the church&rsquo;s, and any ministry can take them in from
-            &ldquo;Not in any ministry&rdquo; in its picture manager.
-          </Micro>
+        {mayRemove ? (
+          <View style={{ gap: theme.space.xs }}>
+            <Label>REMOVE</Label>
+            <Micro color={theme.color.inkSoft}>
+              Its gatherings have to be removed first, on the website. The photographs are not
+              deleted — they become the church&rsquo;s, and any ministry can take them in from
+              &ldquo;Not in any ministry&rdquo; in its picture manager.
+            </Micro>
 
-          {confirming ? (
-            <View style={{ flexDirection: 'row', gap: theme.space.sm }}>
-              <View style={{ flex: 1 }}>
-                <Button label="Keep it" tone="quiet" onPress={() => setConfirming(false)} />
+            {confirming ? (
+              <View style={{ flexDirection: 'row', gap: theme.space.sm }}>
+                <View style={{ flex: 1 }}>
+                  <Button label="Keep it" tone="quiet" onPress={() => setConfirming(false)} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Button
+                    label="Remove"
+                    tone="danger"
+                    busy={busy}
+                    disabled={busy}
+                    onPress={() =>
+                      void (async () => {
+                        setBusy(true);
+                        setProblem(null);
+                        try {
+                          await deleteProgram(program.id);
+                          onRemoved();
+                        } catch (error) {
+                          console.error('[programs] could not remove the ministry:', error);
+                          setProblem(
+                            error instanceof Error && error.message
+                              ? error.message
+                              : 'That could not be removed.',
+                          );
+                          setConfirming(false);
+                        } finally {
+                          setBusy(false);
+                        }
+                      })()
+                    }
+                  />
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <Button
-                  label="Remove"
-                  tone="danger"
-                  busy={busy}
-                  disabled={busy}
-                  onPress={() =>
-                    void (async () => {
-                      setBusy(true);
-                      setProblem(null);
-                      try {
-                        await deleteProgram(program.id);
-                        onRemoved();
-                      } catch (error) {
-                        console.error('[programs] could not remove the ministry:', error);
-                        setProblem(
-                          error instanceof Error && error.message
-                            ? error.message
-                            : 'That could not be removed.',
-                        );
-                        setConfirming(false);
-                      } finally {
-                        setBusy(false);
-                      }
-                    })()
-                  }
-                />
-              </View>
-            </View>
-          ) : (
-            <Button
-              label="Remove this ministry"
-              tone="quiet"
-              disabled={busy}
-              onPress={() => setConfirming(true)}
-            />
-          )}
-        </View>
+            ) : (
+              <Button
+                label="Remove this ministry"
+                tone="quiet"
+                disabled={busy}
+                onPress={() => setConfirming(true)}
+              />
+            )}
+          </View>
+        ) : null}
       </View>
+
+      {/*
+        A sheet over a sheet, exactly as `LevelDetailsSheet` opens the same
+        plate over itself. Mounted always and opened by its own prop, which is
+        how `NewLevelSheet` is written; it clears its field when a level is
+        created, so a second one does not open holding the first one's name.
+      */}
+      {tree ? (
+        <NewLevelSheet
+          open={adding}
+          programId={program.id}
+          parentId={null}
+          parts={parts}
+          onClose={() => setAdding(false)}
+          onCreated={() => {
+            setAdding(false);
+            onChanged();
+          }}
+        />
+      ) : null}
     </Sheet>
   );
 }

@@ -63,7 +63,7 @@ import { Tabs } from 'expo-router';
  * into `build/`, so it is imported once, here, and nowhere else.
  */
 import type { BottomTabBarButtonProps } from 'expo-router/build/react-navigation/bottom-tabs';
-import { Pressable, View, type ColorValue } from 'react-native';
+import { Pressable, View, useWindowDimensions, type ColorValue } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon, type IconName } from '@/components/Icon';
@@ -88,6 +88,9 @@ export const unstable_settings = {
 export default function TabLayout() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  // The bar is twelve points shorter in landscape; `barHeight` is the only
+  // thing that knows, and it needs the window to work it out.
+  const window = useWindowDimensions();
   const grants = useGrants();
   const duringCamp = useCampWeek();
 
@@ -131,7 +134,7 @@ export default function TabLayout() {
          * this redesign, which made the notices a fact about one screen. They
          * are not — "the festival is on the 19th" is as true on Giving.
          */
-        ...headerChrome(theme, insets.top),
+        ...headerChrome(theme, insets.top, window),
         ...headerRoot,
       }}
     >

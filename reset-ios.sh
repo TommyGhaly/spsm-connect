@@ -18,8 +18,9 @@ cd "$(dirname "$0")"
 #
 # What the plugins do, so it is findable from here:
 #   withNativeClip            the whole SPSMConnectClip target — a native
-#                             SwiftUI clip that links no pods, from the sources
-#                             in ios-appclip/
+#                             SwiftUI clip built from the sources in
+#                             ios-appclip/, linking one pod (Square's payment
+#                             SDK, ~1.4 MB, so /c/bookstore can take Apple Pay)
 #   withSquareSetupPhaseOrder moves Square's `setup` phase after [CP] Embed Pods
 #                             Frameworks, without which a Release build dies at
 #                             launch under dyld with no crash report
@@ -69,6 +70,45 @@ fi
 # names neither CocoaPods nor the locale.
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
+
+# ── iOS version ──────────────────────────────────────────────────────────────
+#
+# Asked first, before anything is wiped, because `expo prebuild` reads
+# app.config.ts to write Info.plist and the clip's MARKETING_VERSION — a version
+# changed after it would not reach the archive. Enter keeps the current one.
+# With no terminal attached (a task runner, CI) it keeps the current one without
+# asking. The same question Taksis's reset-ios.sh asks.
+#
+# Anchored to the two-space indent so it matches the top-level `version` and
+# nothing nested inside the config.
+VERSION_LINE="^  version: '"
+CURRENT_VERSION=$(grep -E "${VERSION_LINE}[^']*'" app.config.ts | head -1 | sed "s/.*'\(.*\)'.*/\1/")
+[ -n "$CURRENT_VERSION" ] || fail "No top-level \"version: '…'\" in app.config.ts."
+
+NEW_VERSION="$CURRENT_VERSION"
+if [ -t 0 ]; then
+  while true; do
+    # `|| ANSWER=""`: under set -e a Ctrl-D (EOF) would otherwise end the whole
+    # script right here, silently. Treat it as Enter.
+    read -r -p "→ iOS version [$CURRENT_VERSION] — Enter to keep, or type a new one: " ANSWER || ANSWER=""
+    [ -z "$ANSWER" ] && break
+    if [[ "$ANSWER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      NEW_VERSION="$ANSWER"
+      break
+    fi
+    echo "   '$ANSWER' is not a version like 1.0.1 — try again."
+  done
+fi
+
+if [ "$NEW_VERSION" != "$CURRENT_VERSION" ]; then
+  sed -i '' "s/${VERSION_LINE}${CURRENT_VERSION}'/  version: '${NEW_VERSION}'/" app.config.ts
+  # Read back: a sed that matched nothing looks exactly like a successful edit.
+  WROTE=$(grep -E "${VERSION_LINE}[^']*'" app.config.ts | head -1 | sed "s/.*'\(.*\)'.*/\1/")
+  [ "$WROTE" = "$NEW_VERSION" ] || fail "Tried to set version $NEW_VERSION, app.config.ts still reads $WROTE."
+  echo "   ✓ version $CURRENT_VERSION → $NEW_VERSION (commit app.config.ts with the release)"
+else
+  echo "   ✓ keeping version $CURRENT_VERSION"
+fi
 
 echo "→ Closing Xcode"
 osascript -e 'quit app "Xcode"' 2>/dev/null || true
@@ -120,7 +160,7 @@ test -f ios/SPSMConnect/GoogleService-Info.plist \
   || fail "GoogleService-Info.plist missing from ios/SPSMConnect — check ios.googleServicesFile in app.config.ts. Firebase would fail on the first call."
 
 grep -q "SPSMConnectClip" "$PBX" \
-  || fail "SPSMConnectClip target missing from the Xcode project — react-native-app-clip did not apply."
+  || fail "SPSMConnectClip target missing from the Xcode project — withNativeClip did not apply."
 
 grep -q "Embed App Clips" "$PBX" \
   || fail "Embed App Clips build phase missing — the clip would not ship inside the app."
@@ -151,20 +191,46 @@ done
 #
 # The phase guards itself on a file that only exists once [CP] Embed Pods
 # Frameworks has run, so ordered before it the phase succeeds having done
-# nothing, Square's nested frameworks ship still nested, and the app dies at
+# nothing, Square's nested frameworks ship still nested, and the binary dies at
 # launch under dyld — before any of its own code runs, with no crash report and
-# nothing on screen. See plugins/withSquareSetupPhaseOrder.js.
-EMBED_LINE=$(grep -n "/\* \[CP\] Embed Pods Frameworks \*/," "$PBX" | head -1 | cut -d: -f1)
-SETUP_LINE=$(grep -n "/\* \[CP\] Square In-App Payments SDK Setup \*/," "$PBX" | head -1 | cut -d: -f1)
+# nothing on screen. For the clip there is a second failure and it is worse: an
+# un-hoisted nested bundle is rejected by App Store Connect as 90205
+# "disallowed nested bundles", after the whole archive has uploaded. See
+# plugins/withSquareSetupPhaseOrder.js.
+#
+# **Both targets are checked, each against its own embed phase.** The app links
+# Square through react-native-square-in-app-payments and the clip links it
+# directly for /c/bookstore, so the project has two setup phases and two embed
+# phases. Comparing the first of each would pair the app's setup with whichever
+# embed phase came first in the file and prove nothing about either target.
+#
+# awk rather than grep, because "the same target" means "the same buildPhases
+# list", which is a block and not a line.
+PHASE_ORDER=$(awk '
+  /buildPhases = \(/        { inlist = 1; setup = 0; embed = 0; next }
+  inlist && /\);/           {
+                              if (setup && !embed) print "MISSING_EMBED"
+                              else if (setup && setup < embed) print "OUT_OF_ORDER"
+                              else if (setup) found++
+                              inlist = 0
+                              next
+                            }
+  inlist && /\[CP\] Square In-App Payments SDK Setup/ { setup = NR }
+  inlist && /\[CP\] Embed Pods Frameworks/            { embed = NR }
+  END                       { if (found) print "OK " found }
+' "$PBX")
 
-[ -n "$SETUP_LINE" ] \
-  || fail "Square's setup build phase is missing from the app target. A Release build would die at launch under dyld."
+case "$PHASE_ORDER" in
+  *OUT_OF_ORDER*)
+    fail "Square's setup phase runs BEFORE [CP] Embed Pods Frameworks in one of the two targets. withSquareSetupPhaseOrder did not apply: the Release app dies at launch with no crash report, and the clip is rejected as 90205 disallowed nested bundles."
+    ;;
+  *MISSING_EMBED*)
+    fail "A target has Square's setup phase and no [CP] Embed Pods Frameworks — pod install did not finish."
+    ;;
+esac
 
-[ -n "$EMBED_LINE" ] \
-  || fail "[CP] Embed Pods Frameworks is missing — pod install did not finish."
-
-[ "$SETUP_LINE" -gt "$EMBED_LINE" ] \
-  || fail "Square's setup phase runs BEFORE [CP] Embed Pods Frameworks (lines $SETUP_LINE vs $EMBED_LINE). withSquareSetupPhaseOrder did not apply, and the Release build will die at launch with no crash report."
+[ "$PHASE_ORDER" = "OK 2" ] \
+  || fail "Expected Square's setup phase on both the app and the clip, correctly ordered; found '$PHASE_ORDER'. The app links Square through react-native-square-in-app-payments and the clip links it directly for /c/bookstore."
 
 # ── The clip's deployment target ─────────────────────────────────────────────
 #
@@ -212,21 +278,32 @@ for target in SPSMConnect SPSMConnectClip; do
 done
 echo "   ✓ both targets sign as $APPLE_TEAM_ID"
 
-# ── The clip must link no pods at all ────────────────────────────────────────
+# ── The clip must link exactly one pod ───────────────────────────────────────
 #
-# The clip is native SwiftUI and links nothing. That is not a preference: the
-# React Native clip measured 61 MB against a 15 MB limit, and the framework that
-# produced its first rejection — Square's, with its nested bundles — arrived
-# because the clip inherited the app's Pods xcconfig.
+# It linked none until /c/bookstore went native, and the check here was that no
+# Pods xcconfig existed for it at all. That is no longer the rule, but the thing
+# it was protecting is unchanged and is the whole reason this block is still
+# here: the React Native clip measured 61 MB against a 15 MB limit, and the
+# framework that produced its first rejection — Square's, with its nested
+# bundles — arrived because the clip inherited the *app's* Pods xcconfig rather
+# than having one of its own.
 #
-# `OTHER_LDFLAGS = "$(inherited)"` in withNativeClip.js is what keeps that from
-# happening again, and this is the check that it held. A Pods xcconfig appearing
-# for the clip means the target has acquired dependencies and the budget is
-# about to be a problem again.
-if [ -f "ios/Pods/Target Support Files/Pods-SPSMConnectClip/Pods-SPSMConnectClip.release.xcconfig" ]; then
-  fail "The clip has a Pods xcconfig, which means it is linking pods again. A native clip links nothing — see plugins/withNativeClip.js, and check whether react-native-app-clip has come back into package.json."
-fi
-echo "   ✓ clip links no pods"
+# So the rule is now "one, and it is Square's". A second name appearing in this
+# list is the clip having quietly acquired a dependency, which is how the budget
+# went the first time.
+CLIP_XCCONFIG="ios/Pods/Target Support Files/Pods-SPSMConnectClip/Pods-SPSMConnectClip.release.xcconfig"
+
+[ -f "$CLIP_XCCONFIG" ] \
+  || fail "No Pods xcconfig for the clip. Its Podfile target did not integrate, so SquareInAppPaymentsSDK is not linked and /c/bookstore cannot take a payment — see withClipPods in plugins/withNativeClip.js."
+
+CLIP_FRAMEWORKS=$(grep '^OTHER_LDFLAGS' "$CLIP_XCCONFIG" \
+  | tr ' ' '\n' | grep -A 1 -- '-framework' | grep -v -- '-framework' \
+  | tr -d '"' | sort -u | tr '\n' ' ' | sed 's/ $//')
+
+[ "$CLIP_FRAMEWORKS" = "SquareInAppPaymentsSDK" ] \
+  || fail "The clip links '$CLIP_FRAMEWORKS'; it must link SquareInAppPaymentsSDK and nothing else. Every extra framework comes out of 15 MB uncompressed, and a nested bundle among them is an App Store Connect 90205 rejection after the archive has uploaded."
+
+echo "   ✓ clip links one pod: SquareInAppPaymentsSDK"
 
 # Its whole reason for existing, as a number.
 CLIP_SOURCES=$(ls ios/SPSMConnectClip/*.swift 2>/dev/null | wc -l | tr -d ' ')

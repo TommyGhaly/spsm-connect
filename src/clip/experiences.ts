@@ -76,8 +76,15 @@ export type ClipSlug =
  * How much of the errand this binary can finish on its own.
  *
  * `native` — the clip does the thing. `handoff` — the clip explains the thing
- * and offers the full app, because something it needs is not in this target.
- * There are two of those and both are budget, not policy; see the rows.
+ * and offers the full app, because something it needs is not in that target.
+ *
+ * **All eight are `native` today.** The bookstore was the last handoff and
+ * stopped being one when Apple Pay removed the need to type anything; its row
+ * carries the reasoning and the measurement that went with it. The case is
+ * kept because the distinction is real and the next experience may need it —
+ * a clip cannot use PhotoKit, cannot keep anything between invocations, and
+ * has 15 MB for everything, so there will be another. Nothing reads this
+ * field; it is the table saying out loud what each row promises.
  */
 export type ClipKind = 'native' | 'handoff';
 
@@ -158,18 +165,44 @@ export const EXPERIENCES: readonly Experience[] = [
     title: 'The Bookstore',
     card: 'See the shelf and buy in the app',
     /*
-     * Handoff, and the only reason is the 15 MB budget.
+     * Native since the measurement, which reversed the reason it was not.
      *
-     * Physical goods may not be sold through in-app purchase, so the only way to
-     * take money for a book is Square's native SDK — which is in
-     * `excludedPackages` in app.config.ts, because it is a large framework in a
-     * budget that has none to spare. `payments/square.ts` degrades honestly
-     * rather than crashing (`paymentsAvailable()` is false in this binary), so
-     * the shelf itself could be drawn here; what cannot be drawn is a Buy
-     * button that works, and a shop that cannot sell is a worse card than an
-     * honest one. Revisit the day there is a measurement, not before.
+     * ## What this row used to say, and why it was wrong
+     *
+     * That physical goods may not be sold through in-app purchase — true, and
+     * still the reason there is a payments SDK in this at all — and that the
+     * only way to take money for a book is therefore Square's native SDK,
+     * "a large framework in a budget that has none to spare". That last part
+     * was never measured. Measured, on the arm64 device slice:
+     *
+     *   SquareInAppPaymentsSDK        580 KB binary
+     *     + CorePaymentCard (nested)  160 KB
+     *     + resource bundles         ~630 KB   ≈ 1.4 MB embedded
+     *   SquareBuyerVerificationSDK    6.0 MB   ← not linked, see below
+     *
+     * The six megabytes belong to `SquareBuyerVerificationSDK` (3 MB of it
+     * `ThreeDS_SDK`), a **separate pod** that only the React Native wrapper's
+     * podspec ever depended on, for a 3DS challenge flow this parish's checkout
+     * does not use. The clip is native Swift now and links the bare SDK alone:
+     * under a tenth of the budget. The rest of the old reasoning —
+     * `excludedPackages`, `paymentsAvailable()` — described the React Native
+     * clip and did not survive the rewrite either.
+     *
+     * ## What actually made it possible
+     *
+     * Not the framework. The checkout needs an email address, a first and last
+     * name, a fulfilment choice and an address, every one validated
+     * server-side, and asking somebody at a bookstall to type five fields is
+     * worse than an honest refusal. **Apple Pay supplies all of them** — the
+     * wallet returns the contact, and collect-or-post is a `PKShippingMethod`
+     * in Apple's own sheet — so the clip asks for nothing. That is the whole
+     * design, and `ios-appclip/SPSMConnectClip/Checkout.swift` is where it is.
+     *
+     * It still hands off when it cannot sell: no merchant id in the build, no
+     * wallet on the phone, or a card Square will not take. The card that used
+     * to be the whole screen is what those land on.
      */
-    kind: 'handoff',
+    kind: 'native',
     appPath: '/bookstore',
     sitePath: '/bookstore',
   },
@@ -202,7 +235,7 @@ export function experience(slug: string): Experience | undefined {
   return EXPERIENCES.find((entry) => entry.slug === slug);
 }
 
-/** `https://spsmwayland.org/c/give` — what goes on the tag and in App Store Connect. */
+/** `https://www.spsmwayland.org/c/give` — what goes on the tag and in App Store Connect. */
 export function invocationUrl(slug: ClipSlug): string {
   return `${PUBLIC_ORIGIN}${CLIP_PREFIX}/${slug}`;
 }

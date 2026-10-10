@@ -52,6 +52,52 @@ enum ClipConfig {
     /// the one thing worth surviving that.
     static let appGroup = "group.org.spsm.connect"
 
+    /* ── Square ───────────────────────────────────────────────────────────
+     *
+     * The two values below are the only ones in this file that are **not**
+     * hardcoded, and the exception is the rule that justifies it: everything
+     * else here is the same in every build, and these are not. There is a
+     * sandbox application id and a production one, exactly one may reach a
+     * binary, and a clip built against the sandbox that charged a real card
+     * would be the worst possible way to find out which one it got.
+     *
+     * So they come from the clip's Info.plist, stamped at prebuild by
+     * `plugins/withNativeClip.js` from the same `SQUARE_ENV` pair that
+     * `app.config.ts` resolves for the app. Same arrangement as the app's
+     * `payments/square.ts`, which reads them from `expoConfig.extra.square`
+     * rather than `process.env`, and for the same reason.
+     *
+     * Neither is a secret. An application id identifies the merchant to
+     * Square's tokenizer and authorises nothing — it ships in the website's
+     * browser bundle too. The access token that can actually move money lives
+     * in the Cloud Function and has never been near a client.
+     */
+
+    /// Square's application id, for `SQIPInAppPaymentsSDK.squareApplicationID`.
+    static let squareApplicationId = info("SQIPApplicationID")
+
+    /// The Apple Pay merchant id, for `PKPaymentRequest`.
+    ///
+    /// Empty until one exists on team 5ZRM8X66TN with Square's
+    /// payment-processing certificate against it — see the note beside
+    /// `APPLE_PAY_MERCHANT_ID` in `app.config.ts`. Empty is an ordinary state
+    /// and not a broken build: `BookstoreView` reads `canSell` below and shows
+    /// the handoff card it always showed.
+    static let applePayMerchantId = info("SQIPApplePayMerchantID")
+
+    /// Whether this binary can take money at all.
+    ///
+    /// Both ids, because either one missing is a payment sheet that opens and
+    /// then fails — and a person who has already double-clicked to pay is the
+    /// worst audience for that. The device's own answer
+    /// (`SQIPInAppPaymentsSDK.canUseApplePay`) is a separate check made at the
+    /// point of sale; this one is about the build.
+    static var canSell: Bool { !squareApplicationId.isEmpty && !applePayMerchantId.isEmpty }
+
+    private static func info(_ key: String) -> String {
+        (Bundle.main.object(forInfoDictionaryKey: key) as? String) ?? ""
+    }
+
     /// A page on the church's site, for the reading this clip hands off.
     static func page(_ path: String) -> URL {
         URL(string: path, relativeTo: origin)?.absoluteURL ?? origin

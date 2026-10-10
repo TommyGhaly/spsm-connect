@@ -151,8 +151,9 @@ export function LevelDetailsSheet({
             void write('edit this', () => updateLevel(node.id, { description }));
           }}
           lines={4}
+          format
           placeholder="What this was. Shown above the photographs."
-          hint="A blank line starts a new paragraph. *italic* and **bold** work."
+          hint="A blank line starts a new paragraph. The two buttons write the markers; typing them by hand works too."
         />
 
         {/*

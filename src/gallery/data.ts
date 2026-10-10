@@ -40,7 +40,9 @@ import {
 } from '@react-native-firebase/firestore';
 import {
   COLLECTIONS,
+  subtreeIds,
   type FocalPoint,
+  type GalleryTree,
   type GalleryTreeNode,
   type GridPlacement,
   type SummaryMedia,
@@ -279,6 +281,67 @@ export async function getProgramMedia(programId: string, max = 500): Promise<Med
       return snapshot.docs.map(toMedia);
     },
     [],
+  );
+}
+
+/**
+ * Every approved photograph in a ministry, with the strays read as the
+ * ministry's own — which is what the ministry's page shows.
+ *
+ * ## Why the ministry page cannot use `getSubtreeMedia`
+ *
+ * It did, and two kinds of photograph fell out of the app entirely.
+ *
+ * `subtreeIds` returns *nodes*, and a ministry is not one. A photograph filed
+ * on the ministry itself — `programEventId === programId`, which is exactly
+ * what `AddPictures` writes on the ministry's own page and what the picture
+ * manager writes when something is moved to the top — was in no page's read at
+ * all. It was in Firestore, approved and public, with nowhere left to appear.
+ * Sending a photograph to a ministry looked the same as throwing it away.
+ *
+ * The second kind cannot be fixed by adding the program's id to the `in` list:
+ * a photograph on a level that has since been deleted names an id that is in no
+ * list, so no query built from the tree can return it. Reading the program
+ * returns everything in it — filed, on the ministry, or orphaned — which is
+ * what the healing below then needs.
+ *
+ * The website reaches the same two conclusions in `getGalleryLevel`, in the
+ * same order and for the same reasons; this is that code in this dialect.
+ *
+ * ## The healing is in the objects, not in Firestore
+ *
+ * A read that repairs the database is a read that needs write permission, and
+ * this one runs for every visitor on a public page. So the document keeps its
+ * dead id and every surface behaves as though it says the ministry's — which is
+ * enough, because the moment an administrator moves the picture anywhere the
+ * fix becomes permanent through the ordinary write.
+ *
+ * A draft level counts as live. An administrator's tree carries unpublished
+ * nodes and a visitor's does not, so a picture on a level nobody has published
+ * would otherwise be orphaned for the parish and correctly filed for staff —
+ * two answers about one document, differing by who is looking. Reading it as
+ * its own level's in both cases keeps it off the ministry page either way,
+ * which is what an unpublished level is *for*.
+ *
+ * ## The cost
+ *
+ * The cap. `getSubtreeMedia`'s `in` branch is exact and uncapped for a subtree
+ * of thirty levels or fewer; this is `PROGRAM_WINDOW`. That is the same
+ * approximation a wider ministry already lives with on the same page, and it
+ * buys the guarantee that a photograph in this ministry appears *somewhere*,
+ * which nothing else here provides.
+ */
+export async function getMinistryMedia<N extends GalleryTreeNode>(
+  programId: string,
+  tree: GalleryTree<N>,
+): Promise<MediaRow[]> {
+  const media = await getProgramMedia(programId, PROGRAM_WINDOW);
+  const live = new Set(subtreeIds(tree, null));
+
+  return media.map((item) =>
+    live.has(item.programEventId) || item.programEventId === programId
+      ? item
+      : { ...item, programEventId: programId },
   );
 }
 

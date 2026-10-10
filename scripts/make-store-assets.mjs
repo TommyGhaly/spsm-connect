@@ -21,11 +21,15 @@
  * `store/raw/`. What happens here is only the part the stores are fussy about:
  * checking each one is a size its store accepts, and padding the ones that are
  * not. Re-running with an empty `store/raw/` is not an error; it just says so.
+ *
+ * The custom product pages are the same screenshots again, reordered per page
+ * from the table in `product-pages.mjs`, into `store/product-pages/`.
  */
-import { mkdir, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { BACKGROUND, blank, plate, root, sealPixels, sharp, typeInk } from './brand.mjs';
+import { PRODUCT_PAGES, PROMO_LIMIT, SCREEN_LIMIT } from './product-pages.mjs';
 
 const OUT = join(root, 'store');
 const RAW = join(OUT, 'raw');
@@ -405,6 +409,136 @@ async function screenshots() {
   return seen;
 }
 
+/**
+ * Find one named screenshot for a product page: a main listing capture
+ * (`<n>-<name>.png`) first, then one captured only for the pages.
+ */
+async function resolveScreen(source, name) {
+  const dirs = [join(RAW, source), join(RAW, 'pages', source)];
+  for (const dir of dirs) {
+    let files;
+    try {
+      files = await readdir(dir);
+    } catch {
+      continue;
+    }
+    const numbered = new RegExp(`^\\d+-${name}\\.png$`);
+    const hit = files.find((f) => f === `${name}.png` || numbered.test(f));
+    if (hit) return join(dir, hit);
+  }
+  return null;
+}
+
+/**
+ * The table's own mistakes, before any image is touched. Apple's limits are
+ * checked here rather than discovered in App Store Connect, where an
+ * over-long promotional text is simply cut off at the field.
+ */
+function checkPages() {
+  const slugs = new Set();
+  for (const page of PRODUCT_PAGES) {
+    if (slugs.has(page.slug)) throw new Error(`Two product pages are called '${page.slug}'.`);
+    slugs.add(page.slug);
+
+    if (page.promo.length > PROMO_LIMIT) {
+      throw new Error(
+        `The '${page.slug}' page's promotional text is ${page.promo.length} characters; ` +
+          `App Store Connect takes ${PROMO_LIMIT}.`,
+      );
+    }
+    if (page.screens.length === 0 || page.screens.length > SCREEN_LIMIT) {
+      throw new Error(
+        `The '${page.slug}' page has ${page.screens.length} screenshots; it needs 1 to ${SCREEN_LIMIT}.`,
+      );
+    }
+  }
+}
+
+/**
+ * Every product page's screenshots, per iOS size, renumbered in the page's
+ * order. Each page's directory is emptied first, so that a screen taken off a
+ * page is taken off the upload too rather than lingering as a stale file.
+ *
+ * A size with no captures at all is skipped, as `screenshots()` does. A size
+ * that has captures but is missing one a page names is a failure: that page
+ * would otherwise upload with a hole in it, or with the main listing's order.
+ */
+async function productPages() {
+  checkPages();
+  const sets = Object.entries(RULES).filter(([set]) => set.startsWith('ios/'));
+
+  for (const page of PRODUCT_PAGES) {
+    const pageDir = join(OUT, 'product-pages', page.slug);
+    await rm(pageDir, { recursive: true, force: true });
+
+    for (const [set, rule] of sets) {
+      const source = rule.from ?? set;
+      const found = await Promise.all(page.screens.map((name) => resolveScreen(source, name)));
+
+      if (found.every((path) => path === null)) {
+        console.log(`  ${page.slug}/${set}: no captures for store/raw/${source}, skipped.`);
+        continue;
+      }
+
+      const missing = page.screens.filter((_, i) => found[i] === null);
+      if (missing.length > 0) {
+        throw new Error(
+          `The '${page.slug}' page needs ${missing.join(', ')} for ${set}, and neither ` +
+            `store/raw/${source}/ nor store/raw/pages/${source}/ has it. ` +
+            'Run scripts/capture-screenshots.sh.',
+        );
+      }
+
+      const dir = join(pageDir, set);
+      await mkdir(dir, { recursive: true });
+      for (const [i, path] of found.entries()) {
+        const original = await sharp(path).png().toBuffer();
+        const { buffer } = await conform(original, rule);
+        await writeFile(join(dir, `${i + 1}-${page.screens[i]}.png`), buffer);
+      }
+      console.log(`  ${page.slug}/${set}: ${page.screens.join(', ')}`);
+    }
+  }
+
+  await writeFile(join(OUT, 'product-pages', 'README.md'), pagesReadme());
+}
+
+/**
+ * `store/product-pages/README.md`: what to type into App Store Connect for
+ * each page, generated from the table so the two cannot disagree.
+ */
+function pagesReadme() {
+  const sections = PRODUCT_PAGES.map((page) =>
+    [
+      `## ${page.reference}`,
+      '',
+      `- **Reference name:** ${page.reference}`,
+      `- **Deep link:** \`${page.deepLink}\``,
+      `- **Screenshots:** \`${page.slug}/ios/6.9/\`, \`${page.slug}/ios/6.5/\`, \`${page.slug}/ios/13/\``,
+      `- **Promotional text** (${page.promo.length}/${PROMO_LIMIT}):`,
+      '',
+      `  > ${page.promo}`,
+      '',
+    ].join('\n'),
+  );
+
+  return [
+    '# Custom product pages',
+    '',
+    'Generated by `npm run store` from `scripts/product-pages.mjs`. Edit the table',
+    'there, not this file.',
+    '',
+    'Each page is created in App Store Connect → the app → **Custom Product Pages**',
+    '→ **Create Custom Product Page**. Upload the screenshots in filename order,',
+    'paste the promotional text, and set the deep link. A page has to go through',
+    'App Review on its own before its URL works; App Store Connect shows that URL',
+    'once it is approved, and that is the link to put on a tag, a poster or the',
+    'website instead of the plain listing.',
+    '',
+    ...sections,
+  ].join('\n');
+}
+
 async function main() {
   await mkdir(join(OUT, 'android'), { recursive: true });
 
@@ -418,6 +552,9 @@ async function main() {
   if (count === 0) {
     console.log('  Nothing in store/raw/. Run scripts/capture-screenshots.sh first.');
   }
+
+  console.log('Custom product pages:');
+  await productPages();
 
 }
 

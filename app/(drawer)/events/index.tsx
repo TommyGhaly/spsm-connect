@@ -172,6 +172,10 @@ export default function Directory() {
               <ProgramDetailsSheet
                 key={program.id}
                 program={program}
+                // This whole screen is superadmin-only — `mayManage` above is
+                // `isSuperadmin` and nothing else — which is exactly who
+                // `allow delete: if isSuper()` lets retire a ministry.
+                mayRemove
                 open
                 onClose={() => setChosen(null)}
                 onChanged={again}

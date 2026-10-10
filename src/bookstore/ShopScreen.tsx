@@ -39,7 +39,15 @@
  */
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from 'react';
 import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -442,6 +450,48 @@ function Shelf({
     trackProduct('detail', product.slug);
   }, []);
 
+  /*
+   * Whether the basket is along the bottom. The save bar takes that line when
+   * it is up — see the note where they are drawn.
+   */
+  const showBasketBar = held.count === 0 && basket.count > 0;
+
+  /**
+   * What the Manage pill says and offers, decided once and drawn in one of two
+   * places.
+   *
+   * The props rather than the element, because the two placements are two
+   * different parents — a child of `BottomBar`, or an overlay of its own — and
+   * an element cannot be moved between them without React unmounting it and
+   * with it the sheet it may have open. Spreading the same object into both
+   * keeps the menu one list in one place, which is the thing that would
+   * otherwise be copied and then edited in only one of the copies.
+   */
+  const manage: Pick<ComponentProps<typeof AdminFab>, 'label' | 'actions'> | null = canReview
+    ? {
+        label: editing ? 'Editing' : 'Manage',
+        actions: editing
+          ? [
+              { label: 'Add a book', onPress: () => setAdding(true) },
+              { label: 'Categories', onPress: () => setCategories(true) },
+              { label: 'Orders', onPress: () => router.push('/bookstore/orders' as never) },
+              { label: 'Figures', onPress: () => router.push('/bookstore/metrics' as never) },
+              { label: 'Stop editing', onPress: () => onEditing(false) },
+            ]
+          : [
+              /*
+               * Orders first, because it is what somebody opens this tab for
+               * on a Monday morning and it has nothing to do with editing the
+               * shop.
+               */
+              { label: 'Orders', onPress: () => router.push('/bookstore/orders' as never) },
+              { label: 'Figures', onPress: () => router.push('/bookstore/metrics' as never) },
+              // Only the people the rules will let write see the way in.
+              ...(canEdit ? [{ label: 'Edit the shop', onPress: () => onEditing(true) }] : []),
+            ],
+      }
+    : null;
+
   const header = (
     /* The gutter, now that the list has none. `PillRow` cancels it again with
        its own negative margin so that the pills still run off both edges — it
@@ -542,16 +592,12 @@ function Shelf({
         the shop is not shopping, so a basket left from earlier waits — and
         unsaved work is the thing that must not be hidden behind something that
         can be reopened with one press.
+
+        The save bar still positions itself, because it is two lines of text
+        over two buttons and takes the whole width; the pill goes above it, as
+        it always did. The basket shares its line — see `BottomBar`.
       */}
-      {held.count > 0 ? (
-        <SaveBar />
-      ) : basket.count > 0 ? (
-        <BasketBar
-          count={basket.count}
-          subtotal={basket.subtotal}
-          onPress={() => setBasketOpen(true)}
-        />
-      ) : null}
+      {held.count > 0 ? <SaveBar /> : null}
 
       {/*
         The office's controls, in the corner rather than across the top of the
@@ -559,45 +605,30 @@ function Shelf({
         gallery page made. A visitor used to scroll past "Orders · Figures ·
         Edit shop" to reach the books.
 
-        Lifted clear of whichever bar is along the bottom, because those are
-        overlays too and they share this corner. The two constants are the same
-        ones the shelf's own bottom padding is worked out from, so the pill sits
-        exactly one bar's height up rather than at a number chosen by eye.
+        Where it sits depends on what else is along the bottom, and there are
+        only two answers now rather than three:
+
+        - **With the basket**, on its line, at the right end of it — which is
+          what Tommy asked for and what `BottomBar` exists to lay out. The
+          basket narrows to make room; nothing is stacked over anything.
+        - **Otherwise**, its own corner, lifted clear of the save bar when that
+          is up. `SAVE_BAR_SPACE` is the same constant the shelf's bottom
+          padding is worked out from, so the pill clears it by the bar's own
+          height rather than by a number chosen by eye.
       */}
-      {canReview ? (
-        <AdminFab
-          label={editing ? 'Editing' : 'Manage'}
-          raisedBy={
-            held.count > 0
-              ? SAVE_BAR_SPACE
-              : basket.count > 0
-                ? BASKET_BAR_SPACE
-                : 0
-          }
-          actions={
-            editing
-              ? [
-                  { label: 'Add a book', onPress: () => setAdding(true) },
-                  { label: 'Categories', onPress: () => setCategories(true) },
-                  { label: 'Orders', onPress: () => router.push('/bookstore/orders' as never) },
-                  { label: 'Figures', onPress: () => router.push('/bookstore/metrics' as never) },
-                  { label: 'Stop editing', onPress: () => onEditing(false) },
-                ]
-              : [
-                  /*
-                   * Orders first, because it is what somebody opens this tab
-                   * for on a Monday morning and it has nothing to do with
-                   * editing the shop.
-                   */
-                  { label: 'Orders', onPress: () => router.push('/bookstore/orders' as never) },
-                  { label: 'Figures', onPress: () => router.push('/bookstore/metrics' as never) },
-                  // Only the people the rules will let write see the way in.
-                  ...(canEdit
-                    ? [{ label: 'Edit the shop', onPress: () => onEditing(true) }]
-                    : []),
-                ]
-          }
-        />
+      {showBasketBar ? (
+        <BottomBar>
+          <View style={{ flex: 1 }}>
+            <BasketBar
+              count={basket.count}
+              subtotal={basket.subtotal}
+              onPress={() => setBasketOpen(true)}
+            />
+          </View>
+          {manage ? <AdminFab {...manage} placement="inline" /> : null}
+        </BottomBar>
+      ) : manage ? (
+        <AdminFab {...manage} raisedBy={held.count > 0 ? SAVE_BAR_SPACE : 0} />
       ) : null}
 
       <ProductSheet
@@ -848,11 +879,19 @@ function SearchBar({
 /**
  * The bar that appears once there is something to pay for.
  *
- * Absolutely positioned over the list rather than laid out under it, for the
- * reason the website's admin drawer gives about overlays: a bar in the flow
- * would move every book on the shelf by its own height the moment the first one
- * was added, so the thing you were looking at is somewhere else immediately
- * after you press Add.
+ * Laid out by `BottomBar` rather than by itself, and it used to position
+ * itself: `position: absolute` across the full width, with the Manage pill
+ * floating 72 points above it. Tommy: *"I want the manage button to be at the
+ * same level as the cart, the cart should move a little to the left."* Two
+ * overlays stacked in the one corner a thumb reaches was the thing to fix —
+ * they are one row now, the basket taking the width that is left and the pill
+ * sitting beside it. So this is the bar itself and nothing about where it goes;
+ * see `BottomBar`, which is where the overlay decision lives for both of them.
+ *
+ * It stays an overlay rather than becoming the list's last row, for the reason
+ * the website's admin drawer gives: a bar in the flow would move every book on
+ * the shelf by its own height the moment the first one was added, so the thing
+ * you were looking at is somewhere else immediately after you press Add.
  */
 function BasketBar({
   count,
@@ -864,41 +903,87 @@ function BasketBar({
   onPress: () => void;
 }) {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Basket, ${count} ${count === 1 ? 'book' : 'books'}, ${money(subtotal)}`}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.space.sm,
+        paddingVertical: theme.space.sm,
+        paddingHorizontal: theme.space.md,
+        borderRadius: theme.radius.md,
+        backgroundColor: pressed ? theme.color.accentStrong : theme.color.accent,
+        minHeight: 52,
+      })}
+    >
+      <Icon name="bag" color={theme.color.inkInverse} size={20} />
+      <View style={{ flex: 1 }}>
+        <Small color={theme.color.inkInverse}>
+          {count} {count === 1 ? 'book' : 'books'}
+        </Small>
+      </View>
+      <Small color={theme.color.inkInverse}>{money(subtotal)}</Small>
+      <Icon name="arrow" color={theme.color.inkInverse} size={18} />
+    </Pressable>
+  );
+}
+
+/**
+ * The one strip along the foot of the shop, and everything that lives in it.
+ *
+ * There were two overlays here and they each chose their own corner: the
+ * basket bar across the full width at `insets.bottom + sm`, and the Manage
+ * pill in the bottom-right at `space.lg`, lifted by a hand-written 72 points
+ * so it cleared the bar. That is two answers to one question, and they only
+ * agreed by arithmetic.
+ *
+ * ## The pill does not move, and the numbers here are why
+ *
+ * The first version of this row put itself where the *basket* used to be —
+ * `insets.bottom + sm` — which quietly made the Manage pill rise and fall by
+ * eighteen points depending on whether anything was in the basket. Tommy:
+ * *"make the manage button stationary in the bookstore screen, just lower the
+ * checkout button to match it rather than moving the manage button."* Right,
+ * and it was the wrong half that moved: the pill is on every screen in the app
+ * and in the same corner on all of them, so it is the fixed thing and the
+ * basket is the visitor.
+ *
+ * So the row takes **the pill's own two insets** — `space.gutter` from the
+ * right and `space.lg` from the bottom, which is exactly what `AdminFab` uses
+ * when it places itself in the corner. With `alignItems: 'flex-end'` the
+ * pill's bottom edge is the row's bottom edge, so an inline pill lands on the
+ * same pixel as a corner one and there is nothing to keep in step by hand: the
+ * two states are the same two numbers.
+ *
+ * The basket is what changes, in both directions — down eighteen points to
+ * this line, and in from the right by the pill's width. Which is the trade
+ * asked for, and the right one: a bar that is one of several things on a shelf
+ * should sit on the shelf.
+ *
+ * `box-none` so the strip's own box — as wide as the screen, and taller than
+ * the pill — does not swallow a tap meant for the book underneath it.
+ */
+function BottomBar({ children }: { children: ReactNode }) {
+  const theme = useTheme();
 
   return (
     <View
+      pointerEvents="box-none"
       style={{
         position: 'absolute',
         left: theme.space.gutter,
         right: theme.space.gutter,
-        bottom: insets.bottom + theme.space.sm,
+        bottom: theme.space.lg,
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        gap: theme.space.sm,
       }}
     >
-      <Pressable
-        onPress={onPress}
-        accessibilityRole="button"
-        accessibilityLabel={`Basket, ${count} ${count === 1 ? 'book' : 'books'}, ${money(subtotal)}`}
-        style={({ pressed }) => ({
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: theme.space.sm,
-          paddingVertical: theme.space.sm,
-          paddingHorizontal: theme.space.md,
-          borderRadius: theme.radius.md,
-          backgroundColor: pressed ? theme.color.accentStrong : theme.color.accent,
-          minHeight: 52,
-        })}
-      >
-        <Icon name="bag" color={theme.color.inkInverse} size={20} />
-        <View style={{ flex: 1 }}>
-          <Small color={theme.color.inkInverse}>
-            {count} {count === 1 ? 'book' : 'books'}
-          </Small>
-        </View>
-        <Small color={theme.color.inkInverse}>{money(subtotal)}</Small>
-        <Icon name="arrow" color={theme.color.inkInverse} size={18} />
-      </Pressable>
+      {children}
     </View>
   );
 }

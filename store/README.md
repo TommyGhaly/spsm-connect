@@ -99,6 +99,27 @@ anything else, so `npm run store` checks these and never resizes them. A
 mismatch is a hard failure at that point, which is much cheaper than hearing
 about it an hour after an upload.
 
+## Custom product pages
+
+`product-pages/` holds one screenshot set per **custom product page**: a second
+copy of the App Store listing with its own screenshots, promotional text and
+URL, for somebody who arrives for one errand — the giving tag by the door, the
+bookstore table, a newcomer sent the link. The six pages follow the App Clip
+experiences, and each one's deep link is that experience's `/c/<slug>` URL.
+
+The table is `scripts/product-pages.mjs`. `npm run store` writes the
+screenshots and `product-pages/README.md`, which has the copy to paste into App
+Store Connect for each page. That generated README is the one place listing copy
+lives in this directory.
+
+Three of the screens are not in the main listing (Welcome, Future Plans,
+Livestream). `capture-screenshots.sh` takes them into `raw/pages/`; to take
+only those without re-shooting the main five:
+
+```bash
+PAGES_ONLY=1 npm run screenshots:ios
+```
+
 ## The screenshots themselves
 
 Five screens, the same five in the same order on both platforms, so the two

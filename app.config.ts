@@ -165,7 +165,7 @@ const APPLE_PAY_MERCHANT_ID = process.env.APPLE_PAY_MERCHANT_ID ?? '';
 const IOS_BUILD = Number(process.env.IOS_BUILD_NUMBER ?? 1);
 
 /** Play's versionCode. This is the one that climbs. */
-const ANDROID_VERSION_CODE = Number(process.env.ANDROID_VERSION_CODE ?? 3);
+const ANDROID_VERSION_CODE = Number(process.env.ANDROID_VERSION_CODE ?? 7);
 
 for (const [name, value, variable] of [
   ['iOS build number', IOS_BUILD, 'IOS_BUILD_NUMBER'],
@@ -463,7 +463,10 @@ const config: ExpoConfig = {
      * never will: Apple grants it only to clips with no physical invocations,
      * and every tag this parish owns is physical.
      *
-     * So the clip is Swift, links no pods, and talks to the church over REST.
+     * So the clip is Swift and talks to the church over REST. It links exactly
+     * one pod — `SquareInAppPaymentsSDK`, about 1.4 MB embedded, so that
+     * `/c/bookstore` can take Apple Pay rather than hand off — and the plugin
+     * gives it its own Podfile target for that one framework and nothing else.
      * Its sources are in `ios-appclip/`; the plugin's header has the account,
      * and `docs/app-clip-experiences.md` in the Website repo carries the
      * consequences for what each experience can do.
@@ -596,6 +599,12 @@ const config: ExpoConfig = {
      * four Gradle properties it expects in ~/.gradle/gradle.properties.
      */
     './plugins/withReleaseSigning',
+    /*
+     * Raises `org.gradle.jvmargs` past the template's 2 GB, which R8 does not
+     * fit in — see `enableMinifyInReleaseBuilds` below, which is what makes
+     * this necessary, and the plugin's header for the failure it produces.
+     */
+    './plugins/withR8Heap',
     [
       'expo-build-properties',
       {
@@ -634,7 +643,117 @@ const config: ExpoConfig = {
          * plugins/withNativeClip.js sets 16.0 and picks up every device on
          * 16.0 to 16.3 the old clip could not serve.
          */
-        android: { minSdkVersion: 28 },
+        android: {
+          minSdkVersion: 28,
+          /*
+           * R8. Off by Expo's default, and Play noticed:
+           *
+           *   DEX code optimization is below our threshold
+           *   Improve your percentages in the following categories:
+           *   Obfuscation (3%)
+           *
+           * Percentages under 25% "may impact your visibility and publishing
+           * capabilities on Google Play" — see
+           * https://developer.android.com/topic/performance/vitals/code-optimization.
+           * The 3% is the handful of dependencies that arrive pre-obfuscated;
+           * nothing this build compiles was being renamed at all, because the
+           * template's `minifyEnabled enableMinifyInReleaseBuilds` reads a
+           * Gradle property that nothing set.
+           *
+           * This sets it. `android.enableMinifyInReleaseBuilds=true` lands in
+           * android/gradle.properties on prebuild, which is the only place it
+           * can live — /android is gitignored and regenerated, the same reason
+           * plugins/withReleaseSigning.js exists.
+           *
+           * **None of it touches the JavaScript.** R8 shrinks and renames Java
+           * and Kotlin; the app's own code is a Hermes bytecode bundle sitting
+           * in assets/, untouched. What gets obfuscated is React Native, the
+           * Expo modules, Firebase and Square — which is exactly what Play is
+           * measuring, since that is what the DEX is.
+           *
+           * The keep rules below are the whole of what this app needs on top of
+           * its dependencies' own, and the list is short on purpose: every
+           * native dependency here ships `consumerProguardFiles` and they are
+           * thorough. expo-modules-core keeps anything extending `Module` or
+           * implementing `Record`, expo-task-manager and expo-notifications
+           * keep their packages whole, all five
+           * `com.squareup.sdk.in-app-payments` AARs carry a proguard.txt, and
+           * every Firebase and ML Kit `ComponentRegistrar` survived R8 untouched
+           * — checked against mapping.txt, not assumed. React Native keeps its
+           * own `@DoNotStrip` and `@ReactModule` surface, which is what every
+           * third-party RN module relies on. Each keep added past that lowers
+           * the number Play is complaining about, so they have to be earned.
+           *
+           * These three were earned the hard way: R8 deleted all three, and the
+           * release build still compiled, installed and launched. They are
+           * named in the merged AndroidManifest as `android:value` — a *string*,
+           * not `android:name` — so AGP's automatic manifest keeps do not see
+           * them, and each is then resolved with `Class.forName`. Nothing in
+           * the bytecode references them, so R8 is right to think them dead.
+           *
+           * They were found by listing every class-shaped `android:value` in
+           * the merged manifest and grepping mapping.txt for each: a class R8
+           * kept appears there even when its name is unchanged, so absence
+           * means deleted. Worth repeating after an SDK bump, because the
+           * symptom is not a crash — see below.
+           *
+           *   RNHeadlessAppLoader             expo-modules-core's headless JS
+           *                                   entry point, read from meta-data
+           *                                   by `AppLoaderProvider`. Without
+           *                                   it `getLoader` returns null and
+           *                                   nothing running outside the
+           *                                   foreground works —
+           *                                   src/notify/backgroundReminders.ts
+           *                                   and src/upload/backgroundDrain.ts,
+           *                                   both registered in app/_layout.tsx.
+           *
+           *   Camera2Config$DefaultProvider   CameraX's default configuration,
+           *                                   loaded the same way. expo-camera
+           *                                   fails to initialise without it —
+           *                                   src/send/CameraScreen.tsx and
+           *                                   src/upload/pick.ts.
+           *
+           *   CredentialProviderPlayServices- androidx.credentials' Play
+           *   Impl                            services backend, behind Firebase
+           *                                   Auth.
+           *
+           * The reason to be careful here rather than quick: **the app launches
+           * fine without them.** The first build of this change ran, rendered
+           * and logged `Running "main"`, and the only sign of the damage was a
+           * `W System.err: java.lang.ClassNotFoundException` that no crash
+           * report would ever collect, for a background task that simply never
+           * fires again. That is the shape of R8 breakage worth fearing — not a
+           * red build, a feature that quietly stops existing.
+           *
+           * Whole classes rather than `{ <init>(); }`. Reflection needs the
+           * name and the constructor, and interface dispatch covers the methods
+           * in principle, but three small classes kept whole cost roughly
+           * nothing against 85% and remove a subtler way to be wrong later.
+           *
+           * The two keeps already in android/app/proguard-rules.pro —
+           * reanimated and turbomodule — come from the Expo template and stay.
+           *
+           * Crash reports stay readable without any extra step: AGP writes the
+           * mapping file into the AAB's BUNDLE-METADATA, so Play deobfuscates
+           * stack traces itself. Nothing here uploads to Crashlytics, which is
+           * not installed.
+           *
+           * `enableShrinkResources` is left off. It is a different lever —
+           * unused *resources*, not code — it does nothing for the obfuscation
+           * number, and it strips drawables that are only ever named as
+           * strings, which is a real risk for a notification icon. Size is not
+           * the problem being solved.
+           */
+          enableMinifyInReleaseBuilds: true,
+          extraProguardRules: [
+            '# Named in the merged manifest as an android:value string and loaded by',
+            '# Class.forName, so nothing in the bytecode reaches them and R8 deletes',
+            '# them. See the note in app.config.ts before removing any of these.',
+            '-keep class expo.modules.adapters.react.apploader.RNHeadlessAppLoader { *; }',
+            '-keep class androidx.camera.camera2.Camera2Config$DefaultProvider { *; }',
+            '-keep class androidx.credentials.playservices.CredentialProviderPlayServicesImpl { *; }',
+          ].join('\n'),
+        },
       },
     ],
     [

@@ -37,11 +37,12 @@
  */
 import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, View, useWindowDimensions } from 'react-native';
+import { Pressable, View } from 'react-native';
 import {
   buildGalleryTree,
   childrenOf,
   collapseToColumn,
+  isSuperadmin,
   nodeSummary,
   packGallery,
   resolveTrail,
@@ -56,8 +57,7 @@ import { AdminFab } from '@/components/AdminFab';
 import { Card, Screen } from '@/components/Surface';
 import { Body, Label, Lede, Small, Title } from '@/components/Type';
 import { AddPictures } from '@/gallery/AddPictures';
-import { Picture } from '@/gallery/Picture';
-import { PictureTools } from '@/gallery/PictureTools';
+import { Mosaic } from '@/gallery/Mosaic';
 import { ReviewQueue } from '@/gallery/ReviewQueue';
 import {
   SHELF_CLEARANCE,
@@ -68,6 +68,7 @@ import {
 import { EventScreen } from '@/events/EventScreen';
 import { getEventBySlug, type EventDoc } from '@/events/data';
 import {
+  getMinistryMedia,
   getProgram,
   getProgramNodes,
   getSubtreeMedia,
@@ -75,8 +76,15 @@ import {
   type NodeRow,
   type ProgramRow,
 } from '@/gallery/data';
-import { listLevelsForAdmin, type AdminNodeRow } from '@/gallery/adminData';
-import { LevelDetailsSheet, NewLevelSheet } from '@/gallery/LevelAdmin';
+import {
+  getProgramForAdmin,
+  listLevelsForAdmin,
+  type AdminNodeRow,
+  type AdminProgramRow,
+} from '@/gallery/adminData';
+import { LevelDetailsSheet } from '@/gallery/LevelAdmin';
+import { PictureManagerSheet } from '@/gallery/PictureManager';
+import { ProgramDetailsSheet } from '@/gallery/ProgramAdmin';
 import { mayAdminProgram, mayAdminProgramEvent } from '@/firebase/grants';
 import { useGrants } from '@/session/SessionProvider';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -84,6 +92,16 @@ import { useTheme } from '@/theme/ThemeProvider';
 /** What one successful pair of reads gives the screen. */
 interface Level {
   program: ProgramRow;
+  /**
+   * The same ministry, read the administrator's way, or null for everybody
+   * else.
+   *
+   * `ProgramRow` deliberately drops `published`, `order` and the submission
+   * priority — a reader has no use for any of them and the query it came from
+   * has already answered the first. The sheet on the ministry's own page draws
+   * all three, so it needs the wider row; see `getProgramForAdmin`.
+   */
+  adminProgram: AdminProgramRow | null;
   tree: GalleryTree<NodeRow>;
   /** The level being shown, or null for the ministry's own page. */
   node: NodeRow | null;
@@ -149,7 +167,16 @@ export default function GalleryLevel() {
         return;
       }
 
-      const program = await getProgram(programSlug);
+      /*
+       * The slug *is* the document id of a ministry — `createProgram` writes
+       * it there on purpose — so the grant can be checked before the read
+       * rather than after it, and the read can be the right one first time.
+       */
+      const mayEditProgram = mayAdminProgram(grants, programSlug);
+      const adminProgram = mayEditProgram ? await getProgramForAdmin(programSlug) : null;
+      if (cancelled) return;
+
+      const program = adminProgram ?? (await getProgram(programSlug));
       if (cancelled) return;
       if (!program) {
         /*
@@ -191,7 +218,7 @@ export default function GalleryLevel() {
        * public reader has no use for.
        */
       const tree = buildGalleryTree(
-        mayAdminProgram(grants, program.id)
+        mayEditProgram
           ? await listLevelsForAdmin(program.id)
           : await getProgramNodes(program.id),
       );
@@ -212,10 +239,21 @@ export default function GalleryLevel() {
       }
 
       const node = resolved.at(-1) ?? null;
-      const media = await getSubtreeMedia(program.id, subtreeIds(tree, node?.id ?? null));
+      /*
+       * A level reads its subtree; the ministry reads the whole program.
+       *
+       * Not an optimisation, and not symmetrical by accident: `subtreeIds`
+       * returns nodes and a ministry is not one, so a photograph filed on the
+       * ministry itself was in no page's read at all. See `getMinistryMedia`,
+       * which also carries the strays.
+       */
+      const media =
+        node === null
+          ? await getMinistryMedia(program.id, tree)
+          : await getSubtreeMedia(program.id, subtreeIds(tree, node.id));
       if (cancelled) return;
 
-      setState({ for: key, kind: 'ready', level: { program, tree, node, media } });
+      setState({ for: key, kind: 'ready', level: { program, adminProgram, tree, node, media } });
     })().catch(() => {
       if (!cancelled) setState({ for: key, kind: 'missing' });
     });
@@ -276,7 +314,7 @@ function LevelView({ level, onChanged }: { level: Level; onChanged: () => void }
   const theme = useTheme();
   const router = useRouter();
   const grants = useGrants();
-  const { program, tree, node, media } = level;
+  const { program, adminProgram, tree, node, media } = level;
 
   /*
    * Whether to draw the pill, and the two different questions behind it.
@@ -285,12 +323,20 @@ function LevelView({ level, onChanged }: { level: Level; onChanged: () => void }
    * one gathering as well as somebody granted the whole ministry — the split
    * `firestore.rules` makes on `/programEvents`. On the ministry's own page
    * there is no level to be scoped to, so it is the ministry grant.
+   *
+   * And on the ministry's own page the sheet edits the ministry *document*, so
+   * it also needs the administrator's read of it. In practice the two go
+   * together — the grant is what the read is allowed by, and both are asked in
+   * the same effect — but a pill that opens nothing is worse than no pill, and
+   * this is one condition rather than a fallback sheet that exists for a state
+   * nobody has seen.
    */
   const mayEdit = node
     ? mayAdminProgramEvent(grants, program.id, node.id)
-    : mayAdminProgram(grants, program.id);
+    : mayAdminProgram(grants, program.id) && adminProgram !== null;
 
   const [editing, setEditing] = useState(false);
+  const [managing, setManaging] = useState(false);
 
   const title = node?.title ?? program.name;
   const description = node?.description ?? program.description;
@@ -467,20 +513,71 @@ function LevelView({ level, onChanged }: { level: Level; onChanged: () => void }
         with the gallery. See `EditPageButton` on why that corner and not
         another.
       */}
+      {/*
+        One action on a level and two on the ministry, which is why the pill
+        says different things in the two places.
+
+        A level's page has one thing to open. The ministry's has the settings
+        *and* the filing cabinet — every photograph in the ministry, which is
+        reachable from nowhere else and is the reason `PictureManager` exists.
+        A pill with two options is a menu, and the menu is the platform's; see
+        `AdminFab`. "Manage" rather than either option's own words, because a
+        pill labelled with one of two things it opens is a pill that lies half
+        the time.
+      */}
       {mayEdit ? (
         <AdminFab
-          label="Edit this page"
-          actions={[{ label: 'Edit this page', onPress: () => setEditing(true) }]}
+          label={node ? 'Edit this page' : 'Manage'}
+          actions={
+            node
+              ? [{ label: 'Edit this page', onPress: () => setEditing(true) }]
+              : [
+                  { label: 'Edit this ministry', onPress: () => setEditing(true) },
+                  { label: 'All the photographs', onPress: () => setManaging(true) },
+                ]
+          }
         />
       ) : null}
 
       {/*
-        What it opens depends on what this page *is*. A level has details of its
-        own — name, dates, visibility, removal — and the sheet carries "add
-        something inside" with them. The ministry's own page has no level
-        document to edit: its name and description are administered in the
-        directory's edit mode, where the website keeps them too, so the pill
-        here does the one thing that cannot be done from there.
+        The filing cabinet, a sibling of the settings sheet rather than a
+        button inside it.
+
+        The website puts it in the same inspector panel as the ministry's
+        details, which it can because a panel is not a dialog. Here both are
+        sheets, and a sheet that opens a sheet that opens the photograph's own
+        editor is three modals deep — a depth nothing else in this app goes to,
+        and one iOS is not reliable about. Two entries in the same menu is the
+        same two presses and none of that.
+      */}
+      {mayEdit && managing && !node ? (
+        <PictureManagerSheet
+          program={program}
+          tree={tree}
+          media={media}
+          open
+          onClose={() => setManaging(false)}
+          onChanged={onChanged}
+        />
+      ) : null}
+
+      {/*
+        What it opens depends on what this page *is*, and both sheets now ask
+        the same shape of question about their own subject.
+
+        A level has details of its own — name, dates, visibility, what its parts
+        are called, removal — and carries "add something inside" with them.
+
+        The ministry's own page used to open the add-a-level plate and nothing
+        else, on the argument that a ministry's name and description are
+        administered in the directory's edit mode. That argument was half
+        right and cost too much: the directory is superadmin-only, so a program
+        lead running Summercamp could photograph it from a phone and not
+        rename it, describe it, publish it, or stop it collecting. Tommy: *"the
+        top level node in the events should have more settings than just adding
+        subnodes."* So it opens `ProgramDetailsSheet` — the same sheet the
+        directory opens, with the two submission settings the website keeps on
+        this page and the add-a-level plate inside it.
       */}
       {mayEdit && editing && node ? (
         <LevelDetailsSheet
@@ -501,16 +598,29 @@ function LevelView({ level, onChanged }: { level: Level; onChanged: () => void }
         />
       ) : null}
 
-      {mayEdit && editing && !node ? (
-        <NewLevelSheet
+      {mayEdit && editing && !node && adminProgram ? (
+        <ProgramDetailsSheet
+          program={adminProgram}
+          // The tree this page already read, which is what turns on the two
+          // submission settings and "add something inside" — see the `tree`
+          // prop. The directory has no tree and gets neither.
+          tree={tree}
+          /*
+           * `allow create, delete: if isSuper()` on `/programs`. A program
+           * lead may edit the ministry they were given and may not retire it,
+           * so the red button is not drawn for them at all rather than drawn
+           * and refused.
+           */
+          mayRemove={isSuperadmin(grants.claims)}
           open
-          programId={program.id}
-          parentId={null}
-          parts={childLabel}
           onClose={() => setEditing(false)}
-          onCreated={() => {
+          onChanged={onChanged}
+          onRemoved={() => {
             setEditing(false);
-            onChanged();
+            // The ministry this page *is* has gone, so there is nothing here to
+            // go back to — not even one level up. The directory is where its
+            // tile was.
+            router.replace('/events');
           }}
         />
       ) : null}
@@ -596,31 +706,9 @@ function Breadcrumb({ level }: { level: Level }) {
  * **Reading order, not document order, and that is the point.** An
  * administrator who drags a photograph to the top of the canvas means it to come
  * first; a phone that ignored the position would show it wherever it happened to
- * sit in the list. A layout built on a 1400px canvas cannot be shown at 390pt —
- * a third-width box is a hundred points — so this does not try to reproduce it.
- *
- * ## One column on a phone, more on anything wider
- *
- * The collapse is to a *list*, and how many of that list fit across is this
- * screen's question rather than the shared walk's. On a phone held upright the
- * answer is one, and that is not a limitation — **this build has no lightbox.**
- * There is no way to enlarge a photograph, so the gallery is the viewing
- * experience, and two-up thumbnails would be a gallery you cannot actually look
- * at. See the note on `VideoMark` in `Picture.tsx`: when the lightbox lands,
- * this trade is worth re-opening.
- *
- * Turn the phone, or open it on a tablet, and one column becomes wrong in the
- * other direction. A 900pt-wide column gives a portrait a 1125pt cell — a
- * photograph taller than the screen it is on, which has to be scrolled past in
- * two goes to be seen at all. So the column count follows the width, and the
- * cell is capped against the *height* as well. Both are app-only: the website
- * has its own answer to the same question on its own canvas, and nothing here
- * reaches into `@spsm/shared` to change it.
- *
- * Rows are filled in reading order, left to right, so the order is preserved
- * exactly however many columns there are — and every cell in a row shares one
- * height, because a ragged row of near-equal boxes reads as a mistake rather
- * than as a design. Cropping to that height is what `focal` is for.
+ * sit in the list. A layout built on a 1400px canvas cannot be shown at 390pt,
+ * so this does not try to reproduce it: the order is handed to `Mosaic`, which
+ * lays it out in justified rows and opens the viewer from any tile.
  */
 function Canvas({
   pictures,
@@ -633,9 +721,6 @@ function Canvas({
   tree: GalleryTree<NodeRow>;
   onChanged: () => void;
 }) {
-  const theme = useTheme();
-  const { width, height } = useWindowDimensions();
-
   const order = useMemo(() => {
     const placed = collapseToColumn(
       packGallery(pictures.map((item) => ({ id: item.id, layout: item.layout, aspect: item.aspect }))),
@@ -646,107 +731,5 @@ function Canvas({
       .filter((item): item is MediaRow => item !== undefined);
   }, [pictures]);
 
-  // The page's usable width is the window less both gutters; the cell is that
-  // divided by however many go across, less the gaps between them.
-  const page = width - theme.space.gutter * 2;
-  const across = columnsFor(width);
-  const gap = theme.space.sm;
-  const cell = (page - gap * (across - 1)) / across;
-
-  const rows = useMemo(() => chunk(order, across), [order, across]);
-
-  return (
-    <View style={{ gap: theme.space.sm }}>
-      {rows.map((row) => (
-        <View key={row[0]?.id} style={{ flexDirection: 'row', gap }}>
-          {row.map((item) => (
-            /*
-              `flex: 1` rather than the measured width, so the last row of a
-              three-column gallery with one photograph in it does not leave a
-              lonely third-width box: a short row shares the page between what
-              is in it. The measured `cell` is still what decides the height,
-              because a height cannot be worked out from a flex basis.
-            */
-            <View key={item.id} style={{ flex: 1, gap: theme.space.xs }}>
-              {/*
-                The photograph and its controls share a box, so the controls can
-                sit *on* it. Not on the outer element: that one holds the caption
-                too, and a button positioned against it would drift down the page
-                by the height of however many lines the caption ran to.
-              */}
-              <View>
-                <Picture media={item} height={rowHeight(row, cell, height)} />
-                <PictureTools media={item} program={program} tree={tree} onChanged={onChanged} />
-              </View>
-              {item.caption ? <Small color={theme.color.inkSoft}>{item.caption}</Small> : null}
-            </View>
-          ))}
-        </View>
-      ))}
-    </View>
-  );
-}
-
-/**
- * How many photographs go across, from the width of the window.
- *
- * Phone upright — anything under 620pt, which is every phone in portrait and
- * most in landscape — is one, for the reason in the header: there is no
- * lightbox, so a small cell is a photograph nobody can see. The thresholds above
- * that are a tablet and a tablet turned sideways.
- *
- * Read from `useWindowDimensions` rather than from a device class, so a split
- * screen and a floating window get the layout their actual width deserves.
- */
-function columnsFor(width: number): number {
-  if (width >= 1000) return 3;
-  if (width >= 620) return 2;
-  return 1;
-}
-
-/** The reading order, cut into rows of `across`. Order is preserved exactly. */
-function chunk(order: readonly MediaRow[], across: number): MediaRow[][] {
-  const rows: MediaRow[][] = [];
-  for (let from = 0; from < order.length; from += across) {
-    rows.push(order.slice(from, from + across));
-  }
-  return rows;
-}
-
-/**
- * One height for a whole row.
- *
- * The mean of what each photograph in it would have asked for alone, so a
- * portrait beside a landscape gives a little and takes a little rather than one
- * of them dictating and the other being gutted. Every cell is `contentFit:
- * cover` around the administrator's focal point, so the difference is a crop
- * rather than a distortion.
- *
- * A single-item row is therefore exactly `cellHeight`, which is what a phone
- * held upright gets — the layout this page had before columns existed.
- */
-function rowHeight(row: readonly MediaRow[], cell: number, screen: number): number {
-  const mean = row.reduce((total, item) => total + cellHeight(cell, item.aspect), 0) / row.length;
-
-  /*
-   * Never taller than most of the screen it is on, which is the cap the old
-   * ratio-only version was missing. It does nothing on a phone in portrait —
-   * 1.25 × 358pt is 448, well inside 80% of 844 — and everything on a phone
-   * turned sideways, where a portrait cell would otherwise be taller than the
-   * window and could not be seen without two scrolls.
-   */
-  return Math.round(Math.min(mean, screen * 0.8));
-}
-
-/**
- * How tall one cell is.
- *
- * Bounded at both ends rather than taken from the ratio alone: a panorama would
- * otherwise be a 60-point stripe and a tall portrait would fill more than a
- * screen, so neither reads as a photograph. An unknown ratio gets 4:3, which is
- * the commonest shape a church camera produces.
- */
-function cellHeight(width: number, aspect: number | null): number {
-  const ratio = aspect ?? 4 / 3;
-  return Math.round(Math.min(Math.max(width / ratio, width * 0.5), width * 1.25));
+  return <Mosaic order={order} program={program} tree={tree} onChanged={onChanged} />;
 }

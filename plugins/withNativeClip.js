@@ -48,7 +48,7 @@
  * on every prebuild.
  * ---------------------------------------------------------------------------
  */
-const { withXcodeProject, withDangerousMod } = require('@expo/config-plugins');
+const { withXcodeProject, withDangerousMod, withPodfile } = require('@expo/config-plugins');
 const plist = require('@expo/plist').default;
 const fs = require('node:fs');
 const path = require('node:path');
@@ -117,10 +117,65 @@ const SWIFT_FILES = [
   'PhotosView.swift',
   'AppAttest.swift',
   'UploadClient.swift',
+  'Shop.swift',
+  'Checkout.swift',
 ];
 
 const RESOURCE_FILES = ['Assets.xcassets'];
 const REFERENCE_ONLY_FILES = ['Info.plist', `${TARGET_NAME}.entitlements`];
+
+/**
+ * The one pod the clip links, and the only reason it has a Podfile target.
+ *
+ * ---------------------------------------------------------------------------
+ * Pinned to the version `react-native-square-in-app-payments` resolves for the
+ * app, so the two targets carry the same framework rather than two. They are
+ * separate copies either way — an App Clip is an independent bundle and embeds
+ * its own — but two *different* versions of a payments SDK in one archive is a
+ * question nobody should have to answer.
+ *
+ * **`SquareInAppPaymentsSDK`, not `SquareInAppPayments`.** The second is the
+ * React Native wrapper's podspec, which depends on the whole of React and on
+ * `SquareBuyerVerificationSDK` — 6 MB, 3 MB of it `ThreeDS_SDK`, for a 3DS
+ * challenge flow nothing in this parish's checkout uses. The clip links the
+ * bare SDK: 580 KB of binary, 160 KB of nested CorePaymentCard and about
+ * 630 KB of resource bundles, so roughly 1.4 MB embedded against 15 MB.
+ *
+ * That measurement is why this target exists at all. The reason `/c/bookstore`
+ * handed off for so long was a belief that Square's SDK could not fit, and it
+ * was the wrapper's transitive dependency that could not.
+ * ---------------------------------------------------------------------------
+ */
+const SQUARE_POD = { name: 'SquareInAppPaymentsSDK', version: '1.6.7' };
+
+/**
+ * Square's `setup` script, run for the clip.
+ *
+ * `SquareInAppPaymentsSDK.framework` ships `CorePaymentCard.framework` *inside*
+ * it, and nothing loads a framework from there: the rpaths are
+ * `@executable_path/Frameworks` and `@loader_path/Frameworks`, neither of which
+ * reaches one framework's `Frameworks` directory from another. Square's answer
+ * is a script inside the framework that hoists the nested one up beside it and
+ * re-signs it. Without it the clip dies at launch under dyld — and, worse for
+ * a clip, an un-hoisted nested bundle is what App Store Connect rejects as
+ * 90205 "disallowed nested bundles", which is the rejection this project has
+ * already had once from Square's framework reaching the old clip by accident.
+ *
+ * **The name differs from the app's on purpose.** `react-native-square-in-app-payments`
+ * adds the identically-named phase to the first native target it finds, and
+ * skips entirely if a phase with that name already exists *anywhere* in the
+ * project. This plugin runs first, so an exact duplicate here would silently
+ * cost the **app** its own setup phase. `plugins/withSquareSetupPhaseOrder.js`
+ * matches both by prefix.
+ */
+const SETUP_PHASE = '[CP] Square In-App Payments SDK Setup (Clip)';
+
+const SETUP_SCRIPT = `
+SETUP_SCRIPT=\${BUILT_PRODUCTS_DIR}/\${FRAMEWORKS_FOLDER_PATH}/SquareInAppPaymentsSDK.framework/setup
+if [ -f "\${SETUP_SCRIPT}" ]; then
+  "\${SETUP_SCRIPT}"
+fi
+`;
 
 /* ── 1. Copy the checked-in sources into ios/ ──────────────────────────────── */
 
@@ -168,7 +223,44 @@ const withClipSources = (config) =>
         entitlements['com.apple.developer.devicecheck.appattest-environment'] = attest;
       }
 
+      /*
+       * Apple Pay, and only when there is a merchant id to name.
+       *
+       * An entitlement carrying a merchant id that does not exist in the Apple
+       * Developer portal fails **code signing** rather than failing at runtime,
+       * so hardcoding one before it is created would break every device build
+       * of the clip — including work that has nothing to do with the bookstore.
+       * Same reasoning, and the same variable, as the app's own Apple Pay
+       * entitlement in app.config.ts.
+       */
+      const merchantId = cfg.extra?.square?.applePayMerchantId ?? '';
+      if (merchantId) {
+        entitlements['com.apple.developer.in-app-payments'] = [merchantId];
+      } else {
+        delete entitlements['com.apple.developer.in-app-payments'];
+      }
+
       fs.writeFileSync(file, plist.build(entitlements));
+
+      /*
+       * The two Square ids, into the clip's Info.plist.
+       *
+       * Not into `ClipConfig.swift` with everything else, because everything
+       * else there is the same in every build and these are not: there is a
+       * sandbox application id and a production one, exactly one may reach a
+       * binary, and `SQUARE_ENV` decides which. `app.config.ts` has already
+       * resolved that pair by the time this runs, and `extra.square` is where
+       * it put the answer — the same object the app reads through
+       * `expoConfig.extra.square`. One resolution, two targets.
+       *
+       * Neither value is a secret; see the note in `ClipConfig.swift`.
+       */
+      const infoPath = path.join(dest, 'Info.plist');
+      const info = plist.parse(fs.readFileSync(infoPath, 'utf8'));
+      info.SQIPApplicationID = cfg.extra?.square?.applicationId ?? '';
+      info.SQIPApplePayMerchantID = merchantId;
+      fs.writeFileSync(infoPath, plist.build(info));
+
       return cfg;
     },
   ]);
@@ -183,6 +275,8 @@ const withClipTarget = (config) =>
     // the same name is one Xcode refuses to open.
     const existing = findTargetByName(proj, TARGET_NAME);
     if (existing) {
+      addMissingSources(proj, existing);
+      addSquareSetupPhase(proj, existing);
       writeClipScheme(cfg, existing);
       return cfg;
     }
@@ -213,6 +307,7 @@ const withClipTarget = (config) =>
     }
 
     applyBuildSettings(proj, target, cfg, clipBundleId);
+    addSquareSetupPhase(proj, target.uuid);
     embedIntoMainApp(proj, target, cfg);
     writeClipScheme(cfg, target.uuid);
 
@@ -232,6 +327,75 @@ function addResourceFile(proj, filename, groupId, targetId) {
   file.target = targetId;
   proj.addToPbxBuildFileSection(file);
   proj.addToPbxResourcesBuildPhase(file);
+}
+
+/**
+ * Add any Swift file that has appeared in `SWIFT_FILES` since the target was
+ * made.
+ *
+ * ---------------------------------------------------------------------------
+ * Without this, adding a file to that list did nothing on any project that had
+ * already been prebuilt once — the branch above returns early, having found the
+ * target, and the source files are only ever added on the branch that *creates*
+ * one. `withClipSources` still copies the file onto disk, so it is there in the
+ * group's folder and not in the target, and the failure is a compile error
+ * naming a type that is plainly defined two files away.
+ *
+ * Found by adding `Shop.swift` and `Checkout.swift` for the bookstore and
+ * watching an incremental prebuild ignore both. The fix belongs here rather
+ * than in a note telling people to run `--clean`: a full prebuild costs a pod
+ * install and a fresh derived data, and nobody should owe that to a new file.
+ * ---------------------------------------------------------------------------
+ */
+function addMissingSources(proj, targetUuid) {
+  const group = proj.pbxGroupByName(TARGET_NAME);
+  if (!group) return;
+
+  const present = new Set(
+    (group.children ?? []).map((child) => stripQuotes(child.comment)),
+  );
+
+  for (const file of SWIFT_FILES) {
+    if (present.has(file)) continue;
+    proj.addSourceFile(file, { target: targetUuid }, groupIdOf(proj, TARGET_NAME));
+  }
+}
+
+/** `pbxGroupByName` answers the group; `addSourceFile` wants its key. */
+function groupIdOf(proj, name) {
+  const groups = proj.hash.project.objects.PBXGroup ?? {};
+  return Object.keys(groups).find(
+    (key) => !key.endsWith('_comment') && stripQuotes(groups[key].name) === name,
+  );
+}
+
+/**
+ * Add Square's hoisting script to the clip, once.
+ *
+ * Idempotent by name, because prebuild can run a mod more than once and a
+ * target with the script twice would re-sign the same framework twice.
+ *
+ * Where it lands is wrong at this point and cannot be fixed here: the phase it
+ * has to follow, `[CP] Embed Pods Frameworks`, does not exist until CocoaPods
+ * integrates. `plugins/withSquareSetupPhaseOrder.js` moves it afterwards, by
+ * both of the mechanisms it explains — its Podfile hook covers the first ever
+ * `pod install`, and its text pass covers every prebuild after that.
+ */
+function addSquareSetupPhase(proj, targetUuid) {
+  const objects = proj.hash.project.objects;
+  const phases = objects.PBXShellScriptBuildPhase || (objects.PBXShellScriptBuildPhase = {});
+
+  const already = Object.values(phases).some(
+    (phase) => phase && stripQuotes(phase.name) === SETUP_PHASE,
+  );
+  if (already) return;
+
+  proj.addBuildPhase([], 'PBXShellScriptBuildPhase', SETUP_PHASE, targetUuid, {
+    shellPath: '/bin/sh',
+    shellScript: SETUP_SCRIPT.trim(),
+    inputPaths: [],
+    outputPaths: [],
+  });
 }
 
 function findTargetByName(proj, name) {
@@ -290,9 +454,21 @@ function applyBuildSettings(proj, target, cfg, clipBundleId) {
       SWIFT_EMIT_LOC_STRINGS: 'YES',
       LD_RUNPATH_SEARCH_PATHS: '"$(inherited) @executable_path/Frameworks"',
       /*
-       * The clip links no pods, so it must not inherit the app's Pods xcconfig
-       * search paths — that is what dragged Square's framework into the old
-       * clip and produced the 90205 "disallowed nested bundles" rejection.
+       * `$(inherited)` and nothing else, which now means something different
+       * from what it used to and is still the right value.
+       *
+       * It was here to stop the clip picking up the **app's** Pods xcconfig —
+       * that is what dragged Square's framework into the old React Native clip
+       * and produced the 90205 "disallowed nested bundles" rejection. The clip
+       * has its own Podfile target now (see `withClipPods`), so CocoaPods sets
+       * its own `Pods-SPSMConnectClip` xcconfig as this target's base
+       * configuration, and `$(inherited)` at target level reads exactly that
+       * one layer — the `-framework "SquareInAppPaymentsSDK"` the clip needs,
+       * and none of the app's.
+       *
+       * Replacing this with a literal flag list would break that inheritance
+       * silently: the clip would compile, fail to link Square, and the only
+       * symptom would be a build error naming a symbol rather than this file.
        */
       OTHER_LDFLAGS: '"$(inherited)"',
     });
@@ -456,6 +632,66 @@ ${ref}
   fs.writeFileSync(path.join(dir, `${TARGET_NAME}.xcscheme`), scheme);
 }
 
+/* ── 3. Give the clip its one pod ──────────────────────────────────────────── */
+
+/** Marker, so repeated prebuilds do not stack copies of the target block. */
+const PODFILE_MARKER = '# @generated withNativeClip';
+
+/**
+ * A second target in the Podfile, with one pod in it.
+ *
+ * ---------------------------------------------------------------------------
+ * **No `use_expo_modules!`, no `use_react_native!`, no autolinking.** The clip
+ * is Swift and contains no JavaScript; everything those helpers install is
+ * what made the React Native clip 61 MB thinned against a 15 MB limit. This
+ * target exists for one framework and must never grow a second reason.
+ *
+ * **`use_frameworks! :linkage => :static`, matching the app, and it is not
+ * cosmetic.** CocoaPods names a pod target after the *build type* it is
+ * integrating for, so a pod reached from two targets with two linkages becomes
+ * two pod targets — `SquareInAppPaymentsSDK-library` for the app's static
+ * linkage and `SquareInAppPaymentsSDK-framework` for a clip that declared
+ * none. Both then get a `[CP] Copy XCFrameworks` phase extracting the same
+ * slice to the same `XCFrameworkIntermediates` path, and the build fails
+ * before compiling anything:
+ *
+ *     error: Multiple commands produce '…/XCFrameworkIntermediates/
+ *            SquareInAppPaymentsSDK/SquareInAppPaymentsSDK.framework'
+ *
+ * Only when building the **app**, because only the app's build graph contains
+ * both. Building the clip scheme alone succeeds, which is the worst version of
+ * this: it looks settled and is not. Matching the linkage gives one pod target
+ * and one copy phase. The value is read from `Podfile.properties.json` so it
+ * cannot drift from whatever `ios.useFrameworks` in app.config.ts says.
+ *
+ * Appended at the end of the file rather than inserted: the Podfile Expo
+ * generates is one target block with a `post_install` inside it, and a second
+ * top-level target after it is the shape CocoaPods documents. It is also below
+ * `plugins/withSquareSetupPhaseOrder.js`'s `post_integrate` hook, which is
+ * prepended to the top — order between the two does not matter, since a hook
+ * runs after the whole file has been read.
+ * ---------------------------------------------------------------------------
+ */
+const withClipPods = (config) =>
+  withPodfile(config, (cfg) => {
+    if (cfg.modResults.contents.includes(PODFILE_MARKER)) return cfg;
+
+    cfg.modResults.contents += `
+${PODFILE_MARKER} — see plugins/withNativeClip.js.
+# The App Clip is native Swift and links exactly one pod: Square's payment SDK,
+# so \`/c/bookstore\` can take Apple Pay instead of handing off. Do not add
+# \`use_expo_modules!\` or \`use_react_native!\` here — the clip has no
+# JavaScript, and the budget is 15 MB uncompressed for the whole bundle.
+target '${TARGET_NAME}' do
+  platform :ios, '${DEPLOYMENT_TARGET}'
+  use_frameworks! :linkage => podfile_properties['ios.useFrameworks'].to_sym if podfile_properties['ios.useFrameworks']
+  pod '${SQUARE_POD.name}', '${SQUARE_POD.version}'
+end
+`;
+
+    return cfg;
+  });
+
 module.exports = function withNativeClip(config) {
-  return withClipTarget(withClipSources(config));
+  return withClipPods(withClipTarget(withClipSources(config)));
 };

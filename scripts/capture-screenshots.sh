@@ -37,6 +37,11 @@ cd "$(dirname "$0")/.."
 
 BUNDLE_ID="${BUNDLE_ID:-org.spsm.connect}"
 
+# PAGES_ONLY=1 takes only PAGE_SCREENS, leaving the main listing's captures as
+# they are — for adding a custom product page without re-shooting a listing
+# that is already live.
+PAGES_ONLY="${PAGES_ONLY:-}"
+
 # The .app to install, from the Release build `npm run ios:release` leaves in
 # DerivedData. Overridable because a CI build puts it somewhere else.
 APP_PATH="${APP_PATH:-}"
@@ -108,6 +113,33 @@ SCREENS=(
   "spsmconnect:///giving|5-giving"
 )
 
+# Screens that only the custom product pages use, captured into
+# store/raw/pages/ios/<set>/ rather than beside the five above — the main
+# listing takes every PNG in its directory, in filename order, so a sixth file
+# there would quietly join it. Unnumbered, because each product page sets its
+# own order: see `screens` in scripts/product-pages.mjs, which names these.
+PAGE_SCREENS=(
+  "spsmconnect:///about/welcome-newcomers|welcome"
+  "spsmconnect:///about/future-plans|plans"
+  "spsmconnect:///livestream|livestream"
+)
+
+# capture <udid> <url> <file>
+capture() {
+  xcrun simctl openurl "$1" "$2"
+  # Long enough for the navigation, the screen's own first paint, and any
+  # list it fetches. Generous on purpose: the failure mode of being too quick
+  # is a screenshot of a spinner, and that is not visible in the script's
+  # output — only in the PNG, after the fact.
+  sleep 5
+  # Errors deliberately not swallowed: a failed capture leaves the previous
+  # run's PNG in place, and a stale screenshot is the one failure here that
+  # survives all the way onto a store listing without looking wrong.
+  xcrun simctl io "$1" screenshot --type=png "$3" >/dev/null
+  echo "  ${3#store/raw/}  $(sips -g pixelWidth -g pixelHeight "$3" \
+    | awk '/pixel/ {printf "%s ", $2}')"
+}
+
 for entry in "${DEVICES[@]}"; do
   set_name="${entry%%|*}"
   device="${entry##*|}"
@@ -156,26 +188,20 @@ for entry in "${DEVICES[@]}"; do
   xcrun simctl launch "$udid" "$BUNDLE_ID" >/dev/null
   sleep 12
 
-  for screen in "${SCREENS[@]}"; do
-    url="${screen%%|*}"
-    name="${screen##*|}"
+  if [[ -z "$PAGES_ONLY" ]]; then
+    for screen in "${SCREENS[@]}"; do
+      capture "$udid" "${screen%%|*}" "$out/${screen##*|}.png"
+    done
+  fi
 
-    xcrun simctl openurl "$udid" "$url"
-    # Long enough for the navigation, the screen's own first paint, and any
-    # list it fetches. Generous on purpose: the failure mode of being too quick
-    # is a screenshot of a spinner, and that is not visible in the script's
-    # output — only in the PNG, after the fact.
-    sleep 5
-    # Errors deliberately not swallowed: a failed capture leaves the previous
-    # run's PNG in place, and a stale screenshot is the one failure here that
-    # survives all the way onto a store listing without looking wrong.
-    xcrun simctl io "$udid" screenshot --type=png "$out/$name.png" >/dev/null
-    echo "  $name  $(sips -g pixelWidth -g pixelHeight "$out/$name.png" \
-      | awk '/pixel/ {printf "%s ", $2}')"
+  pages="store/raw/pages/ios/$set_name"
+  mkdir -p "$pages"
+  for screen in "${PAGE_SCREENS[@]}"; do
+    capture "$udid" "${screen%%|*}" "$pages/${screen##*|}.png"
   done
 
   xcrun simctl status_bar "$udid" clear
-  echo "  written to $out"
+  echo "  written to $out and $pages"
 done
 
 echo

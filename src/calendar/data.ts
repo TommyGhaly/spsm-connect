@@ -70,10 +70,21 @@ export async function getSchedule(
   if (options.servants) query.set('scope', 'servants');
   const path = `/api/calendar?${query.toString()}`;
 
+  const read = () =>
+    options.servants ? apiGetAuthed<CalendarFeed>(path) : apiGet<CalendarFeed>(path);
+
   try {
-    const feed = options.servants
-      ? await apiGetAuthed<CalendarFeed>(path)
-      : await apiGet<CalendarFeed>(path);
+    /*
+     * One retry, for a transport failure only. Play review saw "Could not reach
+     * the church calendar" on a phone whose bulletin — the same origin, a moment
+     * earlier — had loaded: a dropped connection while Breeze was slow to answer,
+     * not an absent network. An ApiError is the Function's own answer and is
+     * not retried; asking again would only get the same sentence.
+     */
+    const feed = await read().catch((error: unknown) => {
+      if (error instanceof ApiError) throw error;
+      return read();
+    });
 
     if (!Array.isArray(feed.occurrences)) {
       return { kind: 'error', message: 'The schedule came back in a shape this app cannot read.' };

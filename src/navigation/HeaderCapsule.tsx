@@ -63,7 +63,22 @@
  */
 import type { ReactNode } from 'react';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
-import { View } from 'react-native';
+/*
+ * The package's own bar height, imported rather than reimplemented.
+ *
+ * A deep path into a dependency's build output, which is not free — but the
+ * alternative is copying its table (iPad 50, landscape phone 32, portrait
+ * phone 44) into this file, and a copy of that table is a copy that will
+ * disagree with the package on the first device Apple adds. It is a pure
+ * function of three arguments, it is re-exported from that folder's own
+ * `index`, and it ships its types.
+ *
+ * Cheap to unwind: drop back to `undefined` for the height below iOS 26 and
+ * the bars are right again to within the 2.7 points `barStatusBarHeight`
+ * documents.
+ */
+import { getDefaultHeaderHeight } from 'expo-router/build/react-navigation/elements';
+import { PixelRatio, View, type ScaledSize } from 'react-native';
 
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -121,8 +136,52 @@ export const GLYPH = 20;
  *
  * All of this is for the tabs and the drawer only — see `BarSlot` and
  * `barHeight`. A real bar button item gets the real thing for free.
+ *
+ * ## They are iOS 26's numbers, and that has to be said out loud
+ *
+ * Every figure in the table was read off an iPhone 17 Pro running iOS 26,
+ * where a navigation bar is 116 points tall. On iOS 18 the same bar is the
+ * classic one — 44 points under the status bar, which is the 97.67 that
+ * `getDefaultHeaderHeight` already computes — so copying these numbers there
+ * makes the tabs and the drawer **fifteen points taller than every stack in
+ * the app**, which is the one place they are meant to agree.
+ *
+ * Measured on an iPhone 16 on iOS 18.5, sampling down the left edge for the
+ * row where the red stops:
+ *
+ * | bar                      | before | after |
+ * | ------------------------ | ------ | ----- |
+ * | Calendar (tabs, React)   |  113.0 |  97.7 |
+ * | Bookstore (stack, UIKit) |   97.7 |  97.7 |
+ *
+ * 97.7 is `44 + (59 - 5.33)`, which is the classic bar to the pixel.
+ *
+ * So below iOS 26 `barHeight` answers `undefined` and the elements package
+ * uses its own default, which is the classic bar it was written against. The
+ * override exists to copy iOS 26; on an OS that does not draw iOS 26's bars
+ * there is nothing to copy. `BAR_EDGE` and `barStatusBarHeight` still answer,
+ * because the package gets both of those slightly wrong on any OS — see their
+ * own notes.
  */
-export const BAR_EDGE = 20;
+
+/**
+ * How far a control sits from the edge of the bar, which is not one number.
+ *
+ * UIKit moved it: a classic bar puts its button 16 points in, an iOS 26 bar
+ * puts its capsule 20. Measured on an iPhone 16 on iOS 18.5, to the left edge
+ * of the menu glyph's ink — which is 2.85 points inside its own 20pt box,
+ * inside the 40pt control:
+ *
+ * | bar                      | before | after | UIKit |
+ * | ------------------------ | ------ | ----- | ----- |
+ * | Calendar (tabs, React)   |   32.7 |  28.7 |     — |
+ * | Bookstore (stack, UIKit) |      — |     — |  28.7 |
+ *
+ * Four points is small and it is the kind of small that reads as sloppiness
+ * rather than as a difference: the menu is in the same corner on both bars and
+ * does not line up when you tab between them.
+ */
+export const BAR_EDGE = GLASS ? 20 : 16;
 export const BAR_CONTENT = 64;
 
 /**
@@ -138,32 +197,56 @@ export function BarSlot({ children }: { children: ReactNode }) {
 }
 
 /**
- * Where UIKit starts its bar's content, measured from the top of the screen.
+ * Where a bar starts laying out its content, below the top of the screen —
+ * which on a phone with a Dynamic Island is not the safe-area inset.
  *
- * Not the safe-area inset: on a phone with a Dynamic Island the inset runs ten
- * points below where a navigation bar begins laying out, and the elements
- * package's own guess at that (`inset - 5.33`, in `getDefaultHeaderHeight`) is
- * about five points short of it. Ten is what the screen says — with it, a
+ * Two answers, because the two kinds of bar start in two different places.
+ *
+ * **iOS 26** begins ten points above the inset. Measured; with it, a
  * React-drawn bar and a navigation bar agree to the point on all four numbers
  * in the table above.
  *
- * The gate is the same one the elements package uses for its own adjustment: on
- * a phone without an island the inset *is* the status bar, and there is nothing
- * to take off it.
+ * **Classic**, `5 + 1/scale`, which is the true status bar height and is not
+ * this file's invention — it is `getDefaultHeaderHeight`'s own expression,
+ * copied rather than approximated so the two cannot drift apart.
+ *
+ * The gate on both is the package's own: on a phone without an island the
+ * inset *is* the status bar and there is nothing to take off it.
  */
 const BAR_LIFT = 10;
+const CLASSIC_LIFT = 5 + 1 / PixelRatio.get();
 
 /**
- * What to pass as `headerStatusBarHeight`, and the half of the fix that is easy
- * to miss.
+ * What to pass as `headerStatusBarHeight`, and the half of the fix that is
+ * easy to miss.
+ *
+ * ## On iOS 26 it is what makes the extra height land in the right place
  *
  * The elements header reserves the whole safe-area inset and centres the bar's
  * contents in whatever is left, so adding height alone pushes the buttons
  * *down* rather than giving them air underneath. Handing it the real origin
  * moves the whole content box up to where UIKit puts its own.
+ *
+ * ## Below iOS 26 it corrects a disagreement inside the package itself
+ *
+ * `getDefaultHeaderHeight` takes `5 + 1/scale` off the inset to work out the
+ * *height*; the Header component then defaults `headerStatusBarHeight` to the
+ * whole inset. So the bar is 44 points tall by one measure and reserves 5.33
+ * points too many by the other, and its contents ride half that — 2.7 points —
+ * lower than UIKit's. Measured on an iPhone 16 on iOS 18.5, the vertical
+ * centre of the menu glyph:
+ *
+ * | bar                      | before | after | UIKit |
+ * | ------------------------ | ------ | ----- | ----- |
+ * | Calendar (tabs, React)   |   78.2 |  75.5 |     — |
+ * | Bookstore (stack, UIKit) |      — |     — |  75.5 |
+ *
+ * Which is why this answers on every OS while `barHeight` does not: the height
+ * below iOS 26 is already right, and only the origin inside it is out.
  */
-export function barStatusBarHeight(topInset: number) {
-  return topInset > 50 ? topInset - BAR_LIFT : topInset;
+export function barStatusBarHeight(topInset: number): number {
+  if (topInset <= 50) return topInset;
+  return topInset - (GLASS ? BAR_LIFT : CLASSIC_LIFT);
 }
 
 /**
@@ -171,11 +254,34 @@ export function barStatusBarHeight(topInset: number) {
  * the elements package's own `44 + inset`.
  *
  * Passed as an explicit `headerStyle.height` because that is the only way to
- * move it.
+ * move it — and `undefined` below iOS 26, which is how a style property is
+ * left unsaid. The two answer together or not at all: the origin without the
+ * height, or the height without the origin, is a bar with its contents in the
+ * wrong half of it.
  */
-export function barHeight(topInset: number) {
-  return barStatusBarHeight(topInset) + BAR_CONTENT;
+export function barHeight(topInset: number, layout: BarLayout): number {
+  /*
+   * Below iOS 26 the height is already right and only the origin inside it is
+   * out — but the two have to be passed together or the bar shrinks by the
+   * difference between them. Measured: `headerStatusBarHeight` on its own took
+   * the Calendar bar from 97.7 to 92.3, because the package sizes the content
+   * box against the inset it was *not* given. So this hands back the package's
+   * own answer rather than nothing, and the pair stay consistent.
+   */
+  return GLASS
+    ? barStatusBarHeight(topInset) + BAR_CONTENT
+    : getDefaultHeaderHeight(layout, false, topInset);
 }
+
+/**
+ * What `getDefaultHeaderHeight` needs of the window: its width and height.
+ *
+ * `useWindowDimensions()` satisfies it. Named here so the two navigators that
+ * call `headerChrome` can see what they are being asked for, and so that
+ * "the window" is a decision made once — a landscape phone's bar is twelve
+ * points shorter than a portrait one's, and this is the only thing that knows.
+ */
+export type BarLayout = Pick<ScaledSize, 'width' | 'height'>;
 
 /**
  * What colour the glyph inside a capsule *we* draw is: white, always.

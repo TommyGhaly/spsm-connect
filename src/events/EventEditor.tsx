@@ -364,7 +364,8 @@ export function EventEditor({
         onChange={(next) => set('body', next)}
         placeholder="What is it, who is it for, what should somebody bring?"
         lines={8}
-        hint="A blank line starts a new paragraph. *italic* and **bold** work."
+        format
+        hint="A blank line starts a new paragraph. The two buttons write the markers; typing them by hand works too."
         error={errorOf('body')}
       />
 

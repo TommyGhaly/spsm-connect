@@ -42,7 +42,13 @@
  */
 import { AnnouncementsButton } from './AnnouncementsButton';
 import { DrawerButton } from './DrawerButton';
-import { barHeight, BarSlot, barStatusBarHeight, headerTint } from './HeaderCapsule';
+import {
+  barHeight,
+  BarSlot,
+  barStatusBarHeight,
+  headerTint,
+  type BarLayout,
+} from './HeaderCapsule';
 
 import type { ResolvedTheme } from '@/theme/tokens';
 
@@ -89,17 +95,18 @@ export function headerSkin(theme: ResolvedTheme) {
  * The bar this app draws itself, with the announcements bell in its right
  * corner: the tabs and the drawer.
  *
- * `topInset` is `useSafeAreaInsets().top`, and it is a parameter rather than a
- * hook call because this is not a component. It buys the one thing a React
- * header cannot work out for itself — see `barHeight`. Without it these bars
- * stand six points shorter than a navigation bar, which is exactly the
- * difference between the forms header looking considered and the tabs' looking
- * cramped.
+ * `topInset` is `useSafeAreaInsets().top` and `layout` is
+ * `useWindowDimensions()`; both are parameters rather than hook calls because
+ * this is not a component. They buy the one thing a React header cannot work
+ * out for itself — see `barHeight`. Without them these bars stand six points
+ * shorter than a navigation bar on iOS 26 and fifteen points *taller* on iOS
+ * 18, which is the difference between the forms header looking considered and
+ * the tabs' looking cramped, in one direction or the other.
  */
-export function headerChrome(theme: ResolvedTheme, topInset: number) {
+export function headerChrome(theme: ResolvedTheme, topInset: number, layout: BarLayout) {
   return {
     ...headerSkin(theme),
-    headerStyle: { backgroundColor: theme.color.deep, height: barHeight(topInset) },
+    headerStyle: { backgroundColor: theme.color.deep, height: barHeight(topInset, layout) },
 
     /*
      * The true status bar, not the whole safe-area inset. Without it the extra

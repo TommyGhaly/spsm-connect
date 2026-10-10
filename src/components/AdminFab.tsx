@@ -59,15 +59,31 @@ export function AdminFab({
    */
   note,
   /**
-   * Lift it clear of a bar along the bottom — the shop's basket and save bars.
-   * Points, added to the pill's own inset.
+   * Lift it clear of a bar along the bottom — the shop's save bar.
+   * Points, added to the pill's own inset. Ignored when `placement` is
+   * `inline`, which has no inset of its own to add to.
    */
   raisedBy = 0,
+  placement = 'corner',
 }: {
   label: string;
   actions: readonly AdminAction[];
   note?: string;
   raisedBy?: number;
+  /**
+   * Where the pill puts itself.
+   *
+   * `corner` is the default and the one every screen but the shop uses: the
+   * pill positions itself absolutely in the bottom-right, over the page.
+   *
+   * `inline` hands that decision back to the caller — the pill is laid out
+   * wherever it is put, with no wrapper of its own. The shop needs it when the
+   * basket bar is up, because Tommy asked for the two to sit on one line
+   * rather than stacked, and a pill that positions itself cannot be a row's
+   * second child. The menu, the sheet and the styling are the same either way,
+   * which is the point of it being a prop rather than a second component.
+   */
+  placement?: 'corner' | 'inline';
 }) {
   const theme = useTheme();
   const [asking, setAsking] = useState(false);
@@ -120,64 +136,72 @@ export function AdminFab({
     );
   }
 
+  const pill = (
+    <Pressable
+      onPress={choose}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      // Said, because a pill that opens a menu and one that acts are the
+      // same shape and a screen reader cannot see which this is.
+      accessibilityHint={actions.length > 1 ? 'Opens a list of options' : undefined}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.space.xs,
+        paddingHorizontal: theme.space.md,
+        minHeight: 44,
+        justifyContent: 'center',
+        borderRadius: theme.radius.full,
+        /*
+         * The page's own card, made round — `paperRaised` on a `rule` edge,
+         * which is what every surface in this app that sits above the
+         * ground is. It was solid accent on a gold edge, and that was a
+         * second red object competing with the header over a page whose
+         * subject is photographs: Tommy, *"make the button a little more
+         * subtle or at least color match."*
+         *
+         * The word stays `accent`, so it still reads as something to press
+         * rather than as a label. `accentSoft` on press is the same
+         * feedback a quiet `Button` gives.
+         */
+        backgroundColor: pressed ? theme.color.accentSoft : theme.color.paperRaised,
+        borderWidth: 1,
+        borderColor: theme.color.rule,
+        /*
+         * A shadow, which almost nothing else in this app has, and a light
+         * one. It is what says the pill is *over* the page rather than in
+         * it — without any, it vanishes the moment a card of the same
+         * colour scrolls under it; with the old one it read as a dialog.
+         */
+        shadowColor: theme.color.deep,
+        shadowOpacity: 0.12,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 1 },
+        elevation: 2,
+      })}
+    >
+      <Small color={theme.color.accent}>{label}</Small>
+    </Pressable>
+  );
+
   return (
     <>
-      <View
-        // `box-none`, so the box around the pill does not swallow taps meant
-        // for the page underneath it.
-        pointerEvents="box-none"
-        style={{
-          position: 'absolute',
-          right: theme.space.gutter,
-          bottom: theme.space.lg + raisedBy,
-        }}
-      >
-        <Pressable
-          onPress={choose}
-          accessibilityRole="button"
-          accessibilityLabel={label}
-          // Said, because a pill that opens a menu and one that acts are the
-          // same shape and a screen reader cannot see which this is.
-          accessibilityHint={actions.length > 1 ? 'Opens a list of options' : undefined}
-          style={({ pressed }) => ({
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: theme.space.xs,
-            paddingHorizontal: theme.space.md,
-            minHeight: 44,
-            justifyContent: 'center',
-            borderRadius: theme.radius.full,
-            /*
-             * The page's own card, made round — `paperRaised` on a `rule` edge,
-             * which is what every surface in this app that sits above the
-             * ground is. It was solid accent on a gold edge, and that was a
-             * second red object competing with the header over a page whose
-             * subject is photographs: Tommy, *"make the button a little more
-             * subtle or at least color match."*
-             *
-             * The word stays `accent`, so it still reads as something to press
-             * rather than as a label. `accentSoft` on press is the same
-             * feedback a quiet `Button` gives.
-             */
-            backgroundColor: pressed ? theme.color.accentSoft : theme.color.paperRaised,
-            borderWidth: 1,
-            borderColor: theme.color.rule,
-            /*
-             * A shadow, which almost nothing else in this app has, and a light
-             * one. It is what says the pill is *over* the page rather than in
-             * it — without any, it vanishes the moment a card of the same
-             * colour scrolls under it; with the old one it read as a dialog.
-             */
-            shadowColor: theme.color.deep,
-            shadowOpacity: 0.12,
-            shadowRadius: 6,
-            shadowOffset: { width: 0, height: 1 },
-            elevation: 2,
-          })}
+      {placement === 'inline' ? (
+        pill
+      ) : (
+        <View
+          // `box-none`, so the box around the pill does not swallow taps meant
+          // for the page underneath it.
+          pointerEvents="box-none"
+          style={{
+            position: 'absolute',
+            right: theme.space.gutter,
+            bottom: theme.space.lg + raisedBy,
+          }}
         >
-          <Small color={theme.color.accent}>{label}</Small>
-        </Pressable>
-      </View>
+          {pill}
+        </View>
+      )}
 
       {/*
         Android's half. Not an attempt to redraw an iOS sheet — it is this app's

@@ -30,12 +30,14 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Text,
   TextInput,
   View,
   useWindowDimensions,
   type KeyboardEvent,
 } from 'react-native';
 
+import { markAt, toggleMark, type Mark, type Range } from '@/about/marks';
 import { Icon } from '@/components/Icon';
 import { Label, Micro, Small } from '@/components/Type';
 import { lineHeightFor } from '@/theme/tokens';
@@ -296,6 +298,7 @@ export function Field({
   autoCapitalize,
   autoComplete,
   readOnly = false,
+  format = false,
 }: {
   label: string;
   value: string;
@@ -334,19 +337,124 @@ export function Field({
    * useful thing to say than pretending the field does not exist.
    */
   readOnly?: boolean;
+  /**
+   * Italic and bold as two buttons over the field.
+   *
+   * Textareas only, and only where the value is rendered through `Rich` — the
+   * website's rule for the same prop, and its reason: a marker typed into a
+   * field that is printed as plain text shows up as a literal asterisk on a
+   * card. Nothing enforces it here because nothing can; the caller knows what
+   * draws its value and this does not.
+   *
+   * See `about/marks.ts` for what the buttons write and why there are two of
+   * them rather than the website's five.
+   */
+  format?: boolean;
 }) {
   const theme = useTheme();
   const multiline = lines > 1;
   const wrong = invalid || (error ?? null) !== null;
+  const marks = format && multiline && !readOnly;
+
+  /** Where the caret is, so a button knows what it is being pressed on. */
+  const [range, setRange] = useState<Range>({ start: 0, end: 0 });
+
+  /**
+   * A selection to *impose*, until the field confirms it has landed.
+   *
+   * RN's `selection` prop is the only way to put the caret anywhere, and
+   * holding it permanently is the thing to avoid: every keystroke re-renders
+   * the parent with a `range` that is one event behind, and the caret snaps
+   * backwards while somebody is typing. So it is null nearly always — the
+   * field owns its own caret — and non-null only between a button press and
+   * the selection event that reports the caret where the button put it.
+   *
+   * Pressing **B** with nothing selected is what this exists for: it writes
+   * `****` and the caret has to end up between the two pairs, or the buttons
+   * are a way to type four asterisks.
+   */
+  const [caret, setCaret] = useState<Range | null>(null);
+
+  const on = marks ? markAt(value, range) : null;
+
+  function press(mark: Mark) {
+    const next = toggleMark(value, range, mark);
+    onChange(next.text);
+    // Both, and they are different jobs: `caret` moves the cursor, `range` is
+    // what the *next* button press reads. Without the second, pressing Bold
+    // and then Italic would work on where the caret was before either.
+    setRange(next.selection);
+    setCaret(next.selection);
+  }
+
+  /**
+   * Hand the caret back, once it is actually where the button asked for.
+   *
+   * Not on the first event after a press: setting the value and setting the
+   * selection are two messages to the same field, and the selection it reports
+   * in between is the old one clamped to the new text. Clearing on that would
+   * store a stale `range` — so the next press would mark the wrong words — and
+   * would do it silently, because the caret ends up right anyway.
+   *
+   * A keystroke clears it too, in `onChangeText` below. That is the bound on
+   * the one failure this shape has: if the confirming event never arrives, a
+   * field would otherwise hold its caret for good, and instead it holds it
+   * until the next letter.
+   */
+  function selected(next: Range) {
+    if (caret === null) {
+      setRange(next);
+      return;
+    }
+    if (next.start === caret.start && next.end === caret.end) setCaret(null);
+  }
 
   return (
     <View style={{ gap: theme.space.xs, flex: 1 }}>
-      <Label>{required ? `${label.toUpperCase()} *` : label.toUpperCase()}</Label>
+      {/*
+        The name and the buttons share a line, which is where the website puts
+        them too. It also keeps the toolbar off the field: a row of its own
+        above the box would read as a second thing to fill in.
+
+        Two shapes rather than one with an empty slot in it: every form in this
+        app is made of these, and wrapping the label in a flex row for the
+        three fields that have buttons would put an extra view under every one
+        of the rest.
+      */}
+      {marks ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.sm }}>
+          <View style={{ flex: 1 }}>
+            <Label>{required ? `${label.toUpperCase()} *` : label.toUpperCase()}</Label>
+          </View>
+          <View
+            accessibilityRole="toolbar"
+            accessibilityLabel="Formatting"
+            style={{ flexDirection: 'row', gap: theme.space.xs }}
+          >
+            <MarkButton mark="italic" on={on === 'italic'} onPress={press} />
+            <MarkButton mark="bold" on={on === 'bold'} onPress={press} />
+          </View>
+        </View>
+      ) : (
+        <Label>{required ? `${label.toUpperCase()} *` : label.toUpperCase()}</Label>
+      )}
       <TextInput
         value={value}
-        onChangeText={onChange}
+        onChangeText={(next) => {
+          if (caret !== null) setCaret(null);
+          onChange(next);
+        }}
         editable={!readOnly}
         onBlur={onBlur}
+        /*
+          Controlled only while a button's caret is landing, and uncontrolled
+          the rest of the time — see `caret`. `undefined` is what hands it
+          back; passing the last value again would fight every keystroke.
+        */
+        selection={caret ?? undefined}
+        onSelectionChange={
+          marks ? (event) => selected(event.nativeEvent.selection) : undefined
+        }
         placeholder={placeholder}
         placeholderTextColor={theme.color.inkFaint}
         multiline={multiline}
@@ -392,6 +500,71 @@ export function Field({
       {hint ? <Micro color={theme.color.inkFaint}>{hint}</Micro> : null}
       {error ? <Micro color={theme.color.accentStrong}>{error}</Micro> : null}
     </View>
+  );
+}
+
+/**
+ * One letter that turns a mark on.
+ *
+ * A letter rather than an icon, because **B** and *I* are the two glyphs every
+ * word processor has used for thirty years and no drawing of them is clearer
+ * than the letters themselves. The italic one is set in the *display* face, for
+ * the reason `Rich` sets italic runs in it: the body face ships in one weight
+ * and RN synthesises no oblique on Android, so a slanted `I` in the UI face is
+ * an upright `I` on half the phones.
+ *
+ * The pressed state is the whole point of `markAt` — Tommy, on the website's
+ * version: *"if a setting is turned on there should be more indication."* Here
+ * it is the filled pill, and `accessibilityState.selected` says the same thing
+ * to a screen reader, which is the pattern for a toggle in a toolbar.
+ */
+function MarkButton({
+  mark,
+  on,
+  onPress,
+}: {
+  mark: Mark;
+  on: boolean;
+  onPress: (mark: Mark) => void;
+}) {
+  const theme = useTheme();
+  const italic = mark === 'italic';
+
+  return (
+    <Pressable
+      onPress={() => onPress(mark)}
+      accessibilityRole="button"
+      accessibilityLabel={italic ? 'Italic' : 'Bold'}
+      accessibilityState={{ selected: on }}
+      accessibilityHint={on ? 'On. Turns it off.' : undefined}
+      hitSlop={theme.space.xs}
+      style={({ pressed }) => ({
+        minWidth: 34,
+        height: 30,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: theme.radius.sm,
+        borderWidth: 1,
+        borderColor: on ? theme.color.accent : theme.color.rule,
+        backgroundColor: on
+          ? theme.color.accentSoft
+          : pressed
+            ? theme.color.accentSoft
+            : theme.color.paper,
+      })}
+    >
+      <Text
+        style={{
+          color: on ? theme.color.accent : theme.color.inkSoft,
+          fontFamily: italic ? theme.fontFamily.display : theme.fontFamily.ui,
+          fontStyle: italic ? 'italic' : undefined,
+          fontWeight: italic ? undefined : '700',
+          fontSize: theme.fontSize.small,
+        }}
+      >
+        {italic ? 'I' : 'B'}
+      </Text>
+    </Pressable>
   );
 }
 

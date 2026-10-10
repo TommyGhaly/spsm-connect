@@ -35,6 +35,7 @@ import { Linking, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import type { Href } from 'expo-router';
 
+import { MARKUP } from './markup';
 import { lineHeightFor } from '@/theme/tokens';
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -52,17 +53,13 @@ type Run = {
   href?: string;
 };
 
-/*
- * One expression, three alternatives, in the order they must be tried.
+/**
+ * Split a paragraph into runs. Exported for the test that checks it.
  *
- * `**` before `*`: JavaScript alternation is first-match rather than
- * longest-match, so a bold run tried second is read as an empty italic run
- * followed by a literal asterisk. The `[^*]` inside the italic form stops it
- * swallowing the `**` of a bold run that follows it in the same paragraph.
+ * `MARKUP` moved to `./markup` when the formatting buttons needed to read the
+ * same pattern; its own file says why one expression with three alternatives,
+ * and why they are tried in that order.
  */
-const MARKUP = /\*\*([^*]+)\*\*|\*([^*]+)\*|\[([^\]]+)\]\(([^)]+)\)/g;
-
-/** Split a paragraph into runs. Exported for the test that checks it. */
 export function parseRuns(source: string): Run[] {
   const runs: Run[] = [];
   let at = 0;

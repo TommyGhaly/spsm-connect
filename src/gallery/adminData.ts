@@ -41,6 +41,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   getFirestore,
   orderBy,
@@ -50,6 +51,7 @@ import {
   updateDoc,
   where,
   writeBatch,
+  type DocumentSnapshot,
   type QueryDocumentSnapshot,
 } from '@react-native-firebase/firestore';
 import { getAuth } from '@react-native-firebase/auth';
@@ -77,6 +79,17 @@ import type { NodeRow, ProgramRow } from './data';
 export interface AdminProgramRow extends ProgramRow {
   published: boolean;
   order: number;
+  /**
+   * Where a photograph lands when the sender does not choose — a level's id,
+   * or null for "wherever it was sent from".
+   *
+   * Read by `send/destination.ts` and `mainSection.ts` off the raw document,
+   * which is why `ProgramRow` has never carried it: a reader only needs the
+   * answer, not the setting. The sheet that *sets* it needs to show what it
+   * currently is, and a picker that could not read its own value would come
+   * up blank over a ministry that has a perfectly good answer stored.
+   */
+  prioritySubmissionNodeId: string | null;
 }
 
 /** Firestore's ceiling on the writes in one batch. */
@@ -123,6 +136,33 @@ export async function listProgramsForAdmin(): Promise<AdminProgramRow[]> {
   );
 
   return snapshot.docs.map(toAdminProgram);
+}
+
+/**
+ * One ministry, with the two fields only somebody editing it needs.
+ *
+ * `getProgram` in ./data.ts answers the same question for a reader and drops
+ * `published` and `order` on the way out, which is right for it and useless
+ * here: the sheet on a ministry's own page draws a "Visible to everyone"
+ * switch, and a switch that cannot read its own state would come up off for a
+ * published ministry and publish nothing when pressed.
+ *
+ * A `getDoc` and not a query, for `getProgram`'s reason: **the slug is the
+ * document id**. Null covers both "no such ministry" and "not allowed to read
+ * this one" — an unpublished ministry is invisible to anybody without a grant
+ * on it, and the caller has nothing different to do about either.
+ *
+ * Unlike the rest of this file it does not throw. It is a read on a page that
+ * is already rendering, and the caller's fallback is the reader's own row.
+ */
+export async function getProgramForAdmin(slug: string): Promise<AdminProgramRow | null> {
+  try {
+    const snapshot = await getDoc(doc(getFirestore(), COLLECTIONS.programs, slug));
+    return snapshot.exists() ? toAdminProgram(snapshot) : null;
+  } catch (error) {
+    console.warn(`[programs] could not read "${slug}" as an administrator:`, error);
+    return null;
+  }
 }
 
 export interface ProgramDraft {
@@ -196,6 +236,13 @@ export async function updateProgram(
     childLabel?: string | null;
     /** Whether the parish is still collecting photographs under this one. */
     submissionsOpen?: boolean;
+    /**
+     * Where an upload lands unless the sender says otherwise. Null is a real
+     * answer — "wherever they are sent from" — and has to be stored as null
+     * rather than as an empty string, which reads as a corrupted id to
+     * anybody looking at the document.
+     */
+    prioritySubmissionNodeId?: string | null;
   },
 ): Promise<void> {
   await updateDoc(doc(getFirestore(), COLLECTIONS.programs, programId), {
@@ -312,7 +359,7 @@ export async function reorderPrograms(ordered: readonly AdminProgramRow[]): Prom
  * redeployed the afternoon a document turns out to hold a number where a string
  * was expected.
  */
-function toAdminProgram(snapshot: QueryDocumentSnapshot): AdminProgramRow {
+function toAdminProgram(snapshot: DocumentSnapshot | QueryDocumentSnapshot): AdminProgramRow {
   const data = snapshot.data() as Record<string, unknown> | undefined;
   const featured = data?.['featuredMediaIds'];
 
@@ -329,6 +376,10 @@ function toAdminProgram(snapshot: QueryDocumentSnapshot): AdminProgramRow {
     submissionsOpen: data?.['submissionsOpen'] !== false,
     published: data?.['published'] === true,
     order: typeof data?.['order'] === 'number' ? data['order'] : 0,
+    prioritySubmissionNodeId:
+      typeof data?.['prioritySubmissionNodeId'] === 'string'
+        ? data['prioritySubmissionNodeId']
+        : null,
   };
 }
 
