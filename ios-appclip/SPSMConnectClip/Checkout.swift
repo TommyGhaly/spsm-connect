@@ -37,6 +37,31 @@ import SquareInAppPaymentsSDK
 /// the failure that matters — see `docs/apple-pay-google-pay.md` in the Website
 /// repo, where exactly that happened with postage. Postage is a
 /// `PKShippingMethod` below so the sheet does the addition itself.
+///
+/// ## Sales tax, and live postage
+///
+/// Two things the Function started charging that the sheet has to show.
+///
+/// **Tax** is a summary line of its own, worked out in `Shop.swift` from the
+/// product's `taxable` flag and `config/bookstore.taxRateBps` — the same two
+/// fields `squareCheckout` reads — per line, half to even, as Square rounds it.
+/// Nothing about it is sent: the Function decides it again from Firestore.
+///
+/// **Postage** is priced by USPS when the parish has live rates on. Apple Pay
+/// hands over a partial address the moment a contact is chosen — enough for
+/// the ZIP and no more, until the thumbprint — and that is all
+/// `/api/shipping/quote` needs. Each service it returns becomes a
+/// `PKShippingMethod`, beside "Collect", and the chosen one's signed id goes to
+/// checkout as `shippingOptionId`. The Function charges the cents *inside the
+/// signature*, so the price still travels in only one direction; the clip
+/// merely echoes a token it was shown the price of. No options — rates off, an
+/// unweighed book, USPS down, an address abroad — is the flat row, and no id,
+/// which is the flat charge on both sides.
+///
+/// Neither endpoint wants an App Check header: the checkout and the quote are
+/// both open to the website's anonymous browsers, rate-limited by address, and
+/// the clip calls them exactly as a browser does. `AppAttest.swift` is for the
+/// gallery upload alone.
 /// ---------------------------------------------------------------------------
 @MainActor
 final class Checkout: NSObject, ObservableObject {
@@ -75,6 +100,15 @@ final class Checkout: NSObject, ObservableObject {
     /// does nothing. Released in `close()`, which is the one place the sheet is
     /// known to be gone.
     private var controller: PKPaymentAuthorizationController?
+
+    /// The grand total the sheet was last given, in cents.
+    ///
+    /// Checked against the basket at the thumbprint, against the sheet's own
+    /// record of which delivery row is ticked (`PKPayment.shippingMethod`). If
+    /// the two ever disagree, the figure authorised is not the figure the
+    /// Function would charge, and the payment is refused here rather than
+    /// taken — see `settle`.
+    private var shownTotal = 0
 
     init(model: ShopModel) {
         self.model = model
@@ -115,6 +149,11 @@ final class Checkout: NSObject, ObservableObject {
         // person scanning it is standing in the church. Posting is the second
         // row, not the first.
         model.shipping = false
+        // A fresh sheet prices afresh. Options from an earlier sheet were
+        // quoted for an address this one may not use, and their tokens expire.
+        model.deliveryOptions = []
+        model.chosenOption = nil
+        model.flatDeliveryCents = model.settings.deliveryCents
 
         let request = PKPaymentRequest.squarePaymentRequest(
             merchantIdentifier: ClipConfig.applePayMerchantId,
@@ -165,16 +204,49 @@ final class Checkout: NSObject, ObservableObject {
         NSDecimalNumber(mantissa: UInt64(abs(cents)), exponent: -2, isNegative: cents < 0)
     }
 
+    /// The sheet's delivery rows. Identifiers are how `apply` reads a choice
+    /// back: `collect`, `ship` for the flat charge, `usps:<service>` for a
+    /// live quote.
+    private static let collectId = "collect"
+    private static let flatId = "ship"
+    private static let uspsPrefix = "usps:"
+
+    /// Collect, then either the live services or the one flat row.
+    ///
+    /// **Whatever the model holds is first.** PassKit ticks the first method in
+    /// a list it is handed, and a contact change hands it a new list. So a
+    /// buyer who chose to post and then picks another address finds their
+    /// choice still ticked at the top — the service they had, if USPS still
+    /// offers it there, or the cheapest — rather than silently reset to
+    /// collecting, with the summary saying one thing and the row another.
+    /// Opening the sheet is the ordinary case, and there the model is
+    /// collecting, so the order is the natural one.
     private func shippingMethods() -> [PKShippingMethod] {
         let collect = PKShippingMethod(label: "Collect at the church", amount: usd(0))
-        collect.identifier = "collect"
+        collect.identifier = Checkout.collectId
         collect.detail = "Ready at the bookstall. The office will write when it is."
 
-        let post = PKShippingMethod(label: "Post to me", amount: usd(model.settings.deliveryCents))
-        post.identifier = "ship"
-        post.detail = "Flat rate, anywhere in the United States."
+        var posts: [PKShippingMethod]
+        if model.deliveryOptions.isEmpty {
+            let flat = PKShippingMethod(label: "Post to me", amount: usd(model.flatDeliveryCents))
+            flat.identifier = Checkout.flatId
+            flat.detail = "Flat rate, anywhere in the United States."
+            posts = [flat]
+        } else {
+            // Cheapest first, as the Function sorts them.
+            posts = model.deliveryOptions.map { option in
+                let method = PKShippingMethod(label: option.label, amount: usd(option.cents))
+                method.identifier = Checkout.uspsPrefix + option.service
+                method.detail = option.days
+                return method
+            }
+            if let chosen = model.chosenOption,
+               let at = posts.firstIndex(where: { $0.identifier == Checkout.uspsPrefix + chosen.service }) {
+                posts.insert(posts.remove(at: at), at: 0)
+            }
+        }
 
-        return [collect, post]
+        return model.shipping ? posts + [collect] : [collect] + posts
     }
 
     /// Every line, then postage when there is any, then the church.
@@ -190,14 +262,23 @@ final class Checkout: NSObject, ObservableObject {
             )
         }
 
-        if model.deliveryCents > 0 {
+        // Tax before postage, because it is on the books and not on the parcel.
+        let tax = model.taxCents
+        if tax > 0 {
             items.append(
-                PKPaymentSummaryItem(label: "Postage", amount: usd(model.deliveryCents))
+                PKPaymentSummaryItem(label: taxLabel(rateBps: model.settings.taxRateBps), amount: usd(tax))
             )
         }
 
+        if model.deliveryCents > 0 {
+            items.append(
+                PKPaymentSummaryItem(label: model.chosenOption?.label ?? "Postage", amount: usd(model.deliveryCents))
+            )
+        }
+
+        shownTotal = model.total
         items.append(
-            PKPaymentSummaryItem(label: "St. Philopater & St. Mina", amount: usd(model.total))
+            PKPaymentSummaryItem(label: "St. Philopater & St. Mina", amount: usd(shownTotal))
         )
 
         return items
@@ -225,7 +306,86 @@ final class Checkout: NSObject, ObservableObject {
             }
         }
 
-        return try await post(nonce: nonce)
+        do {
+            return try await post(nonce: nonce)
+        } catch is QuoteExpired {
+            return try await requoteAndRetry(nonce: nonce)
+        }
+    }
+
+    /// The Function refused the postage token — older than its thirty minutes,
+    /// or the final address's ZIP is not the one the partial address gave.
+    ///
+    /// ---------------------------------------------------------------------
+    /// The website's answer is to fetch a fresh quote, show it, and let the
+    /// buyer press Pay again. A sheet cannot be re-priced from inside an
+    /// authorisation, so the clip asks again itself and goes on **only if the
+    /// new quote is for the same service at the same cents** — then the figure
+    /// the thumbprint approved is still the figure charged, and the token is
+    /// merely newer. Anything else fails the payment with a sentence saying
+    /// why; the next sheet quotes afresh and shows the new price before
+    /// anybody pays it.
+    ///
+    /// The nonce is spent once at most. The 409 is answered before the
+    /// Function calls Square, so the same nonce and the same idempotency key
+    /// are an untouched first attempt as far as Square knows.
+    /// ---------------------------------------------------------------------
+    private func requoteAndRetry(nonce: String) async throws -> String {
+        let changed = CheckoutError(
+            "The postage to this address changed after it was priced, so nothing was charged. "
+                + "Open Apple Pay again to see the new figure."
+        )
+        guard let held = model.chosenOption,
+              let zip = usableZip(contact?.postalAddress?.postalCode),
+              let fresh = try? await quote(zip: zip),
+              let same = fresh.options.first(where: { $0.service == held.service && $0.cents == held.cents })
+        else { throw changed }
+
+        model.deliveryOptions = fresh.options
+        model.chosenOption = same
+        do {
+            return try await post(nonce: nonce)
+        } catch is QuoteExpired {
+            throw changed
+        }
+    }
+
+    /* ── Live postage ────────────────────────────────────────────────────── */
+
+    /// `POST /api/shipping/quote` — the shared `ShippingQuoteResponse`.
+    ///
+    /// The same endpoint and the same body as the website's
+    /// `useShippingQuote`: slugs, quantities and a ZIP. Ten seconds, because
+    /// this runs inside Apple's sheet, which gives a contact callback about
+    /// thirty before it gives up on the payment; the Function stops waiting for
+    /// USPS after four and answers with the flat charge.
+    private func quote(zip: String) async throws -> QuoteResponse {
+        var request = URLRequest(url: ClipConfig.api("/api/shipping/quote"))
+        request.httpMethod = "POST"
+        request.timeoutInterval = 10
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "cart": model.cart,
+            "postalCode": zip,
+        ])
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw URLError(.badServerResponse)
+        }
+        return try JSONDecoder().decode(QuoteResponse.self, from: data)
+    }
+
+    /// Five digits from a postal code — the shared `usableZip`. `"01778-1234"`
+    /// and `" 01778 "` both count; anything else, including an address abroad,
+    /// is nil, and nil is the flat charge.
+    private func usableZip(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        // ASCII digits only, as JavaScript's `\d` is. Swift's would also take
+        // the Arabic-Indic ones, which no ZIP code is written in.
+        guard let match = trimmed.wholeMatch(of: #/(\d{5})(?:-?\d{4})?/#.asciiOnlyDigits()) else { return nil }
+        return String(match.1)
     }
 
     /// A wallet contact's name, as the two fields the Function requires.
@@ -265,6 +425,12 @@ final class Checkout: NSObject, ObservableObject {
             "idempotencyKey": idempotencyKey,
         ]
 
+        // The signed quote, when posting by a live service. Absent is the flat
+        // charge, which is what the Function takes with no token at all.
+        if model.shipping, let option = model.chosenOption {
+            body["shippingOptionId"] = option.id
+        }
+
         if model.shipping, let postal = contact?.postalAddress {
             /*
              * Field for field with the app's own form — `line1`, `city`,
@@ -294,6 +460,8 @@ final class Checkout: NSObject, ObservableObject {
 
         let decoded = try? JSONDecoder().decode(CheckoutResponse.self, from: data)
 
+        if http.statusCode == 409, decoded?.code == "quote-expired" { throw QuoteExpired() }
+
         guard (200..<300).contains(http.statusCode) else {
             /*
              * The Function's own words, not a status code. Every refusal in
@@ -319,6 +487,13 @@ final class Checkout: NSObject, ObservableObject {
 /// and `outcome` directly, and nothing in this extension has to reason about
 /// which thread it is on.
 extension Checkout: PKPaymentAuthorizationControllerDelegate {
+    nonisolated func paymentAuthorizationController(
+        _ controller: PKPaymentAuthorizationController,
+        didSelectShippingContact contact: PKContact
+    ) async -> PKPaymentRequestShippingContactUpdate {
+        await reprice(for: contact)
+    }
+
     nonisolated func paymentAuthorizationController(
         _ controller: PKPaymentAuthorizationController,
         didSelectShippingMethod shippingMethod: PKShippingMethod
@@ -350,12 +525,71 @@ extension Checkout {
     /// items are rebuilt from it, so the figure being authorised is the figure
     /// showing behind the sheet.
     fileprivate func choose(_ method: PKShippingMethod) -> PKPaymentRequestShippingMethodUpdate {
-        model.shipping = method.identifier == "ship"
+        apply(method)
         return PKPaymentRequestShippingMethodUpdate(paymentSummaryItems: summaryItems())
+    }
+
+    /// A row of the sheet, as the model's two fields.
+    private func apply(_ method: PKShippingMethod) {
+        let id = method.identifier ?? Checkout.collectId
+        model.shipping = id != Checkout.collectId
+        model.chosenOption = model.deliveryOptions.first { Checkout.uspsPrefix + $0.service == id }
+    }
+
+    /// A contact chosen in the sheet, which is an address to price postage to.
+    ///
+    /// Called when the sheet opens with the wallet's default contact and again
+    /// whenever the buyer picks another. The contact is redacted — Apple gives
+    /// the city, the state and the ZIP until the payment is authorised — and
+    /// the ZIP is all the quote wants.
+    ///
+    /// Every failure here is the flat row rather than an error in the sheet,
+    /// which is the website's rule too: "could not quote" is the flat charge,
+    /// and a buyer must always be able to pay that.
+    fileprivate func reprice(for contact: PKContact) async -> PKPaymentRequestShippingContactUpdate {
+        let held = model.chosenOption
+        var options: [DeliveryOption] = []
+
+        let country = contact.postalAddress?.isoCountryCode.uppercased() ?? ""
+        if model.settings.liveShipping,
+           country.isEmpty || country == "US",
+           let zip = usableZip(contact.postalAddress?.postalCode),
+           let answer = try? await quote(zip: zip) {
+            options = answer.options.sorted { $0.cents < $1.cents }
+            if (0...ShopSettings.maxDeliveryCents).contains(answer.fallbackCents) {
+                model.flatDeliveryCents = answer.fallbackCents
+            }
+        }
+
+        model.deliveryOptions = options
+        // The service the buyer had, if this address still has it; otherwise
+        // the cheapest, as the website preselects. Only read while posting.
+        model.chosenOption = options.first { $0.service == held?.service } ?? options.first
+
+        return PKPaymentRequestShippingContactUpdate(
+            errors: nil,
+            paymentSummaryItems: summaryItems(),
+            shippingMethods: shippingMethods()
+        )
     }
 
     fileprivate func settle(_ payment: PKPayment) async -> PKPaymentAuthorizationResult {
         contact = payment.shippingContact
+
+        /*
+         * The sheet's own record of the ticked row, over ours. They should
+         * never differ — every change of row and of address came through
+         * `choose` or `reprice` — but if one ever did, the order would go out
+         * as the wrong fulfilment or the wrong postage. And if that makes the
+         * basket's total differ from the one the buyer approved, nothing is
+         * charged: the figure authorised must be the figure taken.
+         */
+        if let method = payment.shippingMethod { apply(method) }
+        guard model.total == shownTotal else {
+            let message = "The total changed while Apple Pay was open, so nothing was charged. Please try again."
+            outcome = .failed(message)
+            return PKPaymentAuthorizationResult(status: .failure, errors: [CheckoutError(message)])
+        }
 
         do {
             let orderId = try await charge(payment)
@@ -398,7 +632,18 @@ extension Checkout {
 private struct CheckoutResponse: Decodable {
     let orderId: String?
     let error: String?
+    /// `quote-expired` is the one the clip acts on. See `requoteAndRetry`.
+    let code: String?
 }
+
+/// `{ options, fallbackCents }` from `/api/shipping/quote`.
+private struct QuoteResponse: Decodable {
+    let options: [DeliveryOption]
+    let fallbackCents: Int
+}
+
+/// The Function's 409 for a postage token it will not honour.
+private struct QuoteExpired: Error {}
 
 /// An error that carries a sentence written to be shown.
 struct CheckoutError: LocalizedError {

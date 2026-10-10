@@ -241,6 +241,23 @@ private struct Basket: View {
     var body: some View {
         if !model.isEmpty {
             ClipCard {
+                /*
+                 * Sales tax, when anything in the basket carries it — the same
+                 * figure the Apple Pay sheet itemises and the Function asks
+                 * Square to charge, so the total below is the books as they
+                 * will actually be paid for. Postage is still not here; see
+                 * below.
+                 */
+                if model.taxCents > 0 {
+                    HStack {
+                        ClipBody(text: taxLabel(rateBps: model.settings.taxRateBps), tone: Ink.inkFaint)
+                        Spacer()
+                        Text(money(model.taxCents))
+                            .font(Face.small)
+                            .foregroundStyle(Ink.inkFaint)
+                    }
+                }
+
                 HStack {
                     ClipBody(text: "Total", tone: Ink.ink)
                     Spacer()

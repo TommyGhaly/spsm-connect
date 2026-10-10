@@ -11,12 +11,21 @@ import Foundation
 /// on a sheet the system sizes, and the footer already points at the shop page,
 /// which has the full text and every picture.
 ///
-/// **No sections.** The app and the website divide the shop by
-/// `config/bookstore.sections`, which is the right call for a page somebody
-/// browses. A clip is opened at the shelf itself by somebody holding the book
-/// they already want, and eleven titles under one heading is less to read than
-/// eleven titles under four. If the catalog ever grows past a screenful, this
-/// is the first thing to revisit.
+/// **No sections.** The app and the website divide the shop into categories —
+/// Square's subcategories of "Bookstore", mirrored into
+/// `config/bookstore.sections` (nested, by `parentId`) and onto each product as
+/// `categoryIds` — which is the right call for a page somebody browses. A clip
+/// is opened at the shelf itself by somebody holding the book they already
+/// want, and eleven titles under one heading is less to read than eleven
+/// titles under four. So neither field is read here, and the old single
+/// `section` field going away changed nothing in this file. If the catalog
+/// ever grows past a screenful, this is the first thing to revisit, and the
+/// rules to copy are `groupProducts` in `@spsm/shared`'s `shopSections.ts`.
+///
+/// **Sales tax is read, and worked out here.** Not because the clip decides it
+/// — `squareCheckout` reads the same two fields from Firestore and asks Square
+/// to apply it — but because Apple Pay shows a total before the thumbprint, and
+/// the tax is part of what gets charged. See `salesTaxCents` below.
 
 /// One thing the church sells.
 struct ShopProduct: Identifiable, Equatable {
@@ -31,6 +40,10 @@ struct ShopProduct: Identifiable, Equatable {
     /// `nil` means the parish does not count this one, which is deliberately
     /// distinct from `0`, meaning sold out.
     let stockCount: Int?
+    /// Whether Massachusetts sales tax applies — the parish's flag on the
+    /// product, `Product.taxable`. Absent is false, as it is server-side:
+    /// nothing is taxed until somebody says so.
+    let taxable: Bool
 
     var soldOut: Bool { stockCount == 0 }
 
@@ -51,34 +64,121 @@ struct ShopProduct: Identifiable, Equatable {
             name: name,
             amount: fields["price"]?.mapValue?["amount"]?.intValue ?? 0,
             imageURL: first.flatMap(URL.init(string:)),
-            stockCount: fields["stockCount"]?.intValue
+            stockCount: fields["stockCount"]?.intValue,
+            taxable: fields["taxable"]?.boolValue == true
         )
     }
 }
 
-/// The two settings a sale depends on, from `config/bookstore`.
+/// The settings a sale depends on, from `config/bookstore`.
 ///
-/// Not the whole document: `sections` is unused here, and `orderEmail` belongs
-/// to the Function that sends the receipt. The defaults are
+/// Not the whole document: `sections` is unused here, `orderEmail` belongs to
+/// the Function that sends the receipt, and of `shipping` only the switch is
+/// read — the box, the handling fee and the origin ZIP are the quote
+/// Function's business, and it answers in cents. The defaults are
 /// `DEFAULT_BOOKSTORE_CONFIG`'s, so a clip that reaches the shop a moment
 /// before the settings land — or a parish that has never opened the editor —
 /// reads correctly rather than blankly.
+///
+/// Every number falls back rather than clamps, field for field with
+/// `parseBookstoreConfig`: these become part of a charge, and the Function
+/// applies the same guards, so a value it would ignore is one this must ignore
+/// too or the sheet and the card statement disagree.
 struct ShopSettings {
     var deliveryCents: Int = 700
+    /// Basis points: 625 is 6.25%. Applied only to `taxable` products.
+    var taxRateBps: Int = 625
+    /// `shipping.mode == "usps"`: whether to ask `/api/shipping/quote` at all.
+    /// Off (the default) is the flat `deliveryCents` on every delivery, and
+    /// asking anyway would only spend a round trip inside the sheet to be told
+    /// so.
+    var liveShipping = false
     var returnsNotice: String =
         "Sales are final. If a book reaches you damaged, or is not the one you ordered, "
         + "write to the church office within 14 days and it will be put right."
 
+    /// `MAX_DELIVERY_CENTS` and `MAX_TAX_RATE_BPS` in `@spsm/shared`.
+    static let maxDeliveryCents = 100_00
+    static let maxTaxRateBps = 2_000
+
     static func decode(_ fields: [String: FirestoreValue]) -> ShopSettings {
         var settings = ShopSettings()
-        if let cents = fields["deliveryCents"]?.intValue, cents >= 0 {
+        if let cents = fields["deliveryCents"]?.intValue, (0...maxDeliveryCents).contains(cents) {
             settings.deliveryCents = cents
         }
+        if let rate = fields["taxRateBps"]?.intValue, (0...maxTaxRateBps).contains(rate) {
+            settings.taxRateBps = rate
+        }
+        settings.liveShipping = fields["shipping"]?.mapValue?["mode"]?.stringValue == "usps"
         if let notice = fields["returnsNotice"]?.stringValue, !notice.isEmpty {
             settings.returnsNotice = notice
         }
         return settings
     }
+}
+
+/* ── Sales tax ────────────────────────────────────────────────────────────────
+ *
+ * The Swift copy of `payments/salesTax.ts`, and it has to be a faithful one.
+ * Square applies a LINE_ITEM-scoped percentage to each taxable line *on its
+ * own* and rounds each with Bankers' Rounding, half to even; the sum of those
+ * is the tax. Rounding the basket's total once instead is a cent out on the
+ * right basket, and a cent is enough for the sheet to show less than the card
+ * is charged.
+ *
+ * Integers throughout, where the TypeScript multiplies in floating point and
+ * needs a tolerance to recognise a half. `lineCents * rateBps` is exact here,
+ * so a half is a remainder of exactly 5,000 in 10,000 and no tolerance is
+ * needed. Delivery is never passed in: Massachusetts does not tax a delivery
+ * charge that is stated separately and avoidable by collecting.
+ */
+
+/// Tax on one line, in cents. `rateBps` is basis points: 625 is 6.25%.
+func lineTaxCents(_ lineCents: Int, rateBps: Int) -> Int {
+    guard lineCents > 0, rateBps > 0 else { return 0 }
+    let scaled = lineCents * rateBps
+    let whole = scaled / 10_000
+    let rest = scaled % 10_000
+    if rest > 5_000 { return whole + 1 }
+    if rest < 5_000 { return whole }
+    return whole % 2 == 0 ? whole : whole + 1
+}
+
+/// Tax on a basket: each taxable line taxed and rounded on its own, then summed.
+func salesTaxCents(_ lines: [(amountCents: Int, taxable: Bool)], rateBps: Int) -> Int {
+    lines.reduce(0) { $0 + ($1.taxable ? lineTaxCents($1.amountCents, rateBps: rateBps) : 0) }
+}
+
+/// `625` → `"Sales tax (6.25%)"`, the shared `taxLabel` — trailing zeros
+/// dropped, so 600 reads "6%" and 650 "6.5%", as `toFixed(2)` and the regex do.
+func taxLabel(rateBps: Int) -> String {
+    let whole = rateBps / 100
+    let part = rateBps % 100
+    let percentage: String
+    if part == 0 {
+        percentage = "\(whole)"
+    } else if part % 10 == 0 {
+        percentage = "\(whole).\(part / 10)"
+    } else {
+        percentage = String(format: "%d.%02d", whole, part)
+    }
+    return "Sales tax (\(percentage)%)"
+}
+
+/// One way of posting the basket, as `/api/shipping/quote` priced it — the
+/// shared `ShippingOption`, cut to what the sheet shows.
+///
+/// `id` is the signed quote, and the only thing about this the Function
+/// believes. `cents` is the figure inside that signature, carried here to put
+/// in the sheet; the clip never sends it back, so it cannot choose a price —
+/// only echo a token whose price it was shown.
+struct DeliveryOption: Equatable, Decodable {
+    let id: String
+    /// `USPS_GROUND_ADVANTAGE`, `PRIORITY_MAIL`, `MEDIA_MAIL`.
+    let service: String
+    let label: String
+    let days: String?
+    let cents: Int
 }
 
 /// `1234` → `"$12.34"`. Integer arithmetic, and the only place cents become a
@@ -112,6 +212,27 @@ final class ShopModel: ObservableObject {
     /// total on screen must agree with the total in the sheet.
     @Published var shipping = false
 
+    /// The live USPS options for the address in the sheet, cheapest first.
+    ///
+    /// Empty means flat delivery, for every reason the quote Function gives
+    /// one: live rates off, an unweighed book, USPS slow, no address yet. Held
+    /// here rather than in `Checkout` for the reason `shipping` is — the total
+    /// is this model's, and it has to know what posting costs.
+    @Published var deliveryOptions: [DeliveryOption] = []
+
+    /// Which of `deliveryOptions` is chosen. `nil` while posting is the flat
+    /// charge, and checkout then sends no `shippingOptionId`, which is the flat
+    /// charge on the Function's side too.
+    @Published var chosenOption: DeliveryOption?
+
+    /// The flat charge, live where the quote has answered.
+    ///
+    /// `fallbackCents` in a quote response is `config/bookstore` as the
+    /// Function read it a moment ago, which is fresher than the copy this clip
+    /// fetched when it opened, and it is the figure checkout charges when no
+    /// option is sent. `settings.deliveryCents` stands in until there is one.
+    @Published var flatDeliveryCents = ShopSettings().deliveryCents
+
     private var started = false
     private var products: [ShopProduct] = []
 
@@ -134,6 +255,7 @@ final class ShopModel: ObservableObject {
              */
             if let fields = try? await FirestoreREST.document("config/bookstore") {
                 settings = ShopSettings.decode(fields)
+                flatDeliveryCents = settings.deliveryCents
             }
 
             do {
@@ -180,7 +302,18 @@ final class ShopModel: ObservableObject {
 
     var subtotal: Int { lines.reduce(0) { $0 + $1.product.amount * $1.quantity } }
 
-    var deliveryCents: Int { shipping ? settings.deliveryCents : 0 }
+    var deliveryCents: Int {
+        guard shipping else { return 0 }
+        return chosenOption?.cents ?? flatDeliveryCents
+    }
+
+    /// Massachusetts sales tax on the books. Never on postage.
+    var taxCents: Int {
+        salesTaxCents(
+            lines.map { (amountCents: $0.product.amount * $0.quantity, taxable: $0.product.taxable) },
+            rateBps: settings.taxRateBps
+        )
+    }
 
     /// What Apple Pay will show, and what the Function will charge.
     ///
@@ -188,8 +321,10 @@ final class ShopModel: ObservableObject {
     /// adding postage server-side where the page could not see it, so somebody
     /// authorised $24.00 with a thumbprint and was charged $31.00 — see
     /// `docs/apple-pay-google-pay.md` in the Website repo. Postage is a
-    /// `PKShippingMethod` here precisely so the sheet does the addition itself.
-    var total: Int { subtotal + deliveryCents }
+    /// `PKShippingMethod` here precisely so the sheet does the addition itself,
+    /// and sales tax is a line of its own for the same reason: the Function
+    /// started adding it, and a sheet that did not would be that bug again.
+    var total: Int { subtotal + taxCents + deliveryCents }
 
     /// What the checkout posts. Slugs and quantities, never prices — there is
     /// deliberately nowhere in the request to put one.
