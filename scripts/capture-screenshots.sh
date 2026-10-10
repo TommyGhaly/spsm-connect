@@ -117,8 +117,15 @@ SCREENS=(
 # store/raw/pages/ios/<set>/ rather than beside the five above — the main
 # listing takes every PNG in its directory, in filename order, so a sixth file
 # there would quietly join it. Unnumbered, because each product page sets its
-# own order: see `screens` in scripts/product-pages.mjs, which names these.
+# own order: see FILES in store/custom-product-pages/src/shots.html, which
+# names these.
+#
+# The calendar is here as well as in SCREENS, deliberately. It draws the
+# church's real week, so whether it is publishable depends on the day it was
+# taken; the product pages carry their own copy so that one can be retaken on
+# a clean day without re-shooting a main listing that is already live.
 PAGE_SCREENS=(
+  "spsmconnect:///calendar|calendar"
   "spsmconnect:///about/welcome-newcomers|welcome"
   "spsmconnect:///about/future-plans|plans"
   "spsmconnect:///livestream|livestream"

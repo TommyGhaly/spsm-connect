@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SPSM Connect CPP shots</title>
+<style>
+  /* The app's own serif, from the binary's fonts, so a caption reads as the same church as the screen under it. */
+  @font-face { font-family: 'EB Garamond'; src: url('../../../assets/fonts/EBGaramond-Regular.ttf'); font-weight: 400; }
+  @font-face { font-family: 'EB Garamond'; src: url('../../../assets/fonts/EBGaramond-Bold.ttf'); font-weight: 700; }
+  @font-face { font-family: 'EB Garamond'; src: url('../../../assets/fonts/EBGaramond-Italic.ttf'); font-style: italic; }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1320px; height: 2868px; overflow: hidden; background: #2a0909; }
+  body { font-family: 'EB Garamond', Georgia, serif; color: #f9efec; -webkit-font-smoothing: antialiased; }
+
+  /* ---------- Frame ----------
+     `deep` (#481010) falling to near-black, with a gold glow behind the caption. The colours are the
+     theme's: deep, inkInverse and gold, as scripts/brand.mjs bakes them for the icon. */
+  .frame { position: relative; overflow: hidden;
+    background: radial-gradient(var(--gw) var(--gh) at 50% var(--gy), rgba(176,141,67,.26) 0%, transparent 70%), linear-gradient(180deg, #4a1111 0%, #2a0909 100%); }
+  .caption { position: absolute; left: 0; right: 0; text-align: center; }
+  .eyebrow { font-family: -apple-system, "SF Pro Text", system-ui, sans-serif; font-weight: 600; text-transform: uppercase; color: #c9a65a; }
+  .headline { font-weight: 400; line-height: 1.04; }
+  .sub { line-height: 1.3; color: rgba(249,239,236,.68); }
+
+  /* ---------- Devices ----------
+     Sized in real pixels rather than scaled with a transform, so the capture inside is drawn once at
+     its final size and stays sharp. The screen is the simulator's own PNG, status bar and all. */
+  .device { position: absolute; background: #0a0505; box-shadow: 0 0 0 2px #3a2a2a, 0 0 0 4px #120808, 0 60px 160px rgba(0,0,0,.55); }
+  .device img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .device .screen { position: relative; overflow: hidden; background: #f6ebe7; }
+  .device .dim { position: absolute; inset: 0; background: rgba(20,4,4,.38); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+/* ---------- Screens ----------
+   Each name is a capture taken by scripts/capture-screenshots.sh. The main listing's five live in
+   store/raw/ios/<size>/, numbered; the three only these pages use live in store/raw/pages/ios/<size>/.
+   None of them shows anybody's personal details. Check the calendar after every recapture: it is the
+   church's real week, and an event carrying a servant's name and number must not be published. That is
+   why it comes from pages/ rather than the main listing's 2-calendar, which showed one when this was written. */
+const FILES = {
+  belief: '1-belief', forms: '3-forms', bookstore: '4-bookstore', giving: '5-giving',
+  calendar: 'pages:calendar', welcome: 'pages:welcome', plans: 'pages:plans', livestream: 'pages:livestream',
+};
+const capture = (name, size) => {
+  const f = FILES[name];
+  if (!f) throw new Error(`No capture called ${name}`);
+  return f.startsWith('pages:') ? `../../raw/pages/ios/${size}/${f.slice(6)}.png` : `../../raw/ios/${size}/${f}.png`;
+};
+
+// An iPhone 17 Pro Max: a 440 x 956 point screen in a 12 point bezel.
+function phone(name, { left, top, width, z = 1, dim = false }) {
+  const pad = width * 12 / 464, sw = width - pad * 2, sh = sw * 956 / 440;
+  return `<div class="device" style="left:${left - width / 2}px;top:${top}px;width:${width}px;height:${sh + pad * 2}px;padding:${pad}px;border-radius:${width * 68 / 464}px;z-index:${z}">
+    <div class="screen" style="width:${sw}px;height:${sh}px;border-radius:${sw * 56 / 440}px">
+      <img src="${capture(name, '6.9')}">${dim ? '<div class="dim"></div>' : ''}</div></div>`;
+}
+
+// An iPad Pro 13", portrait: a 1032 x 1376 point screen in a 22 point bezel.
+function ipad(name, { left, top, width }) {
+  const pad = width * 22 / 1076, sw = width - pad * 2, sh = sw * 1376 / 1032;
+  return `<div class="device" style="left:${left - width / 2}px;top:${top}px;width:${width}px;height:${sh + pad * 2}px;padding:${pad}px;border-radius:${width * 44 / 1076}px">
+    <div class="screen" style="width:${sw}px;height:${sh}px;border-radius:${sw * 22 / 1032}px"><img src="${capture(name, '13')}"></div></div>`;
+}
+
+/* ---------- Shots ----------
+   id: [page, eyebrow, headline, subhead, screen]. render.sh renders every id here at 6.9" and on the
+   iPad, so the order within a page is the upload order. */
+const SHOTS = {
+  'give-01': ['give', 'Giving', 'Give to the church<br>from your phone', 'Through Tithe.ly, with Apple Pay.', 'giving'],
+  'give-02': ['give', 'This week', 'Every service,<br>day by day', 'The church calendar, always current.', 'calendar'],
+  'give-03': ['give', 'Expansion plans', 'See what the church<br>is building', 'Three buildings designed for 169 Rice Road.', 'plans'],
+  'bookstore-01': ['bookstore', 'The Bookstore', 'The church’s shelf,<br>in your pocket', 'Pay with Apple Pay. Collect at church or have it delivered.', 'bookstore'],
+  'bookstore-02': ['bookstore', 'This week', 'Every service,<br>day by day', 'The church calendar, always current.', 'calendar'],
+  'bookstore-03': ['bookstore', 'Giving', 'Give to the church<br>from your phone', 'Through Tithe.ly, with Apple Pay.', 'giving'],
+  'week-01': ['week', 'This week', 'Every service<br>and event', 'The church calendar, day by day.', 'calendar'],
+  'week-02': ['week', 'Watch live', 'The Liturgy, when<br>you can’t be there', 'Recent services are a tap away.', 'livestream'],
+  'week-03': ['week', 'Church forms', 'Sign up from<br>your phone', 'No account needed.', 'forms'],
+  'newcomers-01': ['newcomers', 'Welcome, newcomers', 'Your first visit,<br>explained', 'Six stations through the Coptic Orthodox Church.', 'welcome'],
+  'newcomers-02': ['newcomers', 'Our belief', 'What the Church<br>confesses', 'The Creed said aloud at every Liturgy.', 'belief'],
+  'newcomers-03': ['newcomers', 'Come and see', 'Find a service<br>this week', 'Every service at the church, day by day.', 'calendar'],
+  'newcomers-04': ['newcomers', 'Watch first', 'See a Liturgy<br>before you come', 'Live, or from the recent services.', 'livestream'],
+  'forms-01': ['forms', 'Church forms', 'Church forms,<br>on your phone', 'Register a vehicle or reach the office. No account needed.', 'forms'],
+  'forms-02': ['forms', 'This week', 'Every service,<br>day by day', 'The church calendar, always current.', 'calendar'],
+  'forms-03': ['forms', 'Giving', 'Give to the church<br>from your phone', 'Through Tithe.ly, with Apple Pay.', 'giving'],
+  'plans-01': ['plans', 'Expansion plans', 'Three buildings for<br>169 Rice Road', 'A church, a youth centre and a diocese centre.', 'plans'],
+  'plans-02': ['plans', 'Giving', 'Give from<br>your phone', 'Through Tithe.ly, with Apple Pay.', 'giving'],
+  'plans-03': ['plans', 'This week', 'Every service,<br>day by day', 'The church calendar, always current.', 'calendar'],
+  'listing-01': ['listing', 'St. Philopater Mercurius & St. Mina', 'Your church,<br>in one app', 'Coptic Orthodox, in Wayland, Massachusetts.', 'belief'],
+  'listing-02': ['listing', 'This week', 'Every service<br>and event', 'The church calendar, day by day.', 'calendar'],
+  'listing-03': ['listing', 'Watch live', 'The Liturgy, when<br>you can’t be there', 'Recent services are a tap away.', 'livestream'],
+  'listing-04': ['listing', 'Giving', 'Give to the church<br>from your phone', 'Through Tithe.ly, with Apple Pay.', 'giving'],
+  'listing-05': ['listing', 'The Bookstore', 'The church’s shelf,<br>in your pocket', 'Pay with Apple Pay. Collect at church or have it delivered.', 'bookstore'],
+  'listing-06': ['listing', 'Church forms', 'Church forms,<br>on your phone', 'Register a vehicle or reach the office. No account needed.', 'forms'],
+  'listing-07': ['listing', 'Welcome, newcomers', 'Your first visit,<br>explained', 'Six stations through the Coptic Orthodox Church.', 'welcome'],
+};
+
+/* ---------- Landscape banners (one per page) ---------- */
+// `blurb` is the banner subhead: the page's promotional text (in page_readmes.py) without the part
+// the headline already says. Keep the two in step.
+const PAGES = {
+  give: { eyebrow: 'Giving', headline: 'Give to the church<br>from your phone', screens: ['calendar', 'giving', 'plans'],
+    blurb: 'Make an offering through Tithe.ly, with Apple Pay, and see this week’s services one tab away.' },
+  bookstore: { eyebrow: 'The Bookstore', headline: 'The church’s shelf,<br>in your pocket', screens: ['calendar', 'bookstore', 'giving'],
+    blurb: 'Put books in a basket, pay with Apple Pay, and collect them at the church or have them delivered.' },
+  week: { eyebrow: 'This week', headline: 'Every service<br>and event', screens: ['forms', 'calendar', 'livestream'],
+    blurb: 'The church’s week, day by day, and the Liturgy live when you cannot be there.' },
+  newcomers: { eyebrow: 'Welcome, newcomers', headline: 'Your first visit,<br>explained', screens: ['belief', 'welcome', 'calendar'],
+    blurb: 'Take the six-station tour before you visit, see this week’s services, and watch a Liturgy live first.' },
+  forms: { eyebrow: 'Church forms', headline: 'Church forms,<br>on your phone', screens: ['calendar', 'forms', 'giving'],
+    blurb: 'Register a vehicle, reach the church office and more. None of them needs an account.' },
+  plans: { eyebrow: 'Expansion plans', headline: 'Three buildings for<br>169 Rice Road', screens: ['calendar', 'plans', 'giving'],
+    blurb: 'A church, a youth centre and a diocese centre: where the work stands, and how to give toward it.' },
+  listing: { eyebrow: 'St. Philopater Mercurius & St. Mina', headline: 'Your church,<br>in one app', screens: ['calendar', 'belief', 'giving'],
+    blurb: 'Services, the livestream, giving, the bookstore and church forms, for the Coptic Orthodox church in Wayland.' },
+};
+const BANNER_SIZES = ['5244x2950', '3840x1646', '3840x2560'];
+
+const setSize = (W, H) => { document.documentElement.style.cssText = document.body.style.cssText = `width:${W}px;height:${H}px`; };
+const captionHtml = (eyebrow, headline, sub, u) => `
+  <div class="eyebrow" style="font-size:${u * 2.1}px;letter-spacing:${u * .38}px;margin-bottom:${u * 1.6}px">${eyebrow}</div>
+  <div class="headline" style="font-size:${u * 7}px;letter-spacing:${-u * .05}px">${headline}</div>
+  <div class="sub" style="font-size:${u * 2.6}px;margin:${u * 1.6}px auto 0;max-width:${u * 88}px">${sub}</div>`;
+
+// Header and search assets are cropped differently on every device, and Apple publishes no
+// safe-area numbers. As in Taksis, everything sits in a centred box about 1.2x the banner's height
+// wide (SW); the sides carry only background. Text on top, phones rising off the bottom edge.
+function renderBanner(page, size) {
+  const [W, H] = size.split('x').map(Number);
+  const P = PAGES[page];
+  const SW = Math.min(W * 0.92, H * 1.2), u = SW / 100;
+  setSize(W, H);
+  const textTop = H * 0.075;
+  document.getElementById('root').innerHTML = `<div class="frame" style="width:${W}px;height:${H}px;--gw:${SW * .8}px;--gh:${H * .8}px;--gy:70%">
+    <div id="bannerText" class="caption" style="top:${textTop}px;left:50%;right:auto;transform:translateX(-50%);width:${SW}px">
+      ${captionHtml(P.eyebrow, P.headline, P.blurb, u)}</div></div>`;
+  const top = textTop + document.getElementById('bannerText').offsetHeight + u * 4;
+  const pw = SW / 2.75, gap = pw * 0.87;
+  const side = pw * .9, drop = (pw - side) * (980 / 464) * .5;
+  document.querySelector('.frame').insertAdjacentHTML('beforeend',
+    phone(P.screens[0], { left: W / 2 - gap, top: top + drop, width: side, dim: true }) +
+    phone(P.screens[2], { left: W / 2 + gap, top: top + drop, width: side, dim: true }) +
+    phone(P.screens[1], { left: W / 2, top, width: pw, z: 2 }));
+}
+
+function renderShot(id) {
+  const [, eyebrow, headline, sub, screen] = SHOTS[id];
+  setSize(1320, 2868);
+  document.getElementById('root').innerHTML = `<div class="frame" style="width:1320px;height:2868px;--gw:1100px;--gh:900px;--gy:0%">
+    <div class="caption" style="top:150px;padding:0 70px">${captionHtml(eyebrow, headline, sub, 17)}</div>
+    ${phone(screen, { left: 660, top: 800, width: 1012 })}</div>`;
+}
+
+// The iPad set is portrait, because that is how the captures were taken and the app has no
+// landscape-only layout worth showing.
+function renderIPad(id) {
+  const [, eyebrow, headline, sub, screen] = SHOTS[id];
+  setSize(2064, 2752);
+  document.getElementById('root').innerHTML = `<div class="frame" style="width:2064px;height:2752px;--gw:1700px;--gh:1000px;--gy:0%">
+    <div class="caption" style="top:140px;padding:0 140px">${captionHtml(eyebrow, headline.replace('<br>', ' '), sub, 19)}</div>
+    ${ipad(screen, { left: 1032, top: 700, width: 1560 })}</div>`;
+}
+
+const params = new URLSearchParams(location.search);
+if (params.get('ipad')) renderIPad(params.get('ipad'));
+else if (params.get('banner')) renderBanner(params.get('banner'), params.get('size') || BANNER_SIZES[0]);
+else renderShot(params.get('shot') || 'give-01');
+</script>
+</body>
+</html>

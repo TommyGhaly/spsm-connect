@@ -23,13 +23,21 @@
  * not. Re-running with an empty `store/raw/` is not an error; it just says so.
  *
  * The custom product pages are the same screenshots again, reordered per page
- * from the table in `product-pages.mjs`, into `store/product-pages/`.
+ * from the table in `product-pages.mjs`, into `store/product-pages/`, along
+ * with each page's in-app event and featuring artwork, which is drawn.
  */
-import { mkdir, readdir, rm, writeFile } from 'node:fs/promises';
+import { Buffer } from 'node:buffer';
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { BACKGROUND, blank, plate, root, sealPixels, sharp, typeInk } from './brand.mjs';
-import { PRODUCT_PAGES, PROMO_LIMIT, SCREEN_LIMIT } from './product-pages.mjs';
+import {
+  ART_SIZES,
+  EVENT_LIMITS,
+  PRODUCT_PAGES,
+  PROMO_LIMIT,
+  SCREEN_LIMIT,
+} from './product-pages.mjs';
 
 const OUT = join(root, 'store');
 const RAW = join(OUT, 'raw');
@@ -446,6 +454,14 @@ function checkPages() {
           `App Store Connect takes ${PROMO_LIMIT}.`,
       );
     }
+    for (const [field, limit] of Object.entries(EVENT_LIMITS)) {
+      if (page.event[field].length > limit) {
+        throw new Error(
+          `The '${page.slug}' page's event ${field} is ${page.event[field].length} characters; ` +
+            `App Store Connect takes ${limit}.`,
+        );
+      }
+    }
     if (page.screens.length === 0 || page.screens.length > SCREEN_LIMIT) {
       throw new Error(
         `The '${page.slug}' page has ${page.screens.length} screenshots; it needs 1 to ${SCREEN_LIMIT}.`,
@@ -500,7 +516,136 @@ async function productPages() {
     }
   }
 
+  for (const page of PRODUCT_PAGES) {
+    const dir = join(OUT, 'product-pages', page.slug, 'art');
+    await mkdir(dir, { recursive: true });
+    for (const [width, height] of ART_SIZES) {
+      await writeFile(join(dir, `${width}x${height}.png`), await eventArt(page.icon, width, height));
+    }
+    console.log(`  ${page.slug}/art: ${ART_SIZES.map(([w, h]) => `${w}x${h}`).join(', ')}`);
+  }
+
   await writeFile(join(OUT, 'product-pages', 'README.md'), pagesReadme());
+}
+
+/** Iconographic gold, `gold` in the shared theme. Ornament, never text. */
+const GOLD = '#b08d43';
+
+/**
+ * One glyph from `src/components/Icon.tsx`, as SVG markup.
+ *
+ * Read out of the component rather than copied here, for the reason that file
+ * gives for copying the website's: an icon that is a slightly different shape
+ * on the store than in the app is drift. The JSX there is plain enough —
+ * `<Path>`, `<Circle>`, `<Rect>` with literal attributes — that renaming the
+ * three tags makes it SVG. A glyph that is not found, or that uses anything
+ * else, is a hard failure rather than a blank space in the artwork.
+ */
+async function glyph(name) {
+  const source = await readFile(join(root, 'src', 'components', 'Icon.tsx'), 'utf8');
+  const match =
+    source.match(new RegExp(`\\n  ${name}: \\(\\n    <>\\n([\\s\\S]*?)\\n    </>\\n  \\),`)) ??
+    source.match(new RegExp(`\\n  ${name}: (<[^\\n]*/>),`));
+  if (!match) throw new Error(`No icon called '${name}' in src/components/Icon.tsx.`);
+
+  const markup = match[1]
+    .replace(/<Path /g, '<path ')
+    .replace(/<Circle /g, '<circle ')
+    .replace(/<Rect /g, '<rect ');
+  if (/<[A-Z]/.test(markup)) {
+    throw new Error(`The '${name}' icon uses an element this script cannot draw: ${markup}`);
+  }
+  return markup;
+}
+
+/**
+ * In-app event and featuring artwork for one section: the seal and the
+ * section's glyph, side by side on `deep`, divided by a gold rule.
+ *
+ * ## No text, and nothing low
+ *
+ * App Store Connect sets the event's name and short description over the
+ * artwork itself, at the bottom, on a scrim of its own. Words in the image
+ * would sit under words on the image. So the lockup is centred on the upper
+ * 0.42 of the canvas and nothing goes in the bottom third.
+ *
+ * ## Why drawn rather than a photograph
+ *
+ * The widest photographs the website has are 1600px. Stretched to 5244 they
+ * are a blur at exactly the size Apple asked for. The seal and the glyphs are
+ * vector, so they are sharp at any size, and they are already what tells the
+ * sections apart in the app.
+ *
+ * Sized against the height, not the width, so the 16:9 card and the 21:9
+ * banner carry the same lockup at the same proportion and differ only in how
+ * much ground is either side of it — which is also what survives a centre
+ * crop, should the store take one.
+ */
+async function eventArt(icon, width, height) {
+  const box = Math.round(height * 0.4);
+  const gap = Math.round(box * 0.28);
+  const centreY = Math.round(height * 0.42);
+
+  const sealPng = await sealPixels(box);
+  const sealMeta = await sharp(sealPng).metadata();
+
+  // 1.6 in a 24-unit box, as the app draws it, which at this size is a stroke
+  // heavy enough to hold its own beside the seal.
+  const iconSvg = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${box}" height="${box}" viewBox="0 0 24 24" ` +
+      `fill="none" stroke="${GOLD}" stroke-width="1.6" stroke-linecap="round" ` +
+      `stroke-linejoin="round">${await glyph(icon)}</svg>`,
+  );
+  const iconPng = await sharp(iconSvg).png().toBuffer();
+
+  const rule = { width: Math.max(2, Math.round(height * 0.003)), height: Math.round(box * 0.7) };
+  const total = sealMeta.width + gap * 2 + rule.width + box;
+  const left = Math.round((width - total) / 2);
+
+  /*
+   * A soft lift behind the lockup, so a canvas this large is not a flat
+   * rectangle of one red. The same `deep`, lightened toward its centre; still
+   * dark enough that the store's white type reads over the lower part.
+   */
+  const glow = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">` +
+      '<defs><radialGradient id="g" cx="50%" cy="42%" r="60%">' +
+      '<stop offset="0" stop-color="#ffffff" stop-opacity="0.07"/>' +
+      '<stop offset="1" stop-color="#ffffff" stop-opacity="0"/>' +
+      `</radialGradient></defs><rect width="${width}" height="${height}" fill="url(#g)"/></svg>`,
+  );
+
+  const ruleSvg = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${rule.width}" height="${rule.height}">` +
+      `<rect width="${rule.width}" height="${rule.height}" fill="${GOLD}"/></svg>`,
+  );
+
+  const composed = await sharp(await plate(width, height))
+    .composite([
+      { input: glow, left: 0, top: 0 },
+      { input: sealPng, left, top: centreY - Math.round(sealMeta.height / 2) },
+      {
+        input: ruleSvg,
+        left: left + sealMeta.width + gap,
+        top: centreY - Math.round(rule.height / 2),
+      },
+      {
+        input: iconPng,
+        left: left + sealMeta.width + gap * 2 + rule.width,
+        top: centreY - Math.round(box / 2),
+      },
+    ])
+    .png()
+    .toBuffer();
+
+  /*
+   * Flattened in a pipeline of its own. Sharp runs `composite` after every
+   * other operation however the calls are chained, so a `flatten` in the
+   * pipeline above happens first and the composite brings the alpha channel
+   * back. Media with alpha is the one thing about this artwork a store will
+   * refuse on upload rather than display wrongly.
+   */
+  return sharp(composed).flatten({ background: BACKGROUND }).removeAlpha().png().toBuffer();
 }
 
 /**
@@ -519,6 +664,15 @@ function pagesReadme() {
       '',
       `  > ${page.promo}`,
       '',
+      '### As an in-app event',
+      '',
+      `- **Event name** (${page.event.name.length}/${EVENT_LIMITS.name}): ${page.event.name}`,
+      `- **Short description** (${page.event.short.length}/${EVENT_LIMITS.short}): ` +
+        page.event.short,
+      `- **Long description** (${page.event.long.length}/${EVENT_LIMITS.long}): ${page.event.long}`,
+      `- **Deep link:** \`${page.deepLink}\``,
+      `- **Artwork:** ${ART_SIZES.map(([w, h]) => `\`${page.slug}/art/${w}x${h}.png\``).join(', ')}`,
+      '',
     ].join('\n'),
   );
 
@@ -534,6 +688,10 @@ function pagesReadme() {
     'App Review on its own before its URL works; App Store Connect shows that URL',
     'once it is approved, and that is the link to put on a tag, a poster or the',
     'website instead of the plain listing.',
+    '',
+    'Each section is also written up as an **in-app event**, with the same deep',
+    'link and its own artwork. The artwork has no text on purpose: the store sets',
+    'the event name and short description over the bottom of it.',
     '',
     ...sections,
   ].join('\n');

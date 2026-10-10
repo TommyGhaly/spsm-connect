@@ -30,10 +30,21 @@
  *     invocation URL, which the association file already gives this app and
  *     `app/c/[slug].tsx` already routes, so nothing new has to agree with it.
  *
+ *   - `event` is the same errand written as an **in-app event**: a name, a
+ *     short description and a long one, which App Store Connect shows on the
+ *     event card and the event's own page. `deepLink` is that event's deep
+ *     link too, so the card opens the screen it describes.
+ *   - `icon` names the section's glyph in `src/components/Icon.tsx`. The event
+ *     and featuring artwork (`store/product-pages/<slug>/art/`) draws it beside
+ *     the seal, so each section's artwork is told apart by the same mark its
+ *     tab or drawer row already wears.
+ *
  * ## Apple's limits, checked in make-store-assets.mjs
  *
  * Promotional text is at most 170 characters. A page needs at least one
  * screenshot per required size and takes up to ten. An account gets 70 pages.
+ * An in-app event's name is at most 30 characters, its short description 50
+ * and its long description 120.
  * ---------------------------------------------------------------------------
  */
 
@@ -42,6 +53,20 @@ export const PROMO_LIMIT = 170;
 
 /** Screenshots per device size on one page. */
 export const SCREEN_LIMIT = 10;
+
+/** An in-app event's three text fields, in characters. */
+export const EVENT_LIMITS = { name: 30, short: 50, long: 120 };
+
+/**
+ * The artwork sizes App Store Connect takes for in-app event and featuring
+ * media: a 16:9 card and a wide 21:9 banner. The store sets the event's name
+ * and description over the lower part of the image itself, so the artwork
+ * carries no text and keeps its marks out of the bottom third.
+ */
+export const ART_SIZES = [
+  [5244, 2950],
+  [3840, 1646],
+];
 
 const CLIP = 'https://www.spsmwayland.org/c';
 
@@ -55,6 +80,13 @@ export const PRODUCT_PAGES = [
       'with Apple Pay, and this week’s services are one tab away.',
     deepLink: `${CLIP}/give`,
     screens: ['giving', 'calendar', 'belief', 'forms', 'bookstore'],
+    icon: 'gift',
+    event: {
+      name: 'Give to the Church',
+      short: 'Make an offering from your phone',
+      long:
+        'Give to St. Philopater Mercurius & St. Mina from your phone, through Tithe.ly and with Apple Pay.',
+    },
   },
   {
     slug: 'bookstore',
@@ -64,6 +96,13 @@ export const PRODUCT_PAGES = [
       'Apple Pay, and collect them at the church or have them delivered.',
     deepLink: `${CLIP}/bookstore`,
     screens: ['bookstore', 'calendar', 'giving', 'forms', 'belief'],
+    icon: 'bag',
+    event: {
+      name: 'The Church Bookstore',
+      short: 'Books from the church’s own shelf',
+      long:
+        'Browse the bookstore, pay with Apple Pay, and collect your books at church or have them delivered.',
+    },
   },
   {
     slug: 'this-week',
@@ -73,6 +112,13 @@ export const PRODUCT_PAGES = [
       'cannot be there. Church forms and giving are in the same app.',
     deepLink: `${CLIP}/schedule`,
     screens: ['calendar', 'livestream', 'forms', 'giving', 'belief'],
+    icon: 'calendar',
+    event: {
+      name: 'This Week at Church',
+      short: 'Services and events, day by day',
+      long:
+        'Every service and event at the church this week, and the Liturgy live when you cannot be there.',
+    },
   },
   {
     slug: 'newcomers',
@@ -82,6 +128,13 @@ export const PRODUCT_PAGES = [
       'see this week’s services, and watch a Liturgy live first.',
     deepLink: `${CLIP}/welcome`,
     screens: ['welcome', 'belief', 'calendar', 'livestream', 'forms'],
+    icon: 'newcomer',
+    event: {
+      name: 'Welcome, Newcomers',
+      short: 'Your first visit, explained',
+      long:
+        'Take the six-station tour of the Coptic Orthodox Church before you visit, then come and see it.',
+    },
   },
   {
     slug: 'forms',
@@ -91,6 +144,13 @@ export const PRODUCT_PAGES = [
       'church office, and more. None of them needs an account.',
     deepLink: `${CLIP}/forms`,
     screens: ['forms', 'calendar', 'giving', 'bookstore', 'belief'],
+    icon: 'file',
+    event: {
+      name: 'Church Forms',
+      short: 'Fill in a church form on your phone',
+      long:
+        'Register a vehicle, reach the church office and more — straight from your phone, no account needed.',
+    },
   },
   {
     slug: 'plans',
@@ -100,5 +160,12 @@ export const PRODUCT_PAGES = [
       'and give toward them from the same app.',
     deepLink: `${CLIP}/plans`,
     screens: ['plans', 'giving', 'calendar', 'welcome', 'belief'],
+    icon: 'plans',
+    event: {
+      name: 'Our Expansion Plans',
+      short: 'Three buildings for 169 Rice Road',
+      long:
+        'See the church, youth centre and diocese centre designed for 169 Rice Road, and where the work stands.',
+    },
   },
 ];
