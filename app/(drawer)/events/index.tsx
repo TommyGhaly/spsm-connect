@@ -14,19 +14,21 @@
  * *are* the content. A list of names would be cheaper here and would be the same
  * mistake.
  *
- * The picture on each tile is `summariseChildren`'s cover for that ministry —
- * chosen by the same walk the website uses, so the two show the same photograph
- * for the same ministry on the same day.
+ * Each tile cross-fades through up to eight of the ministry's photographs,
+ * spread across its whole archive and opened on a random one each visit — the
+ * website's plates since its commit 2eebb50, and chosen by the same rule
+ * (`coversOf`, over `spreadAcross` in `@spsm/shared`), so the two sections
+ * show the same overview of the same ministry. See `gallery/Cycling.tsx`.
  */
-import { useRouter } from 'expo-router';
+import { useIsFocused, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { hasRenderableFile, isSuperadmin } from '@spsm/shared';
+import { isSuperadmin } from '@spsm/shared';
 
 import { AdminFab } from '@/components/AdminFab';
 import { Card, Screen } from '@/components/Surface';
 import { Body, Label, Lede, Small, Title } from '@/components/Type';
-import { NoPictures, Picture } from '@/gallery/Picture';
+import { CyclingPicture, coversOf } from '@/gallery/Cycling';
 import {
   NewProgramSheet,
   NoMinistriesYet,
@@ -50,16 +52,22 @@ import { useTheme } from '@/theme/ThemeProvider';
 /**
  * How much of each ministry's archive the directory reads.
  *
- * Small, and it only has to be: this screen needs one cover and two counts per
- * ministry, and both are summaries. A ministry whose newest 60 approved
- * photographs are all still transcoding shows no cover — the same thing it shows
- * when it has none, which is the honest reading either way.
+ * Small, and it only has to be: this screen needs a handful of covers and two
+ * counts per ministry, and both are summaries. A ministry whose newest 60
+ * approved photographs are all still transcoding shows no cover — the same thing
+ * it shows when it has none, which is the honest reading either way.
+ *
+ * Wider than the website's 48 (`COVER_WINDOW` in its `data.ts`), and left so:
+ * the covers are spread across whatever this reads, so a wider window is a
+ * wider overview, and these are small documents — only the eight pictures the
+ * tile picks are ever downloaded.
  */
 const COVER_WINDOW = 60;
 
 interface Tile {
   program: ProgramRow;
-  cover: MediaRow | null;
+  /** What the tile cycles through — see `coversOf`. Empty for none. */
+  covers: MediaRow[];
   photos: number;
   videos: number;
 }
@@ -319,7 +327,7 @@ function Ministries({
       <Title>Our activities</Title>
       {tiles.map((tile, index) => (
         <View key={tile.program.id} style={{ gap: theme.space.xs }}>
-          <ProgramTile tile={tile} />
+          <ProgramTile tile={tile} index={index} />
           {editing ? (
             <TileControls
               program={tile.program as AdminProgramRow}
@@ -336,36 +344,47 @@ function Ministries({
 }
 
 /**
- * The ministry's own cover and counts.
+ * The ministry's own covers and counts.
  *
  * `summariseChildren` answers this for the *levels* of a program; nothing
  * answers it for a program itself, because the website's directory builds its
  * tiles from `featuredMediaIds` and falls back to the same walk. This is that
  * fallback, applied to one flat window of a ministry's media.
  *
- * `hasRenderableFile` is the part that is easy to leave out and impossible to
- * miss once it bites: without it the cover is the first approved photograph,
- * which may be one mid-transcode — and a tile has no "Processing…" state to fall
- * back to, so the ministry renders with the blank ground of one with no
- * photographs at all.
+ * Which photographs is `coversOf`'s answer, and the `hasRenderableFile` in it
+ * is the part that is easy to leave out and impossible to miss once it bites:
+ * without it a cover may be one mid-transcode — and a tile has no "Processing…"
+ * state to fall back to, so the ministry renders a blank lap of its cycle.
  */
 function summarise(media: readonly MediaRow[]): Omit<Tile, 'program'> {
-  const cover =
-    media.find(
-      (item) => item.kind === 'photo' && item.placement.onPage && hasRenderableFile(item),
-    ) ?? null;
-
   return {
-    cover,
+    covers: coversOf(media),
     photos: media.filter((item) => item.kind === 'photo').length,
     videos: media.filter((item) => item.kind === 'video').length,
   };
 }
 
-function ProgramTile({ tile }: { tile: Tile }) {
+/**
+ * How far behind the tile above each one turns — the website's ripple.
+ *
+ * The site's rail drives every plate from one counter and staggers the fade by
+ * 60ms a place (`.program-rail > li:nth-child(n)` in its globals.css), because
+ * plates all changing on the same frame "reads as the page glitching rather
+ * than as photographs turning". These tiles have a timer each but are mounted
+ * together, so without a stagger they would turn in the same lockstep.
+ */
+const RIPPLE_MS = 60;
+
+function ProgramTile({ tile, index }: { tile: Tile; index: number }) {
   const theme = useTheme();
   const router = useRouter();
-  const { program, cover } = tile;
+  /*
+   * Held still while a ministry's own page is on top. The directory stays
+   * mounted under the stack, and a cycle nobody can see is five timers
+   * re-rendering for nothing; it picks up where it left off on the way back.
+   */
+  const focused = useIsFocused();
+  const { program, covers } = tile;
 
   return (
     <Pressable
@@ -374,9 +393,15 @@ function ProgramTile({ tile }: { tile: Tile }) {
       accessibilityLabel={program.name}
       style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, gap: theme.space.xs })}
     >
-      {/* `NoPictures` rather than an empty plate: see the note on it. The count
-          line below is what says the ministry has none of its own. */}
-      {cover ? <Picture media={cover} height={200} /> : <NoPictures height={200} />}
+      {/* The seal rather than an empty plate for a ministry with none — see
+          `NoPictures`. The count line below is what says so in words. The
+          ripple is capped at the site's fifth place, as its rule is. */}
+      <CyclingPicture
+        covers={covers}
+        height={200}
+        running={focused}
+        delay={Math.min(index, 5) * RIPPLE_MS}
+      />
       <Body>{program.name}</Body>
       <Small color={theme.color.inkSoft}>{countLine(tile)}</Small>
     </Pressable>

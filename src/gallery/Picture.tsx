@@ -29,10 +29,17 @@ export function Picture({
   /** The cell's height. Width always fills whatever the parent gives it. */
   height,
   rounded = true,
+  onError,
 }: {
   media: MediaRow;
   height: number;
   rounded?: boolean;
+  /**
+   * The file would not load — a rendition the document names but the bucket
+   * does not have. Only the cycling tiles listen, to drop it from the lap; a
+   * gallery cell has nothing better to show than the empty frame.
+   */
+  onError?: () => void;
 }) {
   const theme = useTheme();
   const url = posterUrl(media);
@@ -77,6 +84,7 @@ export function Picture({
         // A poster frame with no way to play the clip would be a lie by
         // omission, so a video says it is one.
         placeholderContentFit="cover"
+        onError={onError}
       />
       {media.kind === 'video' ? <VideoMark /> : null}
     </View>

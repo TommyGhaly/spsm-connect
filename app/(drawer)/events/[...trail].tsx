@@ -388,7 +388,9 @@ function LevelView({ level, onChanged }: { level: Level; onChanged: () => void }
           id: child.id,
           label: child.title,
           href: `/events/${program.slug}/${slugs.join('/')}` as Href,
-          cover: summary?.cover ?? null,
+          // The spread `summariseChildren` takes across the child's subtree,
+          // not its single `cover`: the tile cycles, and opens on a random one.
+          covers: summary?.covers ?? [],
           note: shelfNote({
             children: summary?.children ?? 0,
             photos: summary?.photos ?? 0,

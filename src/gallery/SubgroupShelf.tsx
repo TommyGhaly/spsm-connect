@@ -48,7 +48,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon } from '@/components/Icon';
 import { Body, Micro, Small } from '@/components/Type';
-import { NoPictures, Picture } from '@/gallery/Picture';
+import { CyclingPicture } from '@/gallery/Cycling';
 import type { MediaRow } from '@/gallery/data';
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -59,8 +59,11 @@ export interface ShelfItem {
   label: string;
   /** Where pressing it goes. */
   href: Href;
-  /** The first photograph of its subtree, or null for a part with none. */
-  cover: MediaRow | null;
+  /**
+   * Up to eight photographs spread across its subtree, for the tile to cycle
+   * through — `summariseChildren`'s `covers`. Empty for a part with none.
+   */
+  covers: readonly MediaRow[];
   /** A count, or a state — "6", "3 inside", "empty". Never an action. */
   note: string;
 }
@@ -358,7 +361,7 @@ function Count({ n, onDeep = false }: { n: number; onDeep?: boolean }) {
 }
 
 /**
- * One part: its cover, with its name over it.
+ * One part: its covers, cross-fading, with its name over it.
  *
  * Borrowed from the ministry tiles on `/events`, which is the borrowing the
  * website made for the same reason — those tiles already solve this exact
@@ -367,6 +370,13 @@ function Count({ n, onDeep = false }: { n: number; onDeep?: boolean }) {
  *
  * The name sits *over* the picture on a band rather than under it, because a
  * caption under every tile doubles the height of the list for a word.
+ *
+ * The cycle is the website's read-only shelf, at its 3.2s: see
+ * `gallery/Cycling.tsx`. It needs no switch for the panel being shut, because
+ * a shut panel draws only its tab and these tiles are not mounted at all —
+ * opening it is a fresh visit, with a fresh random start for every tile. Each
+ * tile turning on the same beat is the site's shelf too, which drives all of
+ * its tiles from one counter.
  */
 function Tile({ item, onGo }: { item: ShelfItem; onGo: () => void }) {
   const theme = useTheme();
@@ -389,11 +399,8 @@ function Tile({ item, onGo }: { item: ShelfItem; onGo: () => void }) {
         overflow: 'hidden',
       })}
     >
-      {item.cover ? (
-        <Picture media={item.cover} height={TILE} rounded={false} />
-      ) : (
-        <NoPictures height={TILE} rounded={false} />
-      )}
+      {/* The seal for a part with no photographs of its own — see `NoPictures`. */}
+      <CyclingPicture covers={item.covers} height={TILE} rounded={false} />
 
       {/*
         The band the name sits on. `deep` at four fifths rather than a gradient:

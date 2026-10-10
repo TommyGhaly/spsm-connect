@@ -48,13 +48,13 @@ import {
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ADMIN_SCREENS, hasAnyProgramGrant, hasRenderableFile, isSuperadmin } from '@spsm/shared';
+import { ADMIN_SCREENS, hasAnyProgramGrant, isSuperadmin } from '@spsm/shared';
 
 import { Icon, type IconName } from '@/components/Icon';
 import { Button } from '@/components/Surface';
 import { Heading, Label, Small, Subheading } from '@/components/Type';
+import { CyclingThumb, coversOf } from '@/gallery/Cycling';
 import { getProgramMedia, listPrograms, type MediaRow, type ProgramRow } from '@/gallery/data';
-import { focalContentPosition, posterUrl } from '@/gallery/media';
 import { mayAdminScreen, type Grants } from '@/firebase/grants';
 import { signOut, type User } from '@/firebase/auth';
 import { deleteOwnAccount } from '@/session/account';
@@ -288,11 +288,11 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
             onPress={() => go('/events')}
           />
         ) : (
-          events.map(({ program, cover }, index) => (
+          events.map(({ program, covers }, index) => (
             <Action
               key={program.id}
               label={program.name}
-              leading={<Thumb cover={cover} />}
+              leading={<Thumb covers={covers} open={status === 'open'} />}
               active={active === `/events/${program.slug}`}
               last={index === events.length - 1}
               onPress={() => goMinistry(`/events/${program.slug}` as Path)}
@@ -356,21 +356,29 @@ export function DrawerContent({ navigation, state }: DrawerContentComponentProps
 
 interface EventRow {
   program: ProgramRow;
-  /** The ministry's own photograph, once it has been found. */
-  cover: MediaRow | null;
+  /**
+   * What its thumbnail cycles through, once found — empty until then, and for
+   * a ministry with none. See `coversOf`.
+   */
+  covers: MediaRow[];
 }
 
 /**
- * How deep into a ministry's archive to look for one thumbnail.
+ * How deep into a ministry's archive to look for its thumbnail's photographs.
  *
- * The directory screen reads 60 for the same job. This wants far less: it needs
- * the first placed, transcoded photograph in `order`, which for any ministry
- * somebody has curated is in the first handful. 24 is the compromise — five of
- * these run at once, and a ministry whose first 24 are all clips or still
- * transcoding falls back to the glyph, which is the same thing it shows when it
- * has no photographs at all.
+ * 48, the website's own window for its Events menu (`COVER_WINDOW` in its
+ * `data.ts`, which `nav.ts` reads). It was 24 when this needed one cover —
+ * the first placed, transcoded photograph, which for any curated ministry is in
+ * the first handful. Now the eight it cycles are spread across whatever is
+ * read, so the window is how wide an overview the thumbnail gives, and 24 would
+ * be a cross-section of the ministry's first couple of outings. The reads are
+ * small documents and happen once per launch, the first time the drawer opens;
+ * only the eight picked are ever downloaded.
+ *
+ * Narrower than the directory screen's 60, which also counts the ministry's
+ * photographs for its tile and so wants more of the archive in view.
  */
-const COVER_WINDOW = 24;
+const COVER_WINDOW = 48;
 
 /**
  * The events, read once, the first time the drawer is opened.
@@ -407,12 +415,12 @@ function useEvents(): EventRow[] | null {
     void (async () => {
       const programs = await listPrograms();
       if (cancelled) return;
-      setEvents(programs.map((program) => ({ program, cover: null })));
+      setEvents(programs.map((program) => ({ program, covers: [] })));
 
       const withCovers = await Promise.all(
         programs.map(async (program) => ({
           program,
-          cover: coverOf(await getProgramMedia(program.id, COVER_WINDOW)),
+          covers: coversOf(await getProgramMedia(program.id, COVER_WINDOW)),
         })),
       );
       if (!cancelled) setEvents(withCovers);
@@ -424,23 +432,6 @@ function useEvents(): EventRow[] | null {
   }, [status]);
 
   return events;
-}
-
-/**
- * The one photograph that stands for a ministry.
- *
- * The same three conditions the directory screen applies, and all three are
- * load-bearing. `onPage` keeps a photograph nobody placed out of the summary;
- * `hasRenderableFile` keeps out one that is approved but still transcoding,
- * which has no file to draw and would render as a hole rather than as a
- * fallback.
- */
-function coverOf(media: readonly MediaRow[]): MediaRow | null {
-  return (
-    media.find(
-      (item) => item.kind === 'photo' && item.placement.onPage && hasRenderableFile(item),
-    ) ?? null
-  );
 }
 
 /* -- the masthead ---------------------------------------------------------- */
@@ -708,59 +699,56 @@ function Action({
 }
 
 /**
- * A ministry's own photograph, at the size of the glyph it replaces.
+ * A ministry's own photographs, at the size of the glyph they replace.
  *
  * This is the single biggest thing keeping the drawer from reading as a list of
  * words: five identical `photos` glyphs said only "these are galleries", which
  * the heading above them already said. The covers are the church's own
  * photographs of its own people, and they are the content.
  *
- * `expo-image` directly rather than `Picture`, which fills its parent's width
- * and has a "Processing…" state — correct at 200pt on the directory screen, and
- * at 38pt a grey box with unreadable text in it. Here an absent or
- * still-transcoding cover falls back to the glyph, which is what the row would
- * have had anyway.
+ * ## Why it cycles at 38pt
  *
- * `contentPosition` from the administrator's focal point, for the same reason
- * the galleries honour it: a 38pt square is a brutal crop, and the middle of a
- * photograph is very often not the face in it.
+ * The website's Events menu cycles its tiles, and Tommy decided the app's
+ * equivalents should do what the site does. Whether that survives the drop to a
+ * thumbnail was a fair question, and the answer is yes: 38pt is small, but it is
+ * a photograph rather than a glyph — a face, a group, a place are all legible
+ * at this size — and a crop that brutal is the strongest argument *for* cycling,
+ * since one square of one picture says little about a ministry and eight
+ * squares spread across its archive say a good deal more. The site's own reason
+ * for its menu's 3.2s applies unchanged: a menu is looked at for a few seconds
+ * at a time, so this is a tile that changes once while you read the row, not a
+ * flicker.
+ *
+ * It only runs while the drawer is open, as the site's menu only runs while its
+ * dropdown is. The drawer is mounted with the navigator for the life of the app,
+ * so without that this would be five timers re-rendering a closed menu forever.
+ *
+ * An absent ministry or one whose window has no placed, transcoded photograph
+ * falls back to the glyph, which is what the row would have had anyway.
  */
-function Thumb({ cover }: { cover: MediaRow | null }) {
+function Thumb({ covers, open }: { covers: readonly MediaRow[]; open: boolean }) {
   const theme = useTheme();
-  const url = cover ? posterUrl(cover) : null;
   const size = 38;
 
-  if (cover === null || url === null) {
-    return (
-      <View
-        style={{
-          width: size,
-          height: size,
-          borderRadius: theme.radius.sm,
-          backgroundColor: theme.color.paperSunken,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Icon name="photos" color={theme.color.inkFaint} size={18} />
-      </View>
-    );
-  }
-
   return (
-    <Image
-      source={{ uri: url }}
-      style={{ width: size, height: size, borderRadius: theme.radius.sm }}
-      contentFit="cover"
-      contentPosition={focalContentPosition(cover.focal)}
-      // The same tier the galleries use. A drawer is opened over and over, and
-      // the memory cache is what stops five thumbnails refetching each time.
-      cachePolicy="memory-disk"
-      transition={180}
-      // The ministry's name is the label on this row; the picture is not a
-      // second thing to announce.
-      accessibilityElementsHidden
-      importantForAccessibility="no"
+    <CyclingThumb
+      covers={covers}
+      size={size}
+      running={open}
+      fallback={
+        <View
+          style={{
+            width: size,
+            height: size,
+            borderRadius: theme.radius.sm,
+            backgroundColor: theme.color.paperSunken,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Icon name="photos" color={theme.color.inkFaint} size={18} />
+        </View>
+      }
     />
   );
 }
