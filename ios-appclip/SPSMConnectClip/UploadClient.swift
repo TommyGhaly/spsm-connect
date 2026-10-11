@@ -184,23 +184,56 @@ enum UploadClient {
         return reservation.mediaId
     }
 
-    /// The app's ladder, shortened.
+    /// The app's ladder: `upload/condense.ts`, rung for rung.
     ///
-    /// `upload/condense.ts` steps down edge then quality, because a smaller
-    /// picture at decent quality reads better than a large one at poor quality.
-    /// One photograph in a foreground upload does not need the whole ladder —
-    /// 2048px at 0.72 lands comfortably inside what a phone on church wifi
-    /// finishes while its owner waits.
+    /// Edge first, then quality — a smaller picture at decent quality reads
+    /// better than a large one at poor quality — and it stops at the first rung
+    /// under the budget, which for a 12 MP photograph is the first one. This
+    /// was 2048px at 0.72 once, to keep a foreground upload short; it made the
+    /// clip's photographs visibly softer than the app's for the same moment,
+    /// and a church wifi upload of three or four megabytes is a few seconds.
+    ///
+    /// JPEG rather than the app's WebP because UIKit has no WebP encoder; at
+    /// 0.92 the difference is size, not sharpness. The numbers are the shared
+    /// package's `PHOTO_MAX_EDGE`, `PHOTO_QUALITY` and `PHOTO_BUDGET_BYTES`.
     private static func condense(_ image: UIImage) -> Data? {
-        let maxEdge: CGFloat = 2048
-        let longest = max(image.size.width, image.size.height)
-        let scale = longest > maxEdge ? maxEdge / longest : 1
+        let budget = 12 * 1024 * 1024
+        let ladder: [(edge: CGFloat, quality: CGFloat)] = [
+            (3840, 0.92),
+            (3840, 0.72),
+            (3840, 0.62),
+            (2048, 0.62),
+        ]
 
-        guard scale < 1 else { return image.jpegData(compressionQuality: 0.72) }
+        var last: Data?
+        for rung in ladder {
+            guard let data = resized(image, toEdge: rung.edge).jpegData(compressionQuality: rung.quality) else {
+                continue
+            }
+            if data.count <= budget { return data }
+            last = data
+        }
+        return last
+    }
 
-        let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
-        let renderer = UIGraphicsImageRenderer(size: size)
-        let resized = renderer.image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
-        return resized.jpegData(compressionQuality: 0.72)
+    /// Bounded on the long edge, in pixels.
+    ///
+    /// `format.scale = 1` is load-bearing: `UIGraphicsImageRenderer` otherwise
+    /// draws at the screen's scale, so a 2048-point canvas on a 3× phone is
+    /// 6144 pixels wide — the old version of this function shipped exactly
+    /// that, and its "2048px" photographs were larger than the originals.
+    private static func resized(_ image: UIImage, toEdge edge: CGFloat) -> UIImage {
+        let pixels = CGSize(width: image.size.width * image.scale, height: image.size.height * image.scale)
+        let longest = max(pixels.width, pixels.height)
+        // Drawn even when no smaller, because the draw is what applies the
+        // orientation and drops the EXIF block. See `send`.
+        let factor = min(1, edge / longest)
+        let size = CGSize(width: (pixels.width * factor).rounded(), height: (pixels.height * factor).rounded())
+
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            image.draw(in: CGRect(origin: .zero, size: size))
+        }
     }
 }

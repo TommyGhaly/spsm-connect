@@ -17,37 +17,43 @@
  * dark — it is `inkInverse` on scrims of `deep` in both, which is the same
  * decision every camera on every phone has made.
  *
- * ## Mode, and why the video path is slower than the photo path
+ * ## Why VisionCamera, and not expo-camera
  *
- * `mode` is not a label on the session, it *is* the session: on iOS,
- * `mode: 'video'` swaps the capture preset to `videoQuality`'s and adds the
- * audio input, and `mode: 'picture'` tears the movie output back down (see
- * `CameraSessionManager.setCameraMode`). So leaving it on `'video'` to make
- * recording instant would silently cap **every photograph** at 720p — the
- * primary thing this app does, degraded to speed up the secondary one.
+ * The brief is the phone's own camera: the same lenses behind the same
+ * numbers, and a picture as sharp as the one the Camera app takes. expo-camera
+ * could not get there from JavaScript. Its `zoom` was a 0–1 fraction of a
+ * maximum it never reported, its lenses were physical devices picked out by
+ * their *localized* names, and nothing in it said whether an iPhone's
+ * telephoto was 2×, 3× or 5× — so the pill read "Tele", and a phone set to
+ * Spanish had no pills at all.
  *
- * So the switch happens on the hold, and it costs what a session
- * reconfiguration costs. `mode` is a prop whose setter hops to a serial session
- * queue with no callback to wait on, so there is nothing to await: this settles
- * for a beat, tries, and retries a few times if the movie output is not up yet
- * (`CameraOutputNotReadyException`). Slow devices take longer and get more
- * attempts rather than a longer wait imposed on everybody.
+ * VisionCamera opens the device the Camera app opens: the virtual triple or
+ * dual-wide camera, which hands the picture from one piece of glass to the
+ * next as the zoom crosses it, and which reports where those crossings are.
+ * That is what lets the row read 0.5, 1, 2, 3 and a pinch run from the ultra
+ * wide into the telephoto without a press in between. See `lensModel`.
+ *
+ * ## Why the video path is slower than the photo path
+ *
+ * The movie output is in the session only while the shutter is held. A movie
+ * output with sound needs an audio input, and an audio input in the session is
+ * an open microphone — the orange dot, and somebody's music stopping — for as
+ * long as the viewfinder is, which is the whole time this tab is in front. It
+ * would also have the session's format negotiated between the photograph and
+ * the clip, when every tap of the shutter wants it chosen for the photograph.
+ *
+ * So the hold adds the output, waits for the session to say it has been
+ * reconfigured (`onConfigured`), and only then records. That costs what a
+ * reconfiguration costs, and a finger lifted before it is done gets a
+ * photograph rather than nothing.
  *
  * ## What is unmounted, and why that matters
  *
- * `CameraView` is dropped entirely when the tab is not focused. A camera left
+ * `Camera` is dropped entirely when the tab is not focused. A camera left
  * running behind four other screens is a battery cost, a privacy indicator
  * burning on the status bar with nothing on screen to explain it, and on
  * Android a device another app cannot open.
  */
-import {
-  CameraView,
-  useCameraPermissions,
-  useMicrophonePermissions,
-  type CameraMode,
-  type CameraType,
-  type FlashMode,
-} from 'expo-camera';
 import { Image } from 'expo-image';
 import * as MediaLibrary from 'expo-media-library';
 import { useFocusEffect, useIsFocused, useRouter } from 'expo-router';
@@ -55,6 +61,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Platform, Pressable, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  Camera,
+  CommonResolutions,
+  useCameraDevice,
+  useCameraPermission,
+  useMicrophonePermission,
+  usePhotoOutput,
+  useVideoOutput,
+  type CameraDevice,
+  type CameraRef,
+  type DeviceFilter,
+  type FlashMode,
+  type Recorder,
+} from 'react-native-vision-camera';
 import { VIDEO_MAX_BYTES } from '@spsm/shared';
 
 import { Button, Card, Screen } from '@/components/Surface';
@@ -72,15 +92,19 @@ import { Shutter } from './Shutter';
 import { useDestination } from './useDestination';
 
 /**
- * The cap on a held recording, in seconds, and the quality it records at.
+ * The cap on a held recording, in seconds, and the size it is held to.
  *
  * The two are one decision. `VIDEO_MAX_BYTES` is 100 MB and a client cannot
  * re-encode a video — `condense` says so in its own header — so a clip over the
  * ceiling is *refused*, after it was recorded, which is the worst possible
- * moment to find out. 720p runs at roughly 0.6–1 MB per second on a phone, so a
- * full minute lands near 40–60 MB and the refusal is unreachable by
- * construction. At 1080p a long minute can pass 100 MB, and somebody would
- * occasionally lose a recording they had already taken.
+ * moment to find out.
+ *
+ * The bit rate is what keeps that unreachable, not the resolution. The session
+ * negotiates one format for every output in it, and the photograph's comes
+ * first, so the clip's resolution is a preference the session may overrule —
+ * on an iPhone the movie is written at the format's own size. A bit rate is a
+ * promise instead: 8 Mbps is about a megabyte a second whatever the frame
+ * turns out to be, so a full minute lands near 60 MB.
  *
  * `maxFileSize` is passed as well, and the two together with `condense`'s own
  * check make three independent guards on the same number. That is not
@@ -99,32 +123,53 @@ import { useDestination } from './useDestination';
  * is judged against the destination it is actually going to.
  */
 const MAX_SECONDS = 60;
-const VIDEO_QUALITY = '720p' as const;
+const VIDEO_BIT_RATE = 8_000_000;
 
-/** How long to let the session settle after `mode` changes, before recording. */
-const SESSION_SETTLE_MS = 180;
-/** Extra tries, at the same spacing, for a device still reconfiguring. */
-const RECORD_ATTEMPTS = 8;
 /**
- * How long to wait before believing a `recordAsync` that has not rejected.
+ * How long a hold waits for the session to take the movie output.
  *
- * "Not ready" rejects on the next turn of the loop — it is a nil check in the
- * native module — so anything still pending after this is a recording that
- * genuinely started. Long enough not to race the bridge, short enough that
- * the ring does not visibly lag the finger.
+ * A reconfiguration is a few hundred milliseconds on a recent iPhone and can
+ * be seconds on a slow Android (four on the emulator). This is
+ * the point past which it is not coming — and the hold then becomes the
+ * photograph it would have been had the finger come up.
  */
-const EARLY_FAILURE_MS = 80;
-/** How often to re-ask a recorder that was told to stop before it existed. */
-const STOP_RETRY_MS = 120;
+const CONFIGURE_TIMEOUT_MS = 5000;
+/** Tries at starting the recorder, each after the session reconfigures. */
+const RECORD_ATTEMPTS = 3;
+/** A recording that fails sooner than this was a tap. See `startVideo`. */
+const SHORT_FAILURE_MS = 1500;
+
+/**
+ * How fast a lens pill moves the zoom, and the two platforms do not even agree
+ * on the unit.
+ *
+ * iOS hands it to `AVCaptureDevice.ramp(toVideoZoomFactor:withRate:)`, where it
+ * is doublings per second: 1× to 3× is about one and a half doublings, so 8
+ * gets there in a fifth of a second, which is the Camera app's own speed. On
+ * Android VisionCamera runs a `ValueAnimator` and the same argument is its
+ * duration, in milliseconds.
+ */
+const ZOOM_RAMP = Platform.OS === 'ios' ? 8 : 200;
+
+/**
+ * Every lens on the back, so that the device opened is the virtual one that
+ * moves between them. See `lensModel`. The front has one lens and is left to
+ * the platform's default.
+ */
+const BACK_LENSES: DeviceFilter = {
+  physicalDevices: ['ultra-wide-angle', 'wide-angle', 'telephoto'],
+};
 
 /**
  * How a recording ended: with a file, or not at all.
- *
- * `ok: false` covers both of `recordAsync`'s rejections — the movie output not
- * being ready, and the view unmounting mid-recording — which are told apart by
- * *when* they arrive rather than by what they are.
  */
-type RecordOutcome = { ok: true; uri: string | null } | { ok: false; uri: null };
+type RecordOutcome = { ok: true; uri: string } | { ok: false };
+
+/** A zoom, in the session's units, and the device it was set on. */
+interface DeviceZoom {
+  device: string;
+  value: number;
+}
 
 export function CameraScreen() {
   const theme = useTheme();
@@ -134,33 +179,51 @@ export function CameraScreen() {
   const uploads = useUploads();
   const focused = useIsFocused();
 
-  const [camera, requestCamera] = useCameraPermissions();
-  const [microphone, requestMicrophone] = useMicrophonePermissions();
+  const camera = useCameraPermission();
+  const microphone = useMicrophonePermission();
 
-  const cameraRef = useRef<CameraView | null>(null);
+  const cameraRef = useRef<CameraRef | null>(null);
 
-  const [facing, setFacing] = useState<CameraType>('back');
+  const [position, setPosition] = useState<'back' | 'front'>('back');
   const [flash, setFlash] = useState<FlashMode>('off');
-  const [mode, setMode] = useState<CameraMode>('picture');
-  const [zoom, setZoom] = useState(0);
+  /** True while a hold wants the movie output in the session. See the header. */
+  const [wantVideo, setWantVideo] = useState(false);
+
+  const device = useCameraDevice(position, position === 'back' ? BACK_LENSES : undefined);
+  const lens = useMemo(() => (device ? lensModel(device) : null), [device]);
 
   /*
-   * The lenses this phone turns out to have, and which of them is in use.
+   * The zoom, in the session's own units, and which device it belongs to.
    *
-   * iOS only, and that is the platform's doing rather than a decision here:
-   * `selectedLens` picks a physical `AVCaptureDevice`, and expo-camera's
-   * Android side has no equivalent — its `zoom` is CameraX's zoom ratio with a
-   * floor of 1, so an Android ultra-wide cannot be reached through this API at
-   * all. The row simply does not appear there, which is also what happens on
-   * an iPhone with one camera. See `lensChoices`.
+   * Keyed on the device because a zoom is only meaningful on the device it was
+   * set on: the back camera's 3× is a number the front camera may not even
+   * reach, and VisionCamera refuses a zoom outside the range rather than
+   * clamping it. Turning the camera round therefore needs no reset — the key
+   * stops matching and the new device starts at its own 1×.
    *
-   * `null` is "whatever the platform opens by default", which is the wide
-   * angle on every iPhone — a name is only ever held here for a lens the
-   * sender has actually asked for.
+   * Two of them, because a pill's glide is run natively and the prop must
+   * not cut across it. `shown` is what the pills say and moves the moment
+   * one is pressed. `settled` is the `zoom` prop the session is held to,
+   * and catches up when the glide lands — setting it at the start would have
+   * VisionCamera `setZoom` straight to the end and cancel the ramp. The prop
+   * is also what a new session opens at, which is why it has to be right:
+   * the hold that adds the movie output must not snap a 3× shot back to 0.5×.
+   *
+   * The ref is for the gestures, which are built once and cannot close over
+   * state.
    */
-  const [lenses, setLenses] = useState<string[]>([]);
-  const [lens, setLens] = useState<string | null>(null);
-  const [autofocus, setAutofocus] = useState<'on' | 'off'>('on');
+  const [shown, setShown] = useState<DeviceZoom | null>(null);
+  const [settled, setSettled] = useState<DeviceZoom | null>(null);
+  const zoomRef = useRef<DeviceZoom | null>(null);
+  const lensRef = useRef<{ device: string; model: LensModel } | null>(null);
+  useEffect(() => {
+    lensRef.current = device && lens ? { device: device.id, model: lens } : null;
+  }, [device, lens]);
+
+  const neutralZoom = lens?.neutral ?? 1;
+  const shownZoom = device && shown?.device === device.id ? shown.value : neutralZoom;
+  const settledZoom = device && settled?.device === device.id ? settled.value : neutralZoom;
+
   const [focusAt, setFocusAt] = useState<{ x: number; y: number; at: number } | null>(null);
 
   const [recording, setRecording] = useState(false);
@@ -174,6 +237,38 @@ export function CameraScreen() {
   const [picking, setPicking] = useState(false);
 
   const destination = useDestination();
+
+  /*
+   * The two outputs, made once each. The photograph's is the reason for the
+   * whole screen and is configured for it:
+   *
+   *  - 4032 × 3024, the main camera's own 12 MP. `condense` brings everything
+   *    to 3840 on the long edge, so a 48 MP original would be four times the
+   *    capture time and memory for a picture that arrives the same size.
+   *  - `'quality'`, which is what lets iOS run Deep Fusion and the full Smart
+   *    HDR pass rather than the fast one. It is the single biggest difference
+   *    between this and the Camera app's sharpness, and it costs a fraction
+   *    of a second after the shutter, not before it.
+   *  - JPEG rather than the platform's own HEIC, because the content type is
+   *    carried with the capture and the re-encode in `condense` is the same
+   *    either way.
+   */
+  const photoOutput = usePhotoOutput({
+    targetResolution: CommonResolutions.UHD_4_3,
+    containerFormat: 'jpeg',
+    quality: 1,
+    qualityPrioritization: 'quality',
+  });
+  const videoOutput = useVideoOutput({
+    targetResolution: CommonResolutions.HD_16_9,
+    targetBitRate: VIDEO_BIT_RATE,
+    // A denied microphone is a silent clip, not a failed one.
+    enableAudio: microphone.hasPermission,
+  });
+  const outputs = useMemo(
+    () => (wantVideo ? [photoOutput, videoOutput] : [photoOutput]),
+    [wantVideo, photoOutput, videoOutput],
+  );
 
   /*
    * The recorder's ownership, and the two facts a running `startVideo` has to
@@ -190,15 +285,19 @@ export function CameraScreen() {
   const runRef = useRef<number | null>(null);
   const runCounterRef = useRef(0);
   const stopRequestedRef = useRef(false);
+  const recorderRef = useRef<Recorder | null>(null);
   const captureRef = useRef<Capture | null>(null);
+  /** Whoever is waiting for the session to finish reconfiguring. */
+  const configuredRef = useRef<(() => void)[]>([]);
 
   /*
-   * The two one-at-a-time guards that cannot be state, for the reason given
-   * at each call site: a second press inside the same frame reads the value
-   * from before the first one.
+   * The one-at-a-time guards that cannot be state, for the reason given at
+   * each call site: a second press inside the same frame reads the value from
+   * before the first one.
    */
   const sendingRef = useRef(false);
   const pickingRef = useRef(false);
+  const shootingRef = useRef(false);
 
   useEffect(() => {
     captureRef.current = capture;
@@ -217,18 +316,22 @@ export function CameraScreen() {
    * over-asking: holding the shutter records sound, that is half of what the
    * feature is for, and the alternative is interrupting somebody's first
    * recording with a system sheet at the moment they are trying to catch
-   * something. A refusal is not fatal — `mute` below turns a denied microphone
-   * into a silent clip rather than a broken one.
+   * something. A refusal is not fatal — `enableAudio` above turns a denied
+   * microphone into a silent clip rather than a broken one.
    */
-  useEffect(() => {
-    if (!focused) return;
-    if (camera && !camera.granted && camera.canAskAgain) void requestCamera();
-  }, [focused, camera, requestCamera]);
+  const { canRequestPermission: canAskCamera, requestPermission: requestCamera } = camera;
+  const { canRequestPermission: canAskMicrophone, requestPermission: requestMicrophone } =
+    microphone;
 
   useEffect(() => {
-    if (!focused || !camera?.granted) return;
-    if (microphone && !microphone.granted && microphone.canAskAgain) void requestMicrophone();
-  }, [focused, camera?.granted, microphone, requestMicrophone]);
+    if (!focused) return;
+    if (canAskCamera) void requestCamera();
+  }, [focused, canAskCamera, requestCamera]);
+
+  useEffect(() => {
+    if (!focused || !camera.hasPermission) return;
+    if (canAskMicrophone) void requestMicrophone();
+  }, [focused, camera.hasPermission, canAskMicrophone, requestMicrophone]);
 
   /* ---------------------------------------------------------------------- */
   /* Leaving the screen                                                      */
@@ -238,11 +341,10 @@ export function CameraScreen() {
    * A recording does not survive the tab losing focus, and the clip is lost
    * with it.
    *
-   * `CameraView` is unmounted below when `focused` goes false, and on iOS the
-   * view's `deinit` *rejects* the pending `recordAsync` rather than resolving
-   * it with what had been written — so leaving the tab mid-recording loses
-   * the clip outright. That is worth stating plainly rather than implying a
-   * graceful stop that does not happen.
+   * `Camera` is unmounted below when `focused` goes false, and the session
+   * goes with it, so a recording in flight ends in an error rather than a
+   * file. That is worth stating plainly rather than implying a graceful stop
+   * that does not happen.
    *
    * It is also the right behaviour to keep: a clip somebody walked away from
    * halfway through is not a clip they meant to send, and salvaging it would
@@ -254,228 +356,263 @@ export function CameraScreen() {
   useFocusEffect(
     useCallback(() => {
       return () => {
-        /*
-         * Disown the recorder rather than only resetting the picture of it.
-         * `CameraView` unmounts on blur and its `deinit` *rejects* the pending
-         * `recordAsync` on iOS, so the run is finished whether or not it has
-         * a file; dropping the token is what stops it writing state into a
-         * screen that has been left.
-         */
+        // Disown the recorder, which is what stops a run that is still
+        // awaiting from writing state into a screen that has been left.
         runRef.current = null;
+        recorderRef.current = null;
         stopRequestedRef.current = false;
         setRecording(false);
         setLocked(false);
         setStartedAt(null);
-        setMode('picture');
+        setWantVideo(false);
       };
     }, []),
   );
+
+  /* ---------------------------------------------------------------------- */
+  /* The session                                                             */
+  /* ---------------------------------------------------------------------- */
+
+  const handleConfigured = useCallback(() => {
+    const waiting = configuredRef.current;
+    configuredRef.current = [];
+    for (const resume of waiting) resume();
+  }, []);
+
+  /** Resolves true when the session next finishes configuring, false on timeout. */
+  const nextConfigured = useCallback(
+    () =>
+      new Promise<boolean>((resolve) => {
+        const timer = setTimeout(() => resolve(false), CONFIGURE_TIMEOUT_MS);
+        configuredRef.current.push(() => {
+          clearTimeout(timer);
+          resolve(true);
+        });
+      }),
+    [],
+  );
+
+  /** The zoom as it is now, for gestures that cannot read it from state. */
+  const readZoom = useCallback(() => {
+    const current = lensRef.current;
+    if (!current) return undefined;
+    return zoomRef.current?.device === current.device ? zoomRef.current.value : current.model.neutral;
+  }, []);
+
+  const handleCameraError = useCallback((error: Error) => {
+    /*
+     * Interruptions, a device another app has just taken, a capture during a
+     * reconfiguration: each of these is answered by the viewfinder still being
+     * live to try again, and none is worth a dialog. Kept visible in
+     * development, where the default handler's red box would be noise.
+     */
+    if (__DEV__) console.warn('[camera]', error.message);
+  }, []);
 
   /* ---------------------------------------------------------------------- */
   /* Capture                                                                 */
   /* ---------------------------------------------------------------------- */
 
   const takePhoto = useCallback(async () => {
-    const view = cameraRef.current;
-    if (!view || captureRef.current !== null) return;
+    if (captureRef.current !== null || shootingRef.current) return;
+    // A ref, because a quick second tap reads last render's state and would
+    // take a second photograph over the first one's preview.
+    shootingRef.current = true;
 
     try {
-      const photo = await view.takePictureAsync({
-        // Full quality out of the camera. `condense` is what makes it small,
-        // and it does a better job from a better original — compressing twice
-        // is how a photograph ends up looking like a photograph of a screen.
-        quality: 1,
-        // The EXIF block is dropped by the re-encode in `condense` and stripped
-        // again server-side. Not asking for it here means the GPS tag never
-        // exists in this process at all.
-        exif: false,
-      });
+      const photo = await photoOutput.capturePhotoToFile(
+        {
+          // The front camera has no flash unit; asking for one is ignored
+          // natively, but saying so here is clearer than relying on that.
+          flashMode: device?.hasFlash ? flash : 'off',
+          // The ultra wide's stretched corners, corrected the way the Camera
+          // app corrects them. Ignored by lenses that do not need it.
+          enableDistortionCorrection: true,
+          // Lets a virtual device fuse frames from two lenses at an
+          // in-between zoom, which is most of what makes 2× look like glass.
+          enableVirtualDeviceFusion: true,
+          /*
+           * No `location`, which is what keeps GPS out of the file. The EXIF
+           * block that remains is dropped by the re-encode in `condense` and
+           * stripped again server-side.
+           */
+        },
+        {},
+      );
       // Re-checked: the await above is long enough for a recording to have
       // finished and claimed the preview.
-      if (!photo || captureRef.current !== null) return;
+      if (captureRef.current !== null) return;
       setRefused([]);
-      setCapture({ uri: photo.uri, contentType: 'image/jpeg', kind: 'photo' });
+      setCapture({ uri: fileUri(photo.filePath), contentType: 'image/jpeg', kind: 'photo' });
     } catch {
       // A shutter that does not fire is not worth a dialog. The preview simply
       // does not appear, and the viewfinder is still live to try again.
+    } finally {
+      shootingRef.current = false;
     }
-  }, []);
+  }, [photoOutput, device, flash]);
 
   /**
-   * Hold the shutter: switch the session to video, start recording, and own
-   * the recorder until it stops.
+   * Hold the shutter: put the movie output in the session, start recording,
+   * and own the recorder until it stops.
    *
    * ## One owner at a time, by token
    *
    * `runRef` is the invocation that currently owns the recorder, and every
-   * step below re-checks that it is still the owner before touching state.
-   * This is not defensive padding — it is the only thing standing between this
-   * function and a second concurrent `recordAsync`, which on iOS returns a
-   * promise that is *never settled or rejected*
-   * (`CameraVideoRecording.swift`: `guard !isRecording && promise == nil else
-   * { return }`) and on Android reassigns the active CameraX recording out
-   * from under the first one.
+   * step below re-checks that it is still the owner before touching state. A
+   * second concurrent recording is refused natively ("Active recording already
+   * in progress"), but the *state* of two runs interleaving is this file's to
+   * keep straight: a superseded run must not reset the state of the run that
+   * superseded it.
    *
    * Every `await` here is a place the world can change: a preview can open, a
    * finger can lift, the tab can blur. A guard checked once at the top is a
    * guard that is wrong by the time the loop reaches its second attempt.
    */
   const startVideo = useCallback(async () => {
-    const view = cameraRef.current;
-    if (!view) return;
     if (captureRef.current !== null) return;
     // Somebody is already recording. Without this, holding the shutter during
-    // a recording starts a second one that can never resolve.
+    // a locked recording would start a second run against the same recorder.
     if (runRef.current !== null) return;
 
     const run = ++runCounterRef.current;
     runRef.current = run;
     stopRequestedRef.current = false;
-    setMode('video');
 
     /** Still the invocation that owns the recorder? */
     const owns = () => runRef.current === run;
+    /** Not worth starting any more: the finger is gone, or something else is on screen. */
+    const abandoned = () => !owns() || stopRequestedRef.current || captureRef.current !== null;
 
-    /*
-     * Fixed at `VIDEO_MAX_BYTES` for everybody, including administrators who
-     * have no video ceiling at all in `maxBytesFor`.
-     *
-     * The cap has to be decided when the recording *starts* and the
-     * destination can be changed on the preview *afterwards*. Giving an
-     * administrator an uncapped recorder therefore makes the guarantee at the
-     * top of this file false: record uncapped against a ministry you
-     * administer, retarget to one you do not, and `condense` refuses a clip
-     * that has already been taken. An administrator who needs to send
-     * something larger can still pick it from their library, where the file
-     * already exists and the ceiling is judged against the real destination.
-     */
-    let everStarted = false;
+    // Asked for before the state is set, so the configure it causes cannot
+    // finish before anybody is listening for it.
+    let configured = nextConfigured();
+    setWantVideo(true);
+
+    /** True once a file has reached the preview — the only real success. */
+    let delivered = false;
+    /** When the recorder started, or null if it never did. */
+    let recordingSince: number | null = null;
 
     try {
       for (let attempt = 0; attempt < RECORD_ATTEMPTS; attempt += 1) {
-        await wait(SESSION_SETTLE_MS);
-        // Re-checked every round: the finger may be gone, a preview may have
-        // opened, or the tab may have blurred while this was waiting.
-        if (!owns() || stopRequestedRef.current || captureRef.current !== null) return;
-
-        const startedTime = Date.now();
+        if (!(await configured) || abandoned()) return;
 
         /*
-         * The promise is watched rather than awaited outright, because its two
-         * failure modes are opposite and have to be told apart.
-         *
-         * A rejection in the first few milliseconds is `CameraOutputNotReady`
-         * — the movie output has not finished being configured — and the right
-         * answer is to go round again. A rejection *later* means a recording
-         * genuinely ran and then failed, most often `CameraUnmounted` from the
-         * tab blurring, and retrying that just calls `recordAsync` repeatedly
-         * against a view that is being torn down.
+         * The outcome is carried *by* a promise rather than written into a
+         * variable from the recorder's callbacks, so that it is a value with a
+         * type rather than something the compiler has to guess at across a
+         * closure.
          */
-        /*
-         * The outcome is carried *by* the promise rather than written into a
-         * variable from its callbacks, so that it is a value with a type
-         * rather than something the compiler has to guess at across a
-         * closure. Awaited twice below, which is free — a promise settles
-         * once and hands the same answer to every reader.
-         */
-        const watched: Promise<RecordOutcome> = view
-          .recordAsync({
+        let settle: (outcome: RecordOutcome) => void = () => {};
+        const finished = new Promise<RecordOutcome>((resolve) => {
+          settle = resolve;
+        });
+
+        let recorder: Recorder;
+        try {
+          recorder = await videoOutput.createRecorder({
             maxDuration: MAX_SECONDS,
             maxFileSize: VIDEO_MAX_BYTES,
-          })
-          .then(
-            (result) => ({ ok: true as const, uri: result?.uri ?? null }),
-            () => ({ ok: false as const, uri: null }),
+          });
+          await recorder.startRecording(
+            (filePath) => settle({ ok: true, uri: fileUri(filePath) }),
+            () => settle({ ok: false }),
           );
-
-        const early = await Promise.race([watched, wait(EARLY_FAILURE_MS).then(() => null)]);
-        // Rejected within the window: the movie output was not up yet. Again.
-        if (early && !early.ok) continue;
-        if (!owns()) return;
-
-        everStarted = true;
-        setRecording(true);
-        setStartedAt(startedTime);
-
-        /*
-         * `stopRecording` asks the *native* recorder to stop, and it is a
-         * silent no-op if the recorder has not physically started — which is
-         * exactly the window a quick hold releases in. So the request is kept
-         * as intent and re-sent until the promise actually settles.
-         *
-         * Without this, lifting a finger a moment too early leaves a
-         * recording running that nothing on screen can stop, and it ends by
-         * dumping a full sixty seconds of unasked-for audio into the preview.
-         */
-        const nag = setInterval(() => {
-          if (stopRequestedRef.current) view.stopRecording();
-        }, STOP_RETRY_MS);
-
-        let finished: RecordOutcome;
-        try {
-          finished = await watched;
-        } finally {
-          clearInterval(nag);
+        } catch {
+          /*
+           * "Not yet connected": the configure that resolved above was one
+           * already in flight — a microphone answer arriving, say — and not
+           * the one that adds the movie output. That one is still coming.
+           */
+          configured = nextConfigured();
+          continue;
         }
+
+        if (!owns()) {
+          // The tab blurred while the recorder was starting.
+          void recorder.cancelRecording().catch(() => {});
+          return;
+        }
+
+        recordingSince = Date.now();
+        recorderRef.current = recorder;
+        setRecording(true);
+        setStartedAt(recordingSince);
+
+        // The finger came up between the recorder being asked to start and it
+        // starting. It asked to stop; it gets the moment it held for.
+        if (stopRequestedRef.current) void recorder.stopRecording().catch(() => {});
+
+        const outcome = await finished;
 
         // The tab may have blurred, or a newer run taken over, while the
         // recording was running. Its file is not this screen's business then.
         if (!owns()) return;
 
-        if (finished.ok && finished.uri) {
+        if (outcome.ok) {
+          delivered = true;
           setRefused([]);
-          setCapture({
-            uri: finished.uri,
-            contentType: contentTypeForVideo(finished.uri),
-            kind: 'video',
-          });
+          setCapture({ uri: outcome.uri, contentType: contentTypeForVideo(outcome.uri), kind: 'video' });
         }
         return;
       }
     } finally {
-      /*
-       * Ownership is released exactly once, by whoever still holds it. A run
-       * that was superseded must not reset the state of the run that
-       * superseded it.
-       */
       if (owns()) {
-        runRef.current = null;
-        stopRequestedRef.current = false;
-        setRecording(false);
-        setLocked(false);
-        setStartedAt(null);
-        setMode('picture');
-
         /*
          * A hold too short to become a recording is a tap, and gets a
          * photograph.
          *
-         * Without this there is a dead band of a few hundred milliseconds —
-         * long enough to pass `HOLD_MS`, too short to outlast the session
-         * reconfiguration — where the finger comes up before the recorder is
-         * ready and the person gets *nothing at all*. A press that produces
-         * nothing is the one outcome a shutter may never have.
+         * Without this there is a dead band — long enough to pass `HOLD_MS`,
+         * too short to outlast the session reconfiguration — where the finger
+         * comes up before the recorder is ready and the person gets *nothing
+         * at all*. A press that produces nothing is the one outcome a shutter
+         * may never have.
          *
-         * The caveat, stated rather than glossed: `mode` has just been set
-         * back to `'picture'` but that setter is asynchronous too, so this
-         * photograph can occasionally come off the video preset at 720p. It is
-         * the rarest path in this file, and a slightly smaller photograph
-         * beats no photograph by a distance.
+         * The same goes for a recording that *did* start and then failed in
+         * its first moments, which is the same dead band seen from the other
+         * side. When the session is slow to reconfigure — four seconds on an
+         * Android emulator — the release can be queued behind it, arrive
+         * just after the recorder starts, and stop a clip a fraction of a
+         * second long, which CameraX then refuses to finalise. That press was
+         * a tap as far as the person was concerned, and it gets a photograph.
+         * A recording that ran for a while and then failed does not: a
+         * picture appearing in place of the clip somebody watched themselves
+         * record would be a stranger answer than nothing.
+         *
+         * Taken before the movie output is removed again, and after the
+         * configure that added it has finished: a photograph asked for in the
+         * middle of a reconfiguration is the one most likely to fail.
          */
-        if (!everStarted && captureRef.current === null) await takePhoto();
+        const tapInEffect = recordingSince === null || Date.now() - recordingSince < SHORT_FAILURE_MS;
+        if (!delivered && tapInEffect && captureRef.current === null) {
+          await configured;
+          if (owns()) await takePhoto();
+        }
+      }
+
+      // Ownership is released exactly once, by whoever still holds it.
+      if (owns()) {
+        runRef.current = null;
+        recorderRef.current = null;
+        stopRequestedRef.current = false;
+        setRecording(false);
+        setLocked(false);
+        setStartedAt(null);
+        setWantVideo(false);
       }
     }
-  }, [takePhoto]);
+  }, [nextConfigured, videoOutput, takePhoto]);
 
   /**
    * Release the shutter, or press a locked one.
    *
-   * Records the intent as well as asking, because the ask can land before the
-   * native recorder exists. `startVideo` re-sends it until it takes.
+   * Records the intent as well as asking, because the release can land before
+   * the recorder exists. `startVideo` reads it once the recorder is running.
    */
   const stopVideo = useCallback(() => {
     stopRequestedRef.current = true;
-    cameraRef.current?.stopRecording();
+    void recorderRef.current?.stopRecording().catch(() => {});
   }, []);
 
   /* ---------------------------------------------------------------------- */
@@ -566,81 +703,113 @@ export function CameraScreen() {
   }, [destination.destination, grants]);
 
   /* ---------------------------------------------------------------------- */
-  /* Gestures on the viewfinder                                              */
+  /* Zoom                                                                    */
   /* ---------------------------------------------------------------------- */
 
-  const zoomBase = useRef(0);
-
-  /*
-   * The current zoom, for a gesture built once that therefore cannot close
-   * over the state. `onBegin` needs to know where the last pinch left off.
+  /**
+   * Move the zoom, and remember it against the device it was set on.
+   *
+   * `ramp` for a pill, which glides the way the Camera app's do — and on a
+   * virtual device glides *across* a lens change, which is the whole effect.
+   * Straight to the value for a pinch, which is already a stream of small
+   * steps under a finger.
    */
-  const zoomRef = useRef(zoom);
-  useEffect(() => {
-    zoomRef.current = zoom;
-  }, [zoom]);
+  const applyZoom = useCallback((value: number, ramp: boolean) => {
+    const current = lensRef.current;
+    const view = cameraRef.current;
+    if (!current) return;
+
+    // The session's live range, which the constraints can narrow from the
+    // device's own. Out of range is a rejection, not a clamp.
+    const controller = view?.controller;
+    const next = controller
+      ? clamp(value, controller.minZoom, Math.min(controller.maxZoom, current.model.max))
+      : value;
+
+    const target: DeviceZoom = { device: current.device, value: next };
+    zoomRef.current = target;
+    setShown(target);
+
+    // A pinch, or a session not up yet: the prop does it, straight there.
+    if (!ramp || !view || !controller) {
+      setSettled(target);
+      return;
+    }
+
+    view.startZoomAnimation(next, ZOOM_RAMP).then(
+      () => {
+        // Only if nothing has moved the zoom since. A pinch that cut across
+        // the glide has already settled its own value, and this must not
+        // put the pill's back over it.
+        if (zoomRef.current === target) setSettled(target);
+      },
+      () => {
+        // Cancelled, which a pinch landing mid-glide does. That pinch is now
+        // in charge of the zoom, and nothing is wrong.
+      },
+    );
+  }, []);
+
+  const pinchBase = useRef(1);
 
   const handlePinchBegin = useCallback(() => {
-    zoomBase.current = zoomRef.current;
-  }, []);
+    pinchBase.current = readZoom() ?? 1;
+  }, [readZoom]);
 
-  const handlePinchUpdate = useCallback((scale: number) => {
-    /*
-     * `zoom` is a 0–1 fraction of the device's maximum, not a factor, so the
-     * pinch scale cannot be multiplied into it — doubling the gesture would
-     * otherwise jump from halfway to fully zoomed. It is added as a
-     * displacement instead, damped, which makes the whole range reachable in
-     * about two comfortable pinches.
-     */
-    setZoom(clamp(zoomBase.current + (scale - 1) * 0.35, 0, 1));
-  }, []);
+  const handlePinchUpdate = useCallback(
+    (scale: number) => {
+      const current = lensRef.current;
+      if (!current) return;
+      /*
+       * Multiplied, not added, because that is what a pinch is: spreading the
+       * fingers to twice their distance doubles the magnification, from
+       * wherever it was. It is also what makes the gesture feel the same at
+       * 0.5× as at 5×, where an added step would crawl at one end and leap at
+       * the other.
+       */
+      applyZoom(clamp(pinchBase.current * scale, current.model.min, current.model.max), false);
+    },
+    [applyZoom],
+  );
+
+  /* ---------------------------------------------------------------------- */
+  /* Gestures on the viewfinder                                              */
+  /* ---------------------------------------------------------------------- */
 
   /**
    * Turn the camera round. The button's press, and the double tap's.
    *
    * `runRef` rather than the `recording` state, for the reason every other
    * guard in this file gives: a gesture is built once and cannot close over
-   * state. The refusal itself is the documented one — "flipping camera during
-   * a recording results in stopping it" — and it is worse from a gesture than
-   * from the button, because the button can be greyed out and a finger cannot.
+   * state. Turning round swaps the device the session is recording from, and
+   * that is worse from a gesture than from the button, because the button can
+   * be greyed out and a finger cannot.
    */
   const flipCamera = useCallback(() => {
     if (runRef.current !== null) return;
-    setFacing((current) => (current === 'back' ? 'front' : 'back'));
-    /*
-     * The other side of the phone has its own lenses — usually one — and the
-     * name held here belongs to the side being left. Dropped rather than
-     * carried: an unmatched name falls back to the default lens silently, so
-     * the row would go on showing 0.5× lit while the camera was at 1×.
-     *
-     * The list is emptied for the same reason and refills itself: the native
-     * side emits `onAvailableLensesChanged` whenever the device changes.
-     */
-    setLens(null);
-    setLenses([]);
+    // The zoom needs no reset: it is keyed on the device. See `zoom`.
+    setPosition((current) => (current === 'back' ? 'front' : 'back'));
   }, []);
 
   const handleTap = useCallback((x: number, y: number) => {
     setFocusAt({ x, y, at: Date.now() });
     /*
-     * A focus *retrigger*, not a focus at the point — and the difference is
-     * worth being honest about.
+     * Focus *and* exposure at the point, the way the Camera app does it — the
+     * face against a bright window comes up out of the dark, not just into
+     * focus. The gesture layer covers the preview exactly, so its coordinates
+     * are the preview's.
      *
-     * `CameraView` in SDK 57 has no point-of-interest API: `autofocus` is
-     * `'on' | 'off'` and nothing takes a coordinate. Dropping it and putting it
-     * back is what makes the lens hunt again, which is the useful half of the
-     * gesture when the camera has locked onto a pew instead of a face. Where
-     * you tap does not weight it. The square is drawn where the finger landed
-     * because that is where somebody looks for the feedback, and it is a real
-     * indication that focus was re-run.
+     * Defaults on purpose: snappy, following the subject if it moves, and
+     * handing back to continuous autofocus after a few seconds of nothing.
+     * Rejects on a lens that cannot meter a point; the square still showed
+     * where the finger landed, and the lens is still focusing on its own.
      */
-    setAutofocus('off');
-    setTimeout(() => setAutofocus('on'), 60);
+    cameraRef.current?.focusTo({ x, y }).catch(() => {});
   }, []);
 
   /*
-   * Both gestures built once, for the reason the shutter gives at length: a
-   * gesture object replaced mid-pinch is a gesture swapped under a finger.
+   * All three gestures built once, for the reason the shutter gives at length:
+   * a gesture object replaced mid-pinch is a gesture swapped under a finger.
    *
    * The disable is narrow and is a false positive rather than a silenced
    * complaint. `react-hooks/refs` fires because a builder called during render
@@ -648,7 +817,7 @@ export function CameraScreen() {
    * Handler only ever invokes them from a touch — the same reason the handlers
    * above are `useCallback`s. Everything the rule is actually protecting
    * against (a ref read whose value decides what is rendered) is absent: none
-   * of these three return anything, and the render reads `zoom` from state.
+   * of these return anything, and the render reads the zoom from state.
    */
   /* eslint-disable react-hooks/refs */
   const pinch = useMemo(
@@ -673,11 +842,11 @@ export function CameraScreen() {
   /*
    * `Exclusive`, so the single tap loses to the double one.
    *
-   * Without it both fire on a double tap: the lens re-hunts, the camera turns
+   * Without it both fire on a double tap: the lens focuses, the camera turns
    * round, and the focus square is drawn on a preview that has just been
    * replaced. Exclusive makes the single tap wait for the double to fail,
-   * which costs the focus retrigger the length of Gesture Handler's
-   * double-tap window — a fifth of a second on a gesture nobody times.
+   * which costs the focus the length of Gesture Handler's double-tap window —
+   * a fifth of a second on a gesture nobody times.
    */
   const viewfinderGestures = useMemo(
     () => Gesture.Simultaneous(pinch, Gesture.Exclusive(doubleTap, tap)),
@@ -688,13 +857,13 @@ export function CameraScreen() {
   /* The states before there is a camera                                     */
   /* ---------------------------------------------------------------------- */
 
-  if (!camera) {
-    // The hook has not answered yet. One frame, usually.
-    return <View style={{ flex: 1, backgroundColor: theme.color.deep }} />;
-  }
-
-  if (!camera.granted) {
-    return <NoCamera canAskAgain={camera.canAskAgain} onAsk={() => void requestCamera()} />;
+  if (!camera.hasPermission) {
+    return (
+      <NoCamera
+        canAskAgain={camera.canRequestPermission}
+        onAsk={() => void requestCamera()}
+      />
+    );
   }
 
   const busy = sending || capture !== null;
@@ -705,66 +874,48 @@ export function CameraScreen() {
         Unmounted rather than paused when the tab is not focused. See the
         header — a live camera behind another screen is a battery cost and a
         privacy light with nothing on screen to account for it.
+
+        No device is a simulator, or a phone whose camera another app holds:
+        the deep background, and the chrome over it still works.
       */}
-      {focused ? (
-        <CameraView
+      {focused && device ? (
+        <Camera
           ref={cameraRef}
+          style={{ flex: 1 }}
+          device={device}
+          isActive
+          outputs={outputs}
           /*
            * The front camera is a mirror, in both halves of the screen.
            *
-           * The two have to agree, and there are only two ways to make them:
-           * un-mirror the preview, or mirror the file. This is the second, and
-           * the first was tried — the preview carried a `scaleX: -1` and the
-           * `mirror` prop stayed false. It made the halves agree on the answer
-           * nobody wanted. A viewfinder that does not behave like a mirror is
-           * wrong from the first frame, before anything is even taken: you
-           * raise the phone, lean left, and the picture of you leans right.
-           * Tommy: *"the selfie camera is now inverted... now it starts off
-           * inverted."* Every camera on the phone mirrors this preview, so a
-           * hand learns the mirror long before it meets this app.
+           * `'auto'`, VisionCamera's default, written out because it is a
+           * decision: the preview mirrors on the front camera, and so does
+           * the file. The other way to make the two agree — un-mirror the
+           * preview — was tried with expo-camera and made them agree on the
+           * answer nobody wanted. A viewfinder that does not behave like a
+           * mirror is wrong from the first frame: you lean left, and the
+           * picture of you leans right. Tommy: *"the selfie camera is now
+           * inverted... now it starts off inverted."*
            *
-           * So the preview is left exactly as the platform draws it — the
-           * transform is gone, not set to identity — and the capture is
-           * mirrored to match what was on screen when the shutter went.
-           *
-           * **This flips writing in the frame**, and that is the known cost of
-           * the choice: a banner or a name tag behind somebody comes back
-           * backwards. It is the trade every phone's "mirror front camera"
-           * setting makes, and it is the right way round here because the
-           * subject of a selfie at this church is a face, not a sign — and
-           * because the alternative surprises somebody *after* the only moment
-           * they could have reframed.
-           *
-           * `facing === 'front'` rather than a bare `true`, and it is not
-           * belt-and-braces. Photo capture is guarded natively on both
-           * platforms (`presetCamera == .front`, `lensFacing == FRONT`) but
-           * **iOS video recording is not**: `CameraVideoRecording.swift` sets
-           * `isVideoMirrored` from this prop alone, so a constant `true` would
-           * flip every clip taken with the back camera.
+           * **This flips writing in the frame**, and that is the known cost:
+           * a banner or a name tag behind somebody comes back backwards. It is
+           * the trade every phone's "mirror front camera" setting makes, and
+           * it is the right way round here because the subject of a selfie at
+           * this church is a face, not a sign.
            */
-          mirror={facing === 'front'}
-          style={{ flex: 1 }}
-          facing={facing}
-          flash={flash}
-          mode={mode}
-          videoQuality={VIDEO_QUALITY}
-          zoom={zoom}
+          mirrorMode="auto"
+          zoom={settledZoom}
           /*
-           * Which physical lens, on iOS. `undefined` rather than `null` when
-           * nothing is chosen: the prop's native handler reads a missing value
-           * as "go back to the default device", which is the wide angle.
+           * The torch is the only thing "flash on" can mean while a movie is
+           * recording; a strobe at the start of a clip is not a light. Left
+           * unset on a camera with no torch, which would refuse even 'off' — and
+           * on one with no flash, because an emulator's front camera reports a
+           * torch it does not have.
            */
-          selectedLens={lens ?? undefined}
-          // Emitted when the session opens and whenever the device changes, so
-          // this is how the row finds out there is an ultra wide to offer. No
-          // Android equivalent; `lenses` simply stays empty there.
-          onAvailableLensesChanged={(event) => setLenses(event.lenses)}
-          autofocus={autofocus}
-          // The torch is the only thing "flash on" can mean while a movie is
-          // recording; a strobe at the start of a clip is not a light.
-          enableTorch={recording && flash === 'on'}
-          // A denied microphone is a silent clip, not a failed one.
-          mute={!microphone?.granted}
+          torchMode={device.hasTorch && device.hasFlash ? (recording && flash === 'on' ? 'on' : 'off') : undefined}
+          enableDistortionCorrection={device.supportsDistortionCorrection}
+          onConfigured={handleConfigured}
+          onError={handleCameraError}
         />
       ) : (
         <View style={{ flex: 1 }} />
@@ -787,44 +938,6 @@ export function CameraScreen() {
         free.
       */}
       <FocusRing key={focusAt?.at ?? 'none'} focusAt={focusAt} />
-
-      {/*
-        How far in the pinch has gone, and the way back out of it.
-        ------------------------------------------------------------------------
-        It was a label. Pinching in is easy and pinching all the way back out is
-        fiddly — two fingers, a couple of passes, on a phone somebody is holding
-        one-handed over a crowd — and until this was pressable the only reliable
-        way back to 1× was to leave the tab and return. The badge is already
-        where the eye goes to check the zoom, so it is where the finger should
-        be able to undo it.
-
-        Still an estimate, and honestly so: the factor a given `zoom` produces
-        depends on the lens's own maximum, which neither platform reports to
-        JavaScript — and the two do not even agree on the curve (iOS raises the
-        maximum to the power of `zoom`, Android multiplies by it). The number is
-        the app's own scale rather than the lens's, which is why the lens row
-        below is the only place an exact `0.5×` is claimed.
-      */}
-      {zoom > 0.01 ? (
-        <Pressable
-          onPress={() => setZoom(0)}
-          accessibilityRole="button"
-          accessibilityLabel="Zoomed in. Press to go back to the full picture."
-          hitSlop={theme.space.sm}
-          style={({ pressed }) => ({
-            position: 'absolute',
-            alignSelf: 'center',
-            top: insets.top + 56,
-            paddingHorizontal: theme.space.xs,
-            paddingVertical: 2,
-            borderRadius: theme.radius.full,
-            backgroundColor: theme.color.deep,
-            opacity: pressed ? 0.6 : 0.8,
-          })}
-        >
-          <Micro color={theme.color.inkInverse}>{`${(1 + zoom * 9).toFixed(1)}×`}</Micro>
-        </Pressable>
-      ) : null}
 
       {/* -------------------------------------------------------------- */}
       {/* Top: what is sending, and the two camera controls               */}
@@ -853,8 +966,8 @@ export function CameraScreen() {
         <Round
           icon="flip"
           label="Switch between the front and back cameras"
-          // Documented: "Flipping camera during a recording results in
-          // stopping it." Better greyed out than silently truncating a clip.
+          // Turning round mid-recording swaps the device the clip is being
+          // recorded from. Better greyed out than silently ending a clip.
           disabled={recording}
           onPress={flipCamera}
         />
@@ -915,21 +1028,10 @@ export function CameraScreen() {
           </View>
         ) : null}
 
-        <LensRow
-          lenses={lenses}
-          chosen={lens}
-          // Switching device reconfigures the session, which is the same
-          // hazard the flip button is greyed out for mid-recording.
-          disabled={recording}
-          onChoose={(next) => {
-            setLens(next);
-            /*
-             * Back to the new lens's own framing. Digital zoom carried across a
-             * switch is what makes "0.5×" arrive at 3× — the sender pressed the
-             * wide angle and got the opposite of one.
-             */
-            setZoom(0);
-          }}
+        <ZoomRow
+          model={lens}
+          zoom={shownZoom}
+          onChoose={(value) => applyZoom(value, true)}
         />
 
         <DestinationBar
@@ -951,7 +1053,7 @@ export function CameraScreen() {
             locked={locked}
             startedAt={startedAt}
             limitSeconds={MAX_SECONDS}
-            disabled={busy || destination.destination === null}
+            disabled={busy || destination.destination === null || !device}
             onPhoto={() => void takePhoto()}
             onStartVideo={() => void startVideo()}
             onStopVideo={stopVideo}
@@ -989,105 +1091,158 @@ export function CameraScreen() {
 /* -------------------------------------------------------------------------- */
 
 /**
- * One lens this phone actually has, as a pill.
+ * What the lenses on this side of the phone are, in the sender's numbers.
  *
- * `name` is what goes to `selectedLens`, or null for the device the platform
- * opens by itself.
+ * `zoom` and `min`/`max` are the session's units; `factor` is what the pill
+ * says, where 1 frames like the main camera.
  */
-interface Lens {
-  label: string;
-  name: string | null;
+interface LensModel {
+  /** The session zoom that frames like the main camera: "1×". */
+  neutral: number;
+  min: number;
+  /** As far as a pinch goes. See `lensModel`. */
+  max: number;
+  stops: { factor: number; zoom: number }[];
 }
 
 /**
- * Which lenses to offer, out of the names iOS hands back.
+ * The pills this device should offer, and where 1× actually is.
  *
  * ---------------------------------------------------------------------------
- * ## What the platform gives us, which is not what the documentation implies
+ * ## Where 1× is, which is not where the session's 1 is
  *
- * The docs give `'builtInWideAngleCamera'` as the default for `selectedLens`,
- * which reads like the prop takes `AVCaptureDevice.DeviceType` constants. It
- * does not. `CameraSessionManager.updateDevice` matches on `localizedName` —
- * "Back Ultra Wide Camera", "Back Camera", "Back Telephoto Camera", and the
- * virtual combinations "Back Dual Wide Camera" and "Back Triple Camera" — and
- * `getAvailableLenses` returns exactly those names, sorted. So the only way to
- * tell an ultra wide from a telephoto here is to read the name.
+ * An iPhone's virtual camera counts its zoom from its *widest* lens. On a
+ * phone with an ultra wide, a session zoom of 1 is the ultra wide — the
+ * Camera app's 0.5× — and the main camera takes over at the first switch-over
+ * factor, which is 2. So "1×" is that first switch-over, and every other
+ * number is a ratio to it: switch-overs of `[2, 6]` are the main camera and a
+ * 3× telephoto, `[2, 10]` a 5×, `[2, 5]` the 12 Pro Max's 2.5×. These are the
+ * phone's own numbers, which is the point: nothing here is a table of models
+ * that the next iPhone will be missing from.
  *
- * ## Which is localized, and what that costs
+ * Android's CameraX already counts from the main camera — the ultra wide sits
+ * below 1 as the device's `minZoom` — and VisionCamera reports no switch-over
+ * factors there, so 1 is 1.
  *
- * `localizedName` is the user's language, so these patterns are English ones.
- * A phone set to another language returns names none of them match, and the
- * row then offers nothing rather than lighting the wrong pill — a sender on a
- * Spanish phone keeps the camera they have always had, and the app does not
- * claim a lens it cannot identify. Every word of this app's own interface is
- * English, so this is a real edge and a narrow one.
+ * ## The 2× that is not a lens
  *
- * ## Why the virtual devices are skipped
+ * Phones with a 48 MP main sensor get a 2× pill on the Camera app with no 2×
+ * lens behind it: it is the middle of the sensor read at full resolution,
+ * which is as sharp as glass. Offered on the same condition — a photo
+ * resolution of 40 MP or more — and only where no real lens is already near
+ * it. Android gets it from 2× of zoom range alone: a Pixel's row is 0.5, 1, 2
+ * whatever its sensor is, and a crop of a 50 MP sensor is what that 2× is.
+ * The back camera only, on both: no phone offers a 2× crop of the selfie
+ * camera.
  *
- * "Back Triple Camera" and "Back Dual Wide Camera" are the system's automatic
- * switchers, and choosing one means the framing is decided by iOS rather than
- * by the pill that was pressed — press 0.5× and get whatever the scene's light
- * argues for. The pills here are a promise about the picture, so each one is a
- * single physical lens.
+ * ## And the telephoto Android does not get
  *
- * ## And why 1× has no name
+ * CameraX moves to the telephoto by itself as a pinch crosses it, so the lens
+ * is reachable; what is missing is its *number*. VisionCamera's switch-over
+ * factors are empty on Android, and the focal lengths it does report are
+ * millimetres on sensors of different sizes — a Pixel's 5× comes out of that
+ * division as 2.6. A pill that says 2.6 on a 5× lens is a lie told every time
+ * the camera opens, so the row stops at what it knows.
  *
- * `null` is the device default, which is the wide angle on every iPhone with
- * more than one camera. Naming it would mean picking "Back Camera" out of the
- * list and hoping that is what it is — the default is the platform's own
- * answer to the same question, and it is right on phones this code has never
- * seen.
+ * ## How far a pinch goes
  *
- * The row is empty when there is nothing to choose between: one lens, one
- * pill, and a control with a single option is furniture.
+ * Five times the longest lens, and never less than 10× — the Camera app's own
+ * limits on every iPhone (15× on a 3×, 25× on a 5×). Beyond that the
+ * session's maximum is a digital crop that nobody would send.
  * ---------------------------------------------------------------------------
  */
-function lensChoices(available: string[]): Lens[] {
-  const ultraWide = available.find((name) => /ultra\s*wide/i.test(name));
-  const telephoto = available.find((name) => /telephoto/i.test(name));
+function lensModel(device: CameraDevice): LensModel {
+  const switches = device.zoomLensSwitchFactors;
+  const hasUltraWide = device.physicalDevices.some((lens) => lens.type === 'ultra-wide-angle');
 
-  if (!ultraWide && !telephoto) return [];
+  const neutral = (hasUltraWide ? switches[0] : undefined) ?? 1;
+  const min = device.minZoom;
 
-  return [
-    // 0.5× is the one number here that is exact rather than estimated: an
-    // iPhone's ultra wide is 13mm against the main camera's 24mm on every
-    // model that has one.
-    ...(ultraWide ? [{ label: '0.5×', name: ultraWide }] : []),
-    { label: '1×', name: null },
-    /*
-     * "Tele" and not a number, deliberately. The telephoto is 2×, 2.5×, 3×, 4×
-     * or 5× depending on the model, and nothing in this API says which — a pill
-     * reading "2×" on a phone whose telephoto is 5× is a lie told every time
-     * the camera is opened. The word is what the lens is.
-     */
-    ...(telephoto ? [{ label: 'Tele', name: telephoto }] : []),
-  ];
+  const factors: number[] = [];
+  const add = (factor: number) => {
+    if (!factors.some((existing) => Math.abs(existing - factor) < 0.05)) factors.push(factor);
+  };
+
+  // The ultra wide, when there is room below the main camera for it.
+  if (min < neutral * 0.95) add(min / neutral);
+  add(1);
+  for (const factor of switches) {
+    if (factor > neutral * 1.05) add(factor / neutral);
+  }
+
+  const near2 = factors.some((factor) => factor > 1.5 && factor < 2.6);
+  if (!near2 && device.maxZoom >= neutral * 2 && hasSensorCrop(device)) add(2);
+
+  factors.sort((a, b) => a - b);
+  const longest = factors[factors.length - 1] ?? 1;
+  const max = Math.min(device.maxZoom, neutral * Math.max(10, longest * 5));
+
+  return {
+    neutral,
+    min,
+    max,
+    stops: factors.map((factor) => ({ factor, zoom: factor * neutral })),
+  };
+}
+
+/** A main sensor with the resolution to crop 2× out of it. See `lensModel`. */
+function hasSensorCrop(device: CameraDevice): boolean {
+  // The back camera's alone, on both platforms: no phone's own camera offers
+  // a 2× crop of the selfie camera, and the front sensors are too small to
+  // give one without it showing.
+  if (device.position !== 'back') return false;
+  if (Platform.OS === 'android') return true;
+  return device
+    .getSupportedResolutions('photo')
+    .some((size) => size.width * size.height >= 40_000_000);
+}
+
+/** "0.5", "1", "2.5" — the Camera app's own numbers, with no trailing ".0". */
+function formatFactor(factor: number): string {
+  const rounded = Math.round(factor * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }
 
 /**
  * The lens pills, over the viewfinder and above the destination.
  *
  * Where every phone camera puts them, because that is where a thumb already
- * goes looking. It is also the only *optical* control on this screen: the
- * pinch is a crop of whatever lens is chosen, and pressing 0.5× is a different
- * piece of glass rather than a wider crop of the same one.
+ * goes looking — and drawn the way the Camera app draws them: the numbers bare,
+ * and the lit one carrying the "×" and the zoom as it actually is, so a pinch
+ * to 1.4× reads "1.4×" on the 1 pill. Pressing that pill again is the way
+ * back to exactly 1×, which is the one-finger undo a pinch never had.
+ *
+ * Pressable mid-recording, as in the Camera app: a zoom is a change of
+ * framing, not of session, and the virtual device carries a clip across a
+ * lens change as smoothly as a preview.
+ *
+ * With a single lens — a front camera — there is nothing to choose between
+ * and the row is gone, until a pinch moves away from 1× and the one pill
+ * comes back to say where it is and to undo it.
  */
-function LensRow({
-  lenses,
-  chosen,
-  disabled,
+function ZoomRow({
+  model,
+  zoom,
   onChoose,
 }: {
-  lenses: string[];
-  chosen: string | null;
-  /** Mid-recording: switching device would reconfigure the session. */
-  disabled: boolean;
-  onChoose: (lens: string | null) => void;
+  model: LensModel | null;
+  zoom: number;
+  onChoose: (zoom: number) => void;
 }) {
   const theme = useTheme();
-  const choices = lensChoices(lenses);
 
-  if (choices.length === 0) return null;
+  if (!model) return null;
+
+  const factor = zoom / model.neutral;
+  const zoomed = Math.abs(factor - 1) > 0.05;
+  if (model.stops.length < 2 && !zoomed) return null;
+
+  // The lit pill: the longest lens at or below the zoom. A pinch past 3×
+  // stays on the 3 pill and counts up from there.
+  let active = 0;
+  model.stops.forEach((stop, index) => {
+    if (stop.factor <= factor + 0.01) active = index;
+  });
 
   return (
     <View
@@ -1099,26 +1254,21 @@ function LensRow({
         padding: 3,
         borderRadius: theme.radius.full,
         backgroundColor: theme.color.deep,
-        opacity: disabled ? 0.4 : 0.9,
+        opacity: 0.9,
       }}
     >
-      {choices.map((choice) => {
-        const active = choice.name === chosen;
+      {model.stops.map((stop, index) => {
+        const lit = index === active;
+        const label = lit ? `${formatFactor(factor)}×` : formatFactor(stop.factor);
 
         return (
           <Pressable
-            key={choice.label}
-            onPress={() => onChoose(choice.name)}
-            disabled={disabled}
+            key={stop.factor}
+            onPress={() => onChoose(stop.zoom)}
             accessibilityRole="button"
-            accessibilityState={{ selected: active, disabled }}
-            accessibilityLabel={
-              choice.name === null
-                ? 'The main camera'
-                : choice.label === '0.5×'
-                  ? 'The wide angle lens'
-                  : 'The telephoto lens'
-            }
+            accessibilityState={{ selected: lit }}
+            accessibilityLabel={`Zoom to ${formatFactor(stop.factor)} times`}
+            hitSlop={4}
             style={({ pressed }) => ({
               minWidth: 40,
               height: 34,
@@ -1133,16 +1283,14 @@ function LensRow({
                 in the church's cream rather than its red: red on the deep scrim
                 is barely a change at arm's length in sunlight.
               */
-              backgroundColor: active
+              backgroundColor: lit
                 ? theme.color.inkInverse
                 : pressed
                   ? theme.color.deep
                   : 'transparent',
             })}
           >
-            <Micro color={active ? theme.color.deep : theme.color.inkInverse}>
-              {choice.label}
-            </Micro>
+            <Micro color={lit ? theme.color.deep : theme.color.inkInverse}>{label}</Micro>
           </Pressable>
         );
       })}
@@ -1410,10 +1558,6 @@ function clamp(value: number, low: number, high: number): number {
   return Math.min(high, Math.max(low, value));
 }
 
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 /** Off → on → auto, the order every phone camera cycles in. */
 function nextFlash(flash: FlashMode): FlashMode {
   if (flash === 'off') return 'on';
@@ -1432,4 +1576,15 @@ function nextFlash(flash: FlashMode): FlashMode {
  */
 function contentTypeForVideo(uri: string): string {
   return uri.toLowerCase().endsWith('.mov') ? 'video/quicktime' : 'video/mp4';
+}
+
+/**
+ * A path VisionCamera wrote, as a uri the rest of the app can read.
+ *
+ * VisionCamera returns bare filesystem paths; `expo-image`, the image
+ * manipulator in `condense` and the upload queue all want `file://`. Left alone
+ * when it already is one, so this does not depend on which platform adds it.
+ */
+function fileUri(path: string): string {
+  return path.startsWith('file://') ? path : `file://${path}`;
 }

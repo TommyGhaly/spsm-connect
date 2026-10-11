@@ -291,6 +291,20 @@ const config: ExpoConfig = {
       // the eight /c/* App Clip experiences.
       LSApplicationQueriesSchemes: ['https'],
       ITSAppUsesNonExemptEncryption: false,
+      /*
+       * The viewfinder's two strings, written here because VisionCamera ships
+       * no config plugin to write them for it. expo-image-picker's plugin
+       * also sets the camera one, to the same sentence.
+       *
+       * Holding the shutter records a clip, and a clip of a hymn with no hymn
+       * in it is not worth sending. Without the microphone string iOS
+       * terminates the app the moment the recorder opens an audio input,
+       * which is the shutter being held down — a crash, not a refusal.
+       */
+      NSCameraUsageDescription:
+        'SPSM Connect needs your camera so you can take a photograph for the church galleries.',
+      NSMicrophoneUsageDescription:
+        'SPSM Connect needs your microphone so the videos you send to the church have their sound.',
     },
     /*
      * Two domains, two prefixes, and every combination is load-bearing.
@@ -337,6 +351,9 @@ const config: ExpoConfig = {
     /* Play's own counter, and it must increase with every upload. Independent
      * of iOS's — see ANDROID_VERSION_CODE. */
     versionCode: ANDROID_VERSION_CODE,
+    // The viewfinder's, in `send/CameraScreen.tsx`. VisionCamera has no config
+    // plugin to add them; see the iOS strings above for why audio is here.
+    permissions: ['android.permission.CAMERA', 'android.permission.RECORD_AUDIO'],
     adaptiveIcon: {
       // theme `deep`, matching assets/. Baked at build time, so it cannot come
       // from config/theme like everything else — see scripts/make-icons.mjs.
@@ -708,7 +725,7 @@ const config: ExpoConfig = {
            *                                   both registered in app/_layout.tsx.
            *
            *   Camera2Config$DefaultProvider   CameraX's default configuration,
-           *                                   loaded the same way. expo-camera
+           *                                   loaded the same way. VisionCamera
            *                                   fails to initialise without it —
            *                                   src/send/CameraScreen.tsx and
            *                                   src/upload/pick.ts.
@@ -849,22 +866,6 @@ const config: ExpoConfig = {
          * permission Google recommends, and the picker path is happy with it.
          */
         granularPermissions: [],
-      },
-    ],
-    [
-      'expo-camera',
-      {
-        cameraPermission:
-          'SPSM Connect needs your camera so you can take a photograph for the church galleries.',
-        /*
-         * Holding the shutter records a clip, and a clip of a hymn with no
-         * hymn in it is not worth sending. Without this string iOS terminates
-         * the app the moment `recordAsync` opens an audio input, which is the
-         * shutter being held down — a crash, not a refusal.
-         */
-        microphonePermission:
-          'SPSM Connect needs your microphone so the videos you send to the church have their sound.',
-        recordAudioAndroid: true,
       },
     ],
   ],

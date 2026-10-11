@@ -38,7 +38,7 @@
 	<!--
 	  Only /c/photos opens the camera, and iOS terminates a process that opens a
 	  capture device without a usage string. The wording matches the app's, from
-	  the expo-camera block in app.config.ts.
+	  ios.infoPlist in app.config.ts.
 	-->
 	<key>NSCameraUsageDescription</key>
 	<string>SPSM Connect needs your camera so you can take a photograph for the church galleries.</string>

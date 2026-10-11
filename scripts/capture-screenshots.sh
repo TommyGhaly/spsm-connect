@@ -97,7 +97,7 @@ DEVICES=(
 #
 # ## The Send tab is deliberately absent, and cannot be captured here
 #
-# `spsmconnect:///` is the camera. A simulator has no camera, so expo-camera
+# `spsmconnect:///` is the camera. A simulator has no camera, so the viewfinder
 # renders its preview as a flat `deep` rectangle and the capture is an empty
 # maroon screen with a shutter floating on it — a perfectly valid PNG, which is
 # exactly the failure the closing note warns about. There is no simulator fix:

@@ -6,7 +6,8 @@ import UIKit
 /// **Camera only, and that is Apple's rule rather than a simplification.**
 /// PhotoKit provides no functionality at runtime inside an App Clip, so "choose
 /// from my library" does not exist here and cannot be added. `UIImagePicker`
-/// with `.camera` is the whole of what a clip may do, which suits the errand:
+/// with `.camera` — or a camera of its own, which is `ClipCamera` — is the whole
+/// of what a clip may do, which suits the errand:
 /// somebody is at the church, now, looking at the thing worth photographing.
 struct PhotosView: View {
     @StateObject private var model = PhotosModel()
@@ -74,12 +75,13 @@ struct PhotosView: View {
                 readMore: "The church's galleries are on its website, arranged by event."
             )
         }
-        .sheet(isPresented: $camera) {
-            CameraPicker { image in
+        .fullScreenCover(isPresented: $camera) {
+            // The app's viewfinder, in Swift — see `ClipCamera.swift` for why
+            // this is no longer the system picker.
+            ClipCamera { image in
                 camera = false
                 if let image { model.send(image) }
             }
-            .ignoresSafeArea()
         }
         .task { model.prepare() }
     }
@@ -138,52 +140,6 @@ final class PhotosModel: ObservableObject {
                         ?? "That photograph could not be sent. Please try it again."
                 )
             }
-        }
-    }
-}
-
-/// The camera, as the only picker a clip may present.
-struct CameraPicker: UIViewControllerRepresentable {
-    let finished: (UIImage?) -> Void
-
-    func makeCoordinator() -> Coordinator { Coordinator(finished: finished) }
-
-    func makeUIViewController(context: Context) -> UIViewController {
-        /*
-         * A simulator has no camera, and `UIImagePickerController` with
-         * `.camera` on one throws rather than degrading. Falling back keeps the
-         * screen testable in the simulator even though the picture it produces
-         * is not a real capture.
-         */
-        guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
-            let controller = UIViewController()
-            controller.view.backgroundColor = UIColor(Ink.deep)
-            DispatchQueue.main.async { finished(nil) }
-            return controller
-        }
-
-        let picker = UIImagePickerController()
-        picker.sourceType = .camera
-        picker.allowsEditing = false
-        picker.delegate = context.coordinator
-        return picker
-    }
-
-    func updateUIViewController(_ controller: UIViewController, context: Context) {}
-
-    final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-        let finished: (UIImage?) -> Void
-        init(finished: @escaping (UIImage?) -> Void) { self.finished = finished }
-
-        func imagePickerController(
-            _ picker: UIImagePickerController,
-            didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
-        ) {
-            finished(info[.originalImage] as? UIImage)
-        }
-
-        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            finished(nil)
         }
     }
 }

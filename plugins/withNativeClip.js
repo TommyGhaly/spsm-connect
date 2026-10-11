@@ -115,6 +115,7 @@ const SWIFT_FILES = [
   'ScheduleView.swift',
   'FormsView.swift',
   'PhotosView.swift',
+  'ClipCamera.swift',
   'AppAttest.swift',
   'UploadClient.swift',
   'Shop.swift',
