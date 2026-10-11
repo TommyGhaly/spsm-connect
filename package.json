@@ -24,7 +24,9 @@
     "screenshots:android": "bash scripts/capture-screenshots-android.sh",
     "store": "node scripts/make-store-assets.mjs",
     "//clip-cards": "The eight App Clip card images, 1800x1200, into store/clip-cards/. Uploaded by hand in App Store Connect -> Advanced App Clip Experiences, one per experience. Checks its slugs against src/clip/experiences.ts.",
-    "clip-cards": "node scripts/make-clip-cards.mjs"
+    "clip-cards": "node scripts/make-clip-cards.mjs",
+    "//nfc-stickers": "The nine NFC tag stickers (the eight /c/* experiences plus Taksis's /c/register-vehicle), 3-inch circles as SVG and 1200px PNG, into store/nfc-stickers/ with a sheet.png proof. Pass -- --bleed for a printer that wants the ground painted out to the square.",
+    "nfc-stickers": "node scripts/make-nfc-stickers.mjs"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",

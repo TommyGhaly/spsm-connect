@@ -1,0 +1,332 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 400 400" width="400" height="400">
+  <defs>
+    <linearGradient id="welcome-facade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b0d0d"/>
+      <stop offset="0.7" stop-color="#3b1a12"/>
+      <stop offset="1" stop-color="#2b120c"/>
+    </linearGradient>
+    <radialGradient id="welcome-facadeGlow" cx="200" cy="250" r="230" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d9b867" stop-opacity="0.38"/>
+      <stop offset="0.45" stop-color="#992a21" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#2b0d0d" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="welcome-arch" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#5a3a22"/>
+      <stop offset="0.5" stop-color="#b07a4a"/>
+      <stop offset="1" stop-color="#5a3a22"/>
+    </linearGradient>
+    <radialGradient id="welcome-inside" cx="200" cy="185" r="140" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff4d6"/>
+      <stop offset="0.35" stop-color="#ecd28f"/>
+      <stop offset="0.8" stop-color="#b07a4a"/>
+      <stop offset="1" stop-color="#8a5a34"/>
+    </radialGradient>
+    <linearGradient id="welcome-wallL" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8a5a34"/>
+      <stop offset="1" stop-color="#d9b867"/>
+    </linearGradient>
+    <linearGradient id="welcome-wallR" x1="1" y1="0" x2="0" y2="0">
+      <stop offset="0" stop-color="#7a4c2c"/>
+      <stop offset="1" stop-color="#d9b867"/>
+    </linearGradient>
+    <linearGradient id="welcome-ceil" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5a3a22"/>
+      <stop offset="1" stop-color="#b08d43"/>
+    </linearGradient>
+    <linearGradient id="welcome-floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ecd28f"/>
+      <stop offset="1" stop-color="#b07a4a"/>
+    </linearGradient>
+    <linearGradient id="welcome-carpet" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c86d5f"/>
+      <stop offset="1" stop-color="#6e1a14"/>
+    </linearGradient>
+    <linearGradient id="welcome-gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff4d6"/>
+      <stop offset="0.45" stop-color="#d9b867"/>
+      <stop offset="1" stop-color="#7c5f24"/>
+    </linearGradient>
+    <linearGradient id="welcome-doorL" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3b2316"/>
+      <stop offset="0.7" stop-color="#5a3a22"/>
+      <stop offset="1" stop-color="#8a5a34"/>
+    </linearGradient>
+    <linearGradient id="welcome-doorR" x1="1" y1="0" x2="0" y2="0">
+      <stop offset="0" stop-color="#3b2316"/>
+      <stop offset="0.7" stop-color="#5a3a22"/>
+      <stop offset="1" stop-color="#8a5a34"/>
+    </linearGradient>
+    <linearGradient id="welcome-spill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ecd28f" stop-opacity="0.7"/>
+      <stop offset="0.45" stop-color="#d9b867" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#d9b867" stop-opacity="0.04"/>
+    </linearGradient>
+    <linearGradient id="welcome-stepTop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8a5a34"/>
+      <stop offset="1" stop-color="#5a3a22"/>
+    </linearGradient>
+    <linearGradient id="welcome-riser" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3b2316"/>
+      <stop offset="1" stop-color="#2b120c"/>
+    </linearGradient>
+    <radialGradient id="welcome-halo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fff4d6" stop-opacity="0.95"/>
+      <stop offset="0.4" stop-color="#ecd28f" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#ecd28f" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="welcome-lantern" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ecd28f" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#992a21" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="welcome-doorSheen" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0.55" stop-color="#ecd28f" stop-opacity="0"/>
+      <stop offset="1" stop-color="#ecd28f" stop-opacity="0.28"/>
+    </linearGradient>
+    <linearGradient id="welcome-doorSheenR" x1="1" y1="0" x2="0" y2="0">
+      <stop offset="0.55" stop-color="#ecd28f" stop-opacity="0"/>
+      <stop offset="1" stop-color="#ecd28f" stop-opacity="0.28"/>
+    </linearGradient>
+    <clipPath id="welcome-opening">
+      <path d="M122 284 V130 A78 78 0 0 1 278 130 V284 Z"/>
+    </clipPath>
+    <filter id="welcome-blur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
+    <g id="welcome-lamp">
+      <path d="M0 -200 V-8" stroke="#7c5f24" stroke-width="0.9"/>
+      <path d="M0 -8 L-6 0 M0 -8 L6 0" stroke="#7c5f24" stroke-width="0.7"/>
+      <circle cx="0" cy="3" r="13" fill="url(#welcome-halo)"/>
+      <path d="M-7 0 H7 Q7 9 0 12 Q-7 9 -7 0 Z" fill="#992a21"/>
+      <path d="M-5 1 Q-4 7 -1 10" fill="none" stroke="#f6e8e3" stroke-width="0.8" opacity="0.6"/>
+      <ellipse cx="0" cy="0" rx="7.5" ry="1.6" fill="#d9b867"/>
+      <path d="M0 0 C-1.6 -1.4 -1.6 -4 0 -7 C1.6 -4 1.6 -1.4 0 0 Z" fill="#fff4d6"/>
+      <path d="M-1.5 12 L0 15 L1.5 12 Z" fill="#b08d43"/>
+    </g>
+    <g id="welcome-icon">
+      <path d="M-6 12 V-6 A6 6 0 0 1 6 -6 V12 Z" fill="url(#welcome-gold)" stroke="#5a3a22" stroke-width="0.7"/>
+      <circle cx="0" cy="-5" r="3.4" fill="#fff4d6" stroke="#b08d43" stroke-width="0.5"/>
+      <circle cx="0" cy="-4.6" r="1.6" fill="#a5714a"/>
+      <path d="M-4 12 Q-4 0 0 -2 Q4 0 4 12 Z" fill="#992a21"/>
+    </g>
+  </defs>
+
+  <!-- facade -->
+  <rect width="400" height="400" fill="url(#welcome-facade)"/>
+  <g stroke="#1a0807" stroke-width="1.3" fill="none" opacity="0.7">
+    <path d="M0 40 H400 M0 82 H400 M0 124 H400 M0 166 H400 M0 208 H400 M0 250 H400"/>
+    <path d="M30 0 V40 M110 0 V40 M290 0 V40 M370 0 V40 M70 40 V82 M330 40 V82 M30 82 V124 M370 82 V124 M60 124 V166 M340 124 V166 M20 166 V208 M380 166 V208 M64 208 V250 M336 208 V250 M28 250 V286 M372 250 V286"/>
+  </g>
+  <g stroke="#6e1a14" stroke-width="0.8" fill="none" opacity="0.5">
+    <path d="M0 41.5 H400 M0 83.5 H400 M0 125.5 H400 M0 167.5 H400 M0 209.5 H400 M0 251.5 H400"/>
+  </g>
+  <rect width="400" height="400" fill="url(#welcome-facadeGlow)"/>
+
+  <!-- archivolt -->
+  <path d="M96 290 V130 A104 104 0 0 1 304 130 V290 Z" fill="#2b120c"/>
+  <path d="M102 290 V130 A98 98 0 0 1 298 130 V290 Z" fill="url(#welcome-arch)"/>
+  <g stroke="#3b2316" stroke-width="1.2" opacity="0.8">
+    <path d="M200 32 V52"/>
+    <path d="M151 45.2 L161 62.4 M249 45.2 L239 62.4"/>
+    <path d="M115.1 81 L132.5 91 M284.9 81 L267.5 91"/>
+    <path d="M102 130 H122 M278 130 H298"/>
+    <path d="M102 180 H122 M278 180 H298 M102 230 H122 M278 230 H298"/>
+  </g>
+  <path d="M102 130 A98 98 0 0 1 298 130" fill="none" stroke="#ecd28f" stroke-width="1.2" opacity="0.45"/>
+  <!-- keystone with cross -->
+  <path d="M190 30 H210 L206 56 H194 Z" fill="#b07a4a" stroke="#3b2316" stroke-width="1"/>
+  <g transform="translate(200 41)" fill="#7c5f24">
+    <path d="M-1.5 -7 H1.5 V-1.5 H7 V1.5 H1.5 V7 H-1.5 V1.5 H-7 V-1.5 H-1.5 Z"/>
+    <circle cx="0" cy="-7.5" r="1.3"/><circle cx="0" cy="7.5" r="1.3"/><circle cx="-7.5" cy="0" r="1.3"/><circle cx="7.5" cy="0" r="1.3"/>
+  </g>
+
+  <!-- the nave seen through the doorway -->
+  <g clip-path="url(#welcome-opening)">
+    <rect x="100" y="40" width="200" height="260" fill="url(#welcome-inside)"/>
+    <!-- ceiling -->
+    <path d="M90 30 H310 L250 104 H150 Z" fill="url(#welcome-ceil)"/>
+    <path d="M150 104 Q200 84 250 104" fill="none" stroke="#7c5f24" stroke-width="1.2"/>
+    <path d="M128 62 Q200 34 272 62" fill="none" stroke="#7c5f24" stroke-width="1" opacity="0.7"/>
+    <!-- side walls with arcades -->
+    <path d="M90 30 L150 104 V222 L90 300 Z" fill="url(#welcome-wallL)"/>
+    <path d="M310 30 L250 104 V222 L310 300 Z" fill="url(#welcome-wallR)"/>
+    <g fill="#5a3a22" opacity="0.55">
+      <path d="M124 104 Q129 92 134 100 V226 L124 240 Z"/>
+      <path d="M140 108 Q143 101 146 106 V218 L140 226 Z"/>
+      <path d="M276 104 Q271 92 266 100 V226 L276 240 Z"/>
+      <path d="M260 108 Q257 101 254 106 V218 L260 226 Z"/>
+    </g>
+    <g fill="#ecd28f" opacity="0.5">
+      <rect x="134" y="100" width="2" height="128"/>
+      <rect x="146" y="106" width="1.4" height="112"/>
+      <rect x="264" y="100" width="2" height="128"/>
+      <rect x="252.6" y="106" width="1.4" height="112"/>
+    </g>
+    <!-- floor -->
+    <path d="M90 300 L150 222 H250 L310 300 Z" fill="url(#welcome-floor)"/>
+    <path d="M176 300 L196 222 H204 L224 300 Z" fill="url(#welcome-carpet)"/>
+    <path d="M178 300 L196.5 222 M222 300 L203.5 222" stroke="#d9b867" stroke-width="0.8" opacity="0.8"/>
+    <!-- pews -->
+    <g fill="#5a3a22">
+      <path d="M126 262 L170 262 L168 270 L118 272 Z"/>
+      <path d="M137 246 L174 246 L172.5 252 L131 253 Z"/>
+      <path d="M145 235 L177 235 L176 239.5 L140 240 Z"/>
+      <path d="M150 227 L179 227 L178.4 230.5 L146 231 Z"/>
+      <path d="M274 262 L230 262 L232 270 L282 272 Z"/>
+      <path d="M263 246 L226 246 L227.5 252 L269 253 Z"/>
+      <path d="M255 235 L223 235 L224 239.5 L260 240 Z"/>
+      <path d="M250 227 L221 227 L221.6 230.5 L254 231 Z"/>
+    </g>
+    <g fill="#3b2316">
+      <path d="M118 272 L168 270 L167 278 L114 280 Z"/>
+      <path d="M131 253 L172.5 252 L171.8 257 L128 258 Z"/>
+      <path d="M282 272 L232 270 L233 278 L286 280 Z"/>
+      <path d="M269 253 L227.5 252 L228.2 257 L272 258 Z"/>
+    </g>
+    <!-- iconostasis -->
+    <rect x="150" y="104" width="100" height="118" fill="#fff4d6" opacity="0.6"/>
+    <rect x="156" y="140" width="88" height="80" fill="#5a3a22"/>
+    <rect x="156" y="140" width="88" height="80" fill="none" stroke="#d9b867" stroke-width="1.4"/>
+    <rect x="158" y="143" width="84" height="10" fill="#3b2316"/>
+    <g fill="url(#welcome-gold)">
+      <rect x="160" y="144.5" width="8" height="7"/><rect x="171" y="144.5" width="8" height="7"/>
+      <rect x="182" y="144.5" width="8" height="7"/><rect x="193" y="144.5" width="14" height="7"/>
+      <rect x="210" y="144.5" width="8" height="7"/><rect x="221" y="144.5" width="8" height="7"/>
+      <rect x="232" y="144.5" width="8" height="7"/>
+    </g>
+    <g fill="#992a21" opacity="0.85">
+      <circle cx="164" cy="148" r="1.4"/><circle cx="175" cy="148" r="1.4"/><circle cx="186" cy="148" r="1.4"/>
+      <circle cx="200" cy="148" r="1.6"/>
+      <circle cx="214" cy="148" r="1.4"/><circle cx="225" cy="148" r="1.4"/><circle cx="236" cy="148" r="1.4"/>
+    </g>
+    <use xlink:href="#welcome-icon" transform="translate(166 172) scale(1.15)"/>
+    <use xlink:href="#welcome-icon" transform="translate(181 172) scale(1.15)"/>
+    <use xlink:href="#welcome-icon" transform="translate(219 172) scale(1.15)"/>
+    <use xlink:href="#welcome-icon" transform="translate(234 172) scale(1.15)"/>
+    <!-- royal door -->
+    <path d="M190 220 V168 A10 10 0 0 1 210 168 V220 Z" fill="#d9b867"/>
+    <path d="M192 220 V168.5 A8 8 0 0 1 208 168.5 V220 Z" fill="#6e1a14"/>
+    <path d="M196 220 Q198 190 200 166 Q202 190 204 220" fill="#992a21"/>
+    <path d="M198.6 178 h2.8 v4 h4 v2.8 h-4 v6 h-2.8 v-6 h-4 v-2.8 h4 Z" fill="#ecd28f"/>
+    <!-- cross on top -->
+    <path d="M198.8 118 h2.4 v6 h5 v2.4 h-5 v13.6 h-2.4 v-13.6 h-5 v-2.4 h5 Z" fill="url(#welcome-gold)"/>
+    <rect x="152" y="216" width="96" height="6" fill="#3b2316"/>
+    <!-- candles before the iconostasis -->
+    <g>
+      <rect x="171" y="202" width="2" height="18" fill="#7c5f24"/>
+      <rect x="227" y="202" width="2" height="18" fill="#7c5f24"/>
+      <rect x="171.3" y="196" width="1.4" height="6" fill="#fff4d6"/>
+      <rect x="227.3" y="196" width="1.4" height="6" fill="#fff4d6"/>
+      <circle cx="172" cy="193" r="6" fill="url(#welcome-halo)"/>
+      <circle cx="228" cy="193" r="6" fill="url(#welcome-halo)"/>
+      <path d="M172 196 c-1.2 -1 -1.2 -3 0 -5 c1.2 2 1.2 4 0 5Z M228 196 c-1.2 -1 -1.2 -3 0 -5 c1.2 2 1.2 4 0 5Z" fill="#fff"/>
+    </g>
+    <!-- glow at the far end -->
+    <ellipse cx="200" cy="180" rx="60" ry="50" fill="#fff4d6" opacity="0.18" filter="url(#welcome-blur)"/>
+    <!-- hanging lamps -->
+    <use xlink:href="#welcome-lamp" transform="translate(186 136) scale(0.55)"/>
+    <use xlink:href="#welcome-lamp" transform="translate(214 136) scale(0.55)"/>
+    <use xlink:href="#welcome-lamp" transform="translate(200 128) scale(0.5)"/>
+    <use xlink:href="#welcome-lamp" transform="translate(166 116) scale(0.85)"/>
+    <use xlink:href="#welcome-lamp" transform="translate(234 116) scale(0.85)"/>
+    <use xlink:href="#welcome-lamp" transform="translate(146 92) scale(1.2)"/>
+    <use xlink:href="#welcome-lamp" transform="translate(254 92) scale(1.2)"/>
+    <!-- the wall's thickness, lit from within -->
+    <path d="M122 284 V130 A78 78 0 0 1 278 130 V284 H270 V132 A70 70 0 0 0 130 132 V284 Z" fill="#b07a4a" opacity="0.85"/>
+    <path d="M130 284 V132 A70 70 0 0 1 270 132 V284" fill="none" stroke="#fff4d6" stroke-width="1.2" opacity="0.7"/>
+  </g>
+
+  <!-- open doors, swung out -->
+  <g>
+    <path d="M122 284 V130 Q100 70 64 48 V300 Z" fill="url(#welcome-doorL)"/>
+    <path d="M278 284 V130 Q300 70 336 48 V300 Z" fill="url(#welcome-doorR)"/>
+    <!-- panels -->
+    <g fill="none" stroke="#2b120c" stroke-width="1.6">
+      <path d="M72 70 Q96 86 114 136 V184 L72 186 Z"/>
+      <path d="M72 200 L114 196 V272 L72 288 Z"/>
+      <path d="M328 70 Q304 86 286 136 V184 L328 186 Z"/>
+      <path d="M328 200 L286 196 V272 L328 288 Z"/>
+    </g>
+    <g fill="none" stroke="#b07a4a" stroke-width="0.9" opacity="0.7">
+      <path d="M73.5 72 Q97 88 115.5 138"/>
+      <path d="M73.5 202 L115.5 198"/>
+      <path d="M326.5 72 Q303 88 284.5 138"/>
+      <path d="M326.5 202 L284.5 198"/>
+    </g>
+    <!-- planks -->
+    <g stroke="#2b120c" stroke-width="0.7" opacity="0.6">
+      <path d="M86 58 V295 M100 72 V291 M300 72 V291 M314 58 V295"/>
+    </g>
+    <!-- iron straps and studs -->
+    <g stroke="#1a0807" stroke-width="3" fill="none">
+      <path d="M64 120 L122 150 M64 246 L122 248"/>
+      <path d="M336 120 L278 150 M336 246 L278 248"/>
+    </g>
+    <g fill="#d9b867">
+      <circle cx="72" cy="124" r="1.6"/><circle cx="90" cy="133" r="1.6"/><circle cx="108" cy="143" r="1.6"/>
+      <circle cx="72" cy="246" r="1.6"/><circle cx="90" cy="247" r="1.6"/><circle cx="108" cy="247.6" r="1.6"/>
+      <circle cx="328" cy="124" r="1.6"/><circle cx="310" cy="133" r="1.6"/><circle cx="292" cy="143" r="1.6"/>
+      <circle cx="328" cy="246" r="1.6"/><circle cx="310" cy="247" r="1.6"/><circle cx="292" cy="247.6" r="1.6"/>
+    </g>
+    <!-- light on the door edges -->
+    <path d="M120 284 V130" stroke="#ecd28f" stroke-width="2.5" opacity="0.8"/>
+    <path d="M280 284 V130" stroke="#ecd28f" stroke-width="2.5" opacity="0.8"/>
+    <path d="M64 48 V300" stroke="#8a5a34" stroke-width="2"/>
+    <path d="M336 48 V300" stroke="#8a5a34" stroke-width="2"/>
+    <path d="M122 284 V130 Q100 70 64 48 V300 Z" fill="url(#welcome-doorSheen)"/>
+    <path d="M278 284 V130 Q300 70 336 48 V300 Z" fill="url(#welcome-doorSheenR)"/>
+    <!-- ring pulls -->
+    <circle cx="74" cy="200" r="5" fill="none" stroke="#d9b867" stroke-width="1.6"/>
+    <circle cx="326" cy="200" r="5" fill="none" stroke="#d9b867" stroke-width="1.6"/>
+  </g>
+
+  <!-- wall lanterns -->
+  <g>
+    <circle cx="40" cy="150" r="30" fill="url(#welcome-lantern)"/>
+    <circle cx="360" cy="150" r="30" fill="url(#welcome-lantern)"/>
+    <g fill="#1a0807">
+      <path d="M32 134 H48 L45 140 H35 Z"/>
+      <path d="M352 134 H368 L365 140 H355 Z"/>
+      <path d="M35 162 H45 L42 168 H38 Z"/>
+      <path d="M355 162 H365 L362 168 H358 Z"/>
+      <path d="M40 128 V134 M360 128 V134" stroke="#1a0807" stroke-width="2"/>
+    </g>
+    <rect x="35" y="140" width="10" height="22" fill="#ecd28f"/>
+    <rect x="355" y="140" width="10" height="22" fill="#ecd28f"/>
+    <path d="M40 140 V162 M360 140 V162" stroke="#1a0807" stroke-width="1"/>
+    <circle cx="40" cy="153" r="3" fill="#fff4d6"/>
+    <circle cx="360" cy="153" r="3" fill="#fff4d6"/>
+  </g>
+
+  <!-- steps -->
+  <g>
+    <path d="M60 284 H340 V300 H60 Z" fill="url(#welcome-stepTop)"/>
+    <path d="M44 300 H356 V312 H44 Z" fill="url(#welcome-riser)"/>
+    <path d="M40 312 H360 V326 H40 Z" fill="url(#welcome-stepTop)"/>
+    <path d="M24 326 H376 V340 H24 Z" fill="url(#welcome-riser)"/>
+    <path d="M20 340 H380 V356 H20 Z" fill="url(#welcome-stepTop)"/>
+    <path d="M0 356 H400 V372 H0 Z" fill="url(#welcome-riser)"/>
+    <path d="M0 372 H400 V400 H0 Z" fill="url(#welcome-stepTop)"/>
+    <g stroke="#b07a4a" stroke-width="1" opacity="0.55">
+      <path d="M60 284.5 H340 M44 300.5 H356 M40 312.5 H360 M24 326.5 H376 M20 340.5 H380 M0 356.5 H400 M0 372.5 H400"/>
+    </g>
+    <g stroke="#2b120c" stroke-width="0.8" opacity="0.6">
+      <path d="M110 284 V300 M200 284 V300 M290 284 V300 M80 312 V326 M160 312 V326 M240 312 V326 M320 312 V326 M60 340 V356 M140 340 V356 M260 340 V356 M340 340 V356 M100 372 V400 M220 372 V400 M320 372 V400"/>
+    </g>
+  </g>
+  <!-- light spilling out down the steps -->
+  <path d="M122 284 H278 L360 400 H40 Z" fill="url(#welcome-spill)" filter="url(#welcome-blur)"/>
+  <path d="M140 284 H260 L310 400 H90 Z" fill="url(#welcome-spill)" opacity="0.5" filter="url(#welcome-blur)"/>
+  <path d="M122 284 H278" stroke="#fff4d6" stroke-width="2"/>
+  <!-- lit risers' edges in the spill -->
+  <g stroke="#fff4d6" stroke-width="1.2" opacity="0.4">
+    <path d="M112 300 H288 M106 312 H294 M96 326 H304 M88 340 H312 M78 356 H322 M68 372 H332"/>
+  </g>
+  <!-- the steps' shadow on the sides -->
+  <path d="M0 284 H60 L40 400 H0 Z M400 284 H340 L360 400 H400 Z" fill="#1a0807" opacity="0.35"/>
+
+  <radialGradient id="welcome-vig" cx="200" cy="200" r="205" gradientUnits="userSpaceOnUse">
+    <stop offset="0.62" stop-color="#1a0807" stop-opacity="0"/>
+    <stop offset="1" stop-color="#1a0807" stop-opacity="0.7"/>
+  </radialGradient>
+  <rect width="400" height="400" fill="url(#welcome-vig)"/>
+</svg>

@@ -1,0 +1,387 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1000" height="1000" viewBox="0 0 1000 1000">
+  <defs>
+    <radialGradient id="band" cx="50%" cy="50%" r="50%">
+      <stop offset="80%" stop-color="#a8231a"/>
+      <stop offset="100%" stop-color="#6a120b"/>
+    </radialGradient>
+    <radialGradient id="ground" cx="50%" cy="36%" r="60%">
+      <stop offset="0%" stop-color="#6a1811"/>
+      <stop offset="100%" stop-color="#330906"/>
+    </radialGradient>
+    <linearGradient id="trim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fff0b8"/>
+      <stop offset="50%" stop-color="#dcae45"/>
+      <stop offset="100%" stop-color="#a07824"/>
+    </linearGradient>
+    <!-- The scenes were drawn dim and candlelit; this lifts them to match the frame. -->
+    <filter id="vivid" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+      <feColorMatrix type="saturate" values="1.3"/>
+      <feComponentTransfer>
+        <feFuncR type="linear" slope="1.12" intercept="0.02"/>
+        <feFuncG type="linear" slope="1.12" intercept="0.02"/>
+        <feFuncB type="linear" slope="1.12" intercept="0.02"/>
+      </feComponentTransfer>
+    </filter>
+    <clipPath id="viewClip"><circle cx="500" cy="322" r="214"/></clipPath>
+  </defs>
+
+  <circle cx="500" cy="500" r="500" fill="url(#band)"/>
+  <circle cx="500" cy="500" r="488" fill="none" stroke="url(#trim)" stroke-width="7"/>
+  <circle cx="500" cy="500" r="477" fill="none" stroke="#dcae45" stroke-width="1.5" opacity="0.7"/>
+  <text transform="translate(242.9 147.9) rotate(-36.13)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">S</text><text transform="translate(263.0 134.1) rotate(-32.93)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">T</text><text transform="translate(279.6 123.8) rotate(-30.36)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">.</text><text transform="translate(308.5 108.3) rotate(-26.05)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">P</text><text transform="translate(334.1 96.8) rotate(-22.36)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">H</text><text transform="translate(356.8 88.2) rotate(-19.18)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">I</text><text transform="translate(376.9 81.7) rotate(-16.39)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">L</text><text transform="translate(402.7 75.0) rotate(-12.90)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">O</text><text transform="translate(429.1 69.8) rotate(-9.36)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">P</text><text transform="translate(455.0 66.3) rotate(-5.93)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">A</text><text transform="translate(480.9 64.4) rotate(-2.51)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">T</text><text transform="translate(506.4 64.0) rotate(0.85)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">E</text><text transform="translate(533.3 65.3) rotate(4.38)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">R</text><text transform="translate(574.8 70.5) rotate(9.88)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">&amp;</text><text transform="translate(613.5 79.0) rotate(15.09)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">S</text><text transform="translate(636.8 86.0) rotate(18.29)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">T</text><text transform="translate(655.3 92.6) rotate(20.86)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">.</text><text transform="translate(689.5 107.3) rotate(25.76)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">M</text><text transform="translate(712.6 119.3) rotate(29.18)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">I</text><text transform="translate(732.6 131.2) rotate(32.24)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">N</text><text transform="translate(755.8 146.9) rotate(35.91)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">A</text>
+  <g transform="translate(49 500)"><g fill="url(#trim)"><g transform="rotate(0)">
+    <rect x="-3.4000000000000004" y="-12.24" width="6.800000000000001" height="12.24" rx="1.02"/>
+    <circle cx="0" cy="-14.28" r="2.72"/>
+    <circle cx="-4.08" cy="-11.56" r="2.21"/>
+    <circle cx="4.08" cy="-11.56" r="2.21"/></g><g transform="rotate(90)">
+    <rect x="-3.4000000000000004" y="-12.24" width="6.800000000000001" height="12.24" rx="1.02"/>
+    <circle cx="0" cy="-14.28" r="2.72"/>
+    <circle cx="-4.08" cy="-11.56" r="2.21"/>
+    <circle cx="4.08" cy="-11.56" r="2.21"/></g><g transform="rotate(180)">
+    <rect x="-3.4000000000000004" y="-12.24" width="6.800000000000001" height="12.24" rx="1.02"/>
+    <circle cx="0" cy="-14.28" r="2.72"/>
+    <circle cx="-4.08" cy="-11.56" r="2.21"/>
+    <circle cx="4.08" cy="-11.56" r="2.21"/></g><g transform="rotate(270)">
+    <rect x="-3.4000000000000004" y="-12.24" width="6.800000000000001" height="12.24" rx="1.02"/>
+    <circle cx="0" cy="-14.28" r="2.72"/>
+    <circle cx="-4.08" cy="-11.56" r="2.21"/>
+    <circle cx="4.08" cy="-11.56" r="2.21"/></g><circle r="4.760000000000001"/></g></g>
+  <g transform="translate(951 500)"><g fill="url(#trim)"><g transform="rotate(0)">
+    <rect x="-3.4000000000000004" y="-12.24" width="6.800000000000001" height="12.24" rx="1.02"/>
+    <circle cx="0" cy="-14.28" r="2.72"/>
+    <circle cx="-4.08" cy="-11.56" r="2.21"/>
+    <circle cx="4.08" cy="-11.56" r="2.21"/></g><g transform="rotate(90)">
+    <rect x="-3.4000000000000004" y="-12.24" width="6.800000000000001" height="12.24" rx="1.02"/>
+    <circle cx="0" cy="-14.28" r="2.72"/>
+    <circle cx="-4.08" cy="-11.56" r="2.21"/>
+    <circle cx="4.08" cy="-11.56" r="2.21"/></g><g transform="rotate(180)">
+    <rect x="-3.4000000000000004" y="-12.24" width="6.800000000000001" height="12.24" rx="1.02"/>
+    <circle cx="0" cy="-14.28" r="2.72"/>
+    <circle cx="-4.08" cy="-11.56" r="2.21"/>
+    <circle cx="4.08" cy="-11.56" r="2.21"/></g><g transform="rotate(270)">
+    <rect x="-3.4000000000000004" y="-12.24" width="6.800000000000001" height="12.24" rx="1.02"/>
+    <circle cx="0" cy="-14.28" r="2.72"/>
+    <circle cx="-4.08" cy="-11.56" r="2.21"/>
+    <circle cx="4.08" cy="-11.56" r="2.21"/></g><circle r="4.760000000000001"/></g></g>
+  <g transform="translate(500 951)"><g fill="url(#trim)"><g transform="rotate(0)">
+    <rect x="-3" y="-10.799999999999999" width="6" height="10.799999999999999" rx="0.8999999999999999"/>
+    <circle cx="0" cy="-12.6" r="2.4"/>
+    <circle cx="-3.5999999999999996" cy="-10.200000000000001" r="1.9500000000000002"/>
+    <circle cx="3.5999999999999996" cy="-10.200000000000001" r="1.9500000000000002"/></g><g transform="rotate(90)">
+    <rect x="-3" y="-10.799999999999999" width="6" height="10.799999999999999" rx="0.8999999999999999"/>
+    <circle cx="0" cy="-12.6" r="2.4"/>
+    <circle cx="-3.5999999999999996" cy="-10.200000000000001" r="1.9500000000000002"/>
+    <circle cx="3.5999999999999996" cy="-10.200000000000001" r="1.9500000000000002"/></g><g transform="rotate(180)">
+    <rect x="-3" y="-10.799999999999999" width="6" height="10.799999999999999" rx="0.8999999999999999"/>
+    <circle cx="0" cy="-12.6" r="2.4"/>
+    <circle cx="-3.5999999999999996" cy="-10.200000000000001" r="1.9500000000000002"/>
+    <circle cx="3.5999999999999996" cy="-10.200000000000001" r="1.9500000000000002"/></g><g transform="rotate(270)">
+    <rect x="-3" y="-10.799999999999999" width="6" height="10.799999999999999" rx="0.8999999999999999"/>
+    <circle cx="0" cy="-12.6" r="2.4"/>
+    <circle cx="-3.5999999999999996" cy="-10.200000000000001" r="1.9500000000000002"/>
+    <circle cx="3.5999999999999996" cy="-10.200000000000001" r="1.9500000000000002"/></g><circle r="4.2"/></g></g>
+
+  <circle cx="500" cy="500" r="418" fill="url(#ground)"/>
+  <circle cx="500" cy="500" r="418" fill="none" stroke="url(#trim)" stroke-width="5"/>
+  <g fill="#dcae45" opacity="0.75"><circle cx="500.0" cy="94.0" r="2.6"/><circle cx="526.6" cy="94.9" r="2.6"/><circle cx="553.0" cy="97.5" r="2.6"/><circle cx="579.2" cy="101.8" r="2.6"/><circle cx="605.1" cy="107.8" r="2.6"/><circle cx="630.5" cy="115.5" r="2.6"/><circle cx="655.4" cy="124.9" r="2.6"/><circle cx="679.6" cy="135.9" r="2.6"/><circle cx="703.0" cy="148.4" r="2.6"/><circle cx="725.6" cy="162.4" r="2.6"/><circle cx="747.2" cy="177.9" r="2.6"/><circle cx="767.7" cy="194.8" r="2.6"/><circle cx="787.1" cy="212.9" r="2.6"/><circle cx="805.2" cy="232.3" r="2.6"/><circle cx="822.1" cy="252.8" r="2.6"/><circle cx="837.6" cy="274.4" r="2.6"/><circle cx="851.6" cy="297.0" r="2.6"/><circle cx="864.1" cy="320.4" r="2.6"/><circle cx="875.1" cy="344.6" r="2.6"/><circle cx="884.5" cy="369.5" r="2.6"/><circle cx="892.2" cy="394.9" r="2.6"/><circle cx="898.2" cy="420.8" r="2.6"/><circle cx="902.5" cy="447.0" r="2.6"/><circle cx="905.1" cy="473.4" r="2.6"/><circle cx="906.0" cy="500.0" r="2.6"/><circle cx="905.1" cy="526.6" r="2.6"/><circle cx="902.5" cy="553.0" r="2.6"/><circle cx="898.2" cy="579.2" r="2.6"/><circle cx="892.2" cy="605.1" r="2.6"/><circle cx="884.5" cy="630.5" r="2.6"/><circle cx="875.1" cy="655.4" r="2.6"/><circle cx="864.1" cy="679.6" r="2.6"/><circle cx="851.6" cy="703.0" r="2.6"/><circle cx="837.6" cy="725.6" r="2.6"/><circle cx="822.1" cy="747.2" r="2.6"/><circle cx="805.2" cy="767.7" r="2.6"/><circle cx="787.1" cy="787.1" r="2.6"/><circle cx="767.7" cy="805.2" r="2.6"/><circle cx="747.2" cy="822.1" r="2.6"/><circle cx="725.6" cy="837.6" r="2.6"/><circle cx="703.0" cy="851.6" r="2.6"/><circle cx="679.6" cy="864.1" r="2.6"/><circle cx="655.4" cy="875.1" r="2.6"/><circle cx="630.5" cy="884.5" r="2.6"/><circle cx="605.1" cy="892.2" r="2.6"/><circle cx="579.2" cy="898.2" r="2.6"/><circle cx="553.0" cy="902.5" r="2.6"/><circle cx="526.6" cy="905.1" r="2.6"/><circle cx="500.0" cy="906.0" r="2.6"/><circle cx="473.4" cy="905.1" r="2.6"/><circle cx="447.0" cy="902.5" r="2.6"/><circle cx="420.8" cy="898.2" r="2.6"/><circle cx="394.9" cy="892.2" r="2.6"/><circle cx="369.5" cy="884.5" r="2.6"/><circle cx="344.6" cy="875.1" r="2.6"/><circle cx="320.4" cy="864.1" r="2.6"/><circle cx="297.0" cy="851.6" r="2.6"/><circle cx="274.4" cy="837.6" r="2.6"/><circle cx="252.8" cy="822.1" r="2.6"/><circle cx="232.3" cy="805.2" r="2.6"/><circle cx="212.9" cy="787.1" r="2.6"/><circle cx="194.8" cy="767.7" r="2.6"/><circle cx="177.9" cy="747.2" r="2.6"/><circle cx="162.4" cy="725.6" r="2.6"/><circle cx="148.4" cy="703.0" r="2.6"/><circle cx="135.9" cy="679.6" r="2.6"/><circle cx="124.9" cy="655.4" r="2.6"/><circle cx="115.5" cy="630.5" r="2.6"/><circle cx="107.8" cy="605.1" r="2.6"/><circle cx="101.8" cy="579.2" r="2.6"/><circle cx="97.5" cy="553.0" r="2.6"/><circle cx="94.9" cy="526.6" r="2.6"/><circle cx="94.0" cy="500.0" r="2.6"/><circle cx="94.9" cy="473.4" r="2.6"/><circle cx="97.5" cy="447.0" r="2.6"/><circle cx="101.8" cy="420.8" r="2.6"/><circle cx="107.8" cy="394.9" r="2.6"/><circle cx="115.5" cy="369.5" r="2.6"/><circle cx="124.9" cy="344.6" r="2.6"/><circle cx="135.9" cy="320.4" r="2.6"/><circle cx="148.4" cy="297.0" r="2.6"/><circle cx="162.4" cy="274.4" r="2.6"/><circle cx="177.9" cy="252.8" r="2.6"/><circle cx="194.8" cy="232.3" r="2.6"/><circle cx="212.9" cy="212.9" r="2.6"/><circle cx="232.3" cy="194.8" r="2.6"/><circle cx="252.8" cy="177.9" r="2.6"/><circle cx="274.4" cy="162.4" r="2.6"/><circle cx="297.0" cy="148.4" r="2.6"/><circle cx="320.4" cy="135.9" r="2.6"/><circle cx="344.6" cy="124.9" r="2.6"/><circle cx="369.5" cy="115.5" r="2.6"/><circle cx="394.9" cy="107.8" r="2.6"/><circle cx="420.8" cy="101.8" r="2.6"/><circle cx="447.0" cy="97.5" r="2.6"/><circle cx="473.4" cy="94.9" r="2.6"/></g>
+
+  <circle cx="500" cy="322" r="214" fill="#330906"/>
+  <g clip-path="url(#viewClip)"><g filter="url(#vivid)"><svg x="286" y="108" width="428" height="428" viewBox="0 0 400 400">
+  <defs>
+    <radialGradient id="apps-bg" cx="35%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#6e1a14"/>
+      <stop offset="45%" stop-color="#481010"/>
+      <stop offset="100%" stop-color="#2b0d0d"/>
+    </radialGradient>
+    <filter id="apps-blur-lg" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>
+    <filter id="apps-blur-md" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4"/></filter>
+    <filter id="apps-blur-sm" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.6"/></filter>
+    <filter id="apps-shadow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="10"/></filter>
+    <radialGradient id="apps-bokeh" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fff4d6" stop-opacity="0.95"/>
+      <stop offset="45%" stop-color="#ecd28f" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#b08d43" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="apps-bokeh-ring" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#d9b867" stop-opacity="0.25"/>
+      <stop offset="80%" stop-color="#d9b867" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#d9b867" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="apps-frame" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ecd28f"/>
+      <stop offset="30%" stop-color="#8a6a38"/>
+      <stop offset="70%" stop-color="#3b2316"/>
+      <stop offset="100%" stop-color="#1a0a08"/>
+    </linearGradient>
+    <linearGradient id="apps-body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3a2a26"/>
+      <stop offset="100%" stop-color="#0f0706"/>
+    </linearGradient>
+    <linearGradient id="apps-wall" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0%" stop-color="#c86d5f"/>
+      <stop offset="35%" stop-color="#992a21"/>
+      <stop offset="75%" stop-color="#5a1712"/>
+      <stop offset="100%" stop-color="#2b0d0d"/>
+    </linearGradient>
+    <radialGradient id="apps-wall-glow" cx="25%" cy="15%" r="70%">
+      <stop offset="0%" stop-color="#ecd28f" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#ecd28f" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="apps-glare" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="apps-screen-clip"><rect x="127" y="59" width="146" height="282" rx="20"/></clipPath>
+    <clipPath id="apps-tile1"><rect x="0" y="0" width="40" height="40" rx="9"/></clipPath>
+    <linearGradient id="apps-skin" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f2c6a0"/>
+      <stop offset="55%" stop-color="#d69a72"/>
+      <stop offset="100%" stop-color="#9c5b3e"/>
+    </linearGradient>
+    <linearGradient id="apps-skin-shade" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e5ad86"/>
+      <stop offset="100%" stop-color="#8f4f36"/>
+    </linearGradient>
+    <linearGradient id="apps-sleeve" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8a5a34"/>
+      <stop offset="100%" stop-color="#2b0d0d"/>
+    </linearGradient>
+    <linearGradient id="apps-taksis-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e2b45e"/>
+      <stop offset="100%" stop-color="#b06a2c"/>
+    </linearGradient>
+    <linearGradient id="apps-leaf" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#cdf1b4"/>
+      <stop offset="100%" stop-color="#6fd6a2"/>
+    </linearGradient>
+    <linearGradient id="apps-ribbon" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ecd28f"/>
+      <stop offset="100%" stop-color="#b08d43"/>
+    </linearGradient>
+    <linearGradient id="apps-tile-gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="45%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background: a warm church interior, out of focus -->
+  <rect width="400" height="400" fill="url(#apps-bg)"/>
+  <!-- distant arched windows, soft -->
+  <g filter="url(#apps-blur-lg)" opacity="0.55">
+    <path d="M30 400 V150 a40 40 0 0 1 80 0 V400 Z" fill="#992a21"/>
+    <path d="M300 400 V130 a45 45 0 0 1 90 0 V400 Z" fill="#6e1a14"/>
+    <path d="M52 200 V160 a18 18 0 0 1 36 0 V200 Z" fill="#ecd28f" opacity="0.6"/>
+  </g>
+  <!-- warm wash from the upper left -->
+  <circle cx="90" cy="70" r="150" fill="#d9b867" opacity="0.18" filter="url(#apps-blur-lg)"/>
+
+  <!-- candle bokeh -->
+  <g filter="url(#apps-blur-md)">
+    <circle cx="62" cy="96" r="24" fill="url(#apps-bokeh)"/>
+    <circle cx="104" cy="56" r="14" fill="url(#apps-bokeh)" opacity="0.85"/>
+    <circle cx="36" cy="160" r="17" fill="url(#apps-bokeh)" opacity="0.75"/>
+    <circle cx="86" cy="140" r="9" fill="url(#apps-bokeh)" opacity="0.7"/>
+    <circle cx="330" cy="84" r="27" fill="url(#apps-bokeh-ring)"/>
+    <circle cx="330" cy="84" r="8" fill="url(#apps-bokeh)" opacity="0.5"/>
+    <circle cx="354" cy="150" r="16" fill="url(#apps-bokeh)" opacity="0.85"/>
+    <circle cx="300" cy="40" r="12" fill="url(#apps-bokeh)" opacity="0.75"/>
+    <circle cx="66" cy="262" r="28" fill="url(#apps-bokeh-ring)"/>
+    <circle cx="30" cy="226" r="10" fill="url(#apps-bokeh)" opacity="0.7"/>
+    <circle cx="364" cy="226" r="22" fill="url(#apps-bokeh-ring)"/>
+    <circle cx="340" cy="282" r="10" fill="url(#apps-bokeh)" opacity="0.6"/>
+    <circle cx="160" cy="28" r="12" fill="url(#apps-bokeh)" opacity="0.6"/>
+    <circle cx="246" cy="22" r="18" fill="url(#apps-bokeh-ring)"/>
+    <circle cx="94" cy="330" r="14" fill="url(#apps-bokeh)" opacity="0.55"/>
+    <circle cx="50" cy="318" r="8" fill="url(#apps-bokeh)" opacity="0.5"/>
+  </g>
+  <g filter="url(#apps-blur-sm)">
+    <circle cx="62" cy="96" r="6" fill="#fff4d6"/>
+    <circle cx="354" cy="150" r="4" fill="#fff4d6" opacity="0.9"/>
+    <circle cx="104" cy="56" r="3.5" fill="#fff4d6" opacity="0.9"/>
+    <circle cx="36" cy="160" r="4" fill="#fff4d6" opacity="0.8"/>
+    <circle cx="300" cy="40" r="3" fill="#fff4d6" opacity="0.8"/>
+  </g>
+
+  <g transform="rotate(-7 200 210)">
+    <!-- the phone's shadow on the dark behind it -->
+    <rect x="128" y="62" width="168" height="300" rx="28" fill="#120404" opacity="0.7" filter="url(#apps-shadow)"/>
+
+    <!-- palm, behind the phone -->
+    <path d="M262 240 C292 236 314 262 316 300 C318 336 332 372 344 420 L232 430 C236 400 238 372 246 350 Z" fill="url(#apps-skin)"/>
+    <path d="M300 268 C312 292 314 326 326 372 C334 396 340 410 344 420 L318 424 C312 392 302 360 298 330 Z" fill="#8f4f36" opacity="0.45"/>
+    <!-- sleeve cuff -->
+    <path d="M232 384 C266 372 316 370 350 380 L366 470 L214 470 Z" fill="url(#apps-sleeve)"/>
+    <path d="M232 384 C266 372 316 370 350 380" fill="none" stroke="#d9b867" stroke-width="3"/>
+    <path d="M230 392 C266 380 316 378 352 388" fill="none" stroke="#7c5f24" stroke-width="1.5"/>
+
+    <!-- phone body and metal frame -->
+    <rect x="118" y="50" width="164" height="300" rx="27" fill="url(#apps-frame)"/>
+    <rect x="120.5" y="52.5" width="159" height="295" rx="25" fill="url(#apps-body)"/>
+    <!-- side buttons -->
+    <rect x="114.5" y="112" width="4" height="22" rx="2" fill="#7c5f24"/>
+    <rect x="114.5" y="142" width="4" height="34" rx="2" fill="#7c5f24"/>
+    <rect x="281.5" y="128" width="4" height="44" rx="2" fill="#3b2316"/>
+
+    <!-- screen -->
+    <g clip-path="url(#apps-screen-clip)">
+      <rect x="127" y="59" width="146" height="282" fill="url(#apps-wall)"/>
+      <rect x="127" y="59" width="146" height="282" fill="url(#apps-wall-glow)"/>
+      <!-- wallpaper: a dome on the horizon, softly lit -->
+      <g opacity="0.55">
+        <path d="M150 341 V290 h20 v-18 a30 30 0 0 1 60 0 v18 h20 v51 Z" fill="#2b0d0d"/>
+        <rect x="198" y="226" width="4" height="16" fill="#2b0d0d"/>
+        <rect x="193" y="231" width="14" height="4" fill="#2b0d0d"/>
+      </g>
+      <circle cx="160" cy="96" r="70" fill="#fff4d6" opacity="0.10"/>
+
+      <!-- status bar -->
+      <rect x="143" y="72" width="22" height="6" rx="3" fill="#fff4d6" opacity="0.9"/>
+      <rect x="236" y="73" width="4" height="5" rx="1" fill="#fff4d6" opacity="0.9"/>
+      <rect x="242" y="71" width="4" height="7" rx="1" fill="#fff4d6" opacity="0.9"/>
+      <rect x="250" y="72" width="12" height="6" rx="2" fill="none" stroke="#fff4d6" stroke-width="1.2" opacity="0.9"/>
+      <rect x="251.5" y="73.5" width="7" height="3" rx="1" fill="#fff4d6" opacity="0.9"/>
+      <!-- dynamic island -->
+      <rect x="181" y="67" width="38" height="12" rx="6" fill="#050202"/>
+      <circle cx="211" cy="73" r="2.3" fill="#1d1640"/>
+
+      <!-- a widget: today's candle and a few lines -->
+      <rect x="135" y="96" width="130" height="58" rx="14" fill="#2b0d0d" opacity="0.45"/>
+      <rect x="135" y="96" width="130" height="58" rx="14" fill="none" stroke="#fff4d6" stroke-opacity="0.18" stroke-width="1"/>
+      <circle cx="158" cy="118" r="11" fill="#ecd28f" opacity="0.35" filter="url(#apps-blur-sm)"/>
+      <rect x="154" y="120" width="8" height="22" rx="1.5" fill="#f9efec"/>
+      <path d="M158 104 C162 110 162 115 158 118 C154 115 154 110 158 104 Z" fill="#ecd28f"/>
+      <path d="M158 109 C160 112 160 115 158 117 C156 115 156 112 158 109 Z" fill="#fff4d6"/>
+      <rect x="176" y="108" width="54" height="7" rx="3.5" fill="#fff4d6" opacity="0.9"/>
+      <rect x="176" y="121" width="74" height="5" rx="2.5" fill="#f6e8e3" opacity="0.55"/>
+      <rect x="176" y="131" width="62" height="5" rx="2.5" fill="#f6e8e3" opacity="0.55"/>
+
+      <!-- the three apps -->
+      <!-- SPSM Connect -->
+      <g transform="translate(129.5 167) scale(1.075)">
+        <rect x="1" y="3" width="40" height="40" rx="9" fill="#120404" opacity="0.45"/>
+        <rect width="40" height="40" rx="9" fill="#5c1418"/>
+        <g clip-path="url(#apps-tile1)">
+          <circle cx="20" cy="19" r="15" fill="#f9efec"/>
+          <path d="M5.5 22 A15 15 0 0 1 34.5 22" fill="none" stroke="#992a21" stroke-width="4.5"/>
+          <!-- St Philopater: halo, head, cream tunic, red cape -->
+          <circle cx="15" cy="17" r="3.2" fill="#d9b867"/>
+          <circle cx="15" cy="17.3" r="2" fill="#b07a4a"/>
+          <path d="M11 30 L12.3 20.5 Q15 19.5 17.7 20.5 L19 30 Z" fill="#e8dcc4"/>
+          <path d="M11.4 22 L9 27.5 L11.6 28 Z" fill="#c4281e"/>
+          <path d="M18.6 22 L21 27.5 L18.4 28 Z" fill="#c4281e"/>
+          <!-- St Mina / Mercurius: red cape billowing, horse -->
+          <path d="M23 11 C30 9 33 15 30 21 L25 22 Z" fill="#a8281e"/>
+          <circle cx="25.5" cy="17" r="2.8" fill="#d9b867"/>
+          <circle cx="25.5" cy="17.3" r="1.8" fill="#c79a74"/>
+          <path d="M22 24 C24 21 30 21 31 25 L33 22 L34 24 L31 29 L23 30 Z" fill="#5a2e1a"/>
+          <path d="M23.5 20.5 L27.5 20.5 L27 25 L24 25 Z" fill="#e8e2d6"/>
+          <!-- ribbon across the bottom -->
+          <path d="M1 29 Q20 36 39 29 L39 35 Q20 42 1 35 Z" fill="url(#apps-ribbon)"/>
+          <path d="M1 29 L-2 31 L1 35 Z" fill="#7c5f24"/>
+          <path d="M5 33 Q20 38.5 35 33" fill="none" stroke="#992a21" stroke-width="1.1" opacity="0.8"/>
+        </g>
+        <rect width="40" height="40" rx="9" fill="url(#apps-tile-gloss)"/>
+      </g>
+      <!-- Taksis: the icon of Christ and Abba Mena -->
+      <g transform="translate(178.5 167) scale(1.075)">
+        <rect x="1" y="3" width="40" height="40" rx="9" fill="#120404" opacity="0.45"/>
+        <g clip-path="url(#apps-tile1)">
+          <rect width="40" height="40" fill="url(#apps-taksis-bg)"/>
+          <rect x="0" y="0" width="4" height="40" fill="#7a3a1a" opacity="0.7"/>
+          <path d="M4 40 V20 Q10 16 20 18 Q30 16 36 20 V40 Z" fill="#8a3e1f" opacity="0.55"/>
+          <!-- halos -->
+          <circle cx="13" cy="13" r="7.5" fill="#f0cf7a" stroke="#a8682c" stroke-width="0.9"/>
+          <circle cx="28" cy="12" r="8.2" fill="#f0cf7a" stroke="#a8682c" stroke-width="0.9"/>
+          <!-- Abba Mena -->
+          <path d="M9.5 12 Q13 8 16.5 12 L16 16 Q13 19 10 16 Z" fill="#f2dcc0"/>
+          <path d="M9.6 13.5 Q9 9 13 8.6 Q17 9 16.4 13.5 Q15 10.5 13 10.5 Q11 10.5 9.6 13.5 Z" fill="#8a8a82"/>
+          <path d="M10.5 16 Q13 20.5 15.5 16 Q13 18 10.5 16 Z" fill="#e8e4dc"/>
+          <path d="M6 40 L7.5 22 Q13 18.5 18.5 22 L20 40 Z" fill="#c78a3c"/>
+          <path d="M7.5 22 Q13 18.5 18.5 22 L17 28 Q12 25 8 28 Z" fill="#efe4cc"/>
+          <!-- Christ -->
+          <path d="M24 11.5 Q28 6.5 32 11.5 L31.5 16 Q28 19.5 24.5 16 Z" fill="#f2dcc0"/>
+          <path d="M23.4 17 Q22.5 7 28 6.8 Q33.5 7 32.6 17 L31.6 12 Q28 9.5 24.4 12 Z" fill="#3b2316"/>
+          <path d="M25 16 Q28 20 31 16 L30.5 18.5 Q28 20 25.5 18.5 Z" fill="#3b2316"/>
+          <path d="M21 40 L22 22 Q28 18.5 34 22 L36 40 Z" fill="#3b2316"/>
+          <rect x="28.5" y="25" width="6" height="8" rx="0.8" fill="#d9a43c" stroke="#7c5f24" stroke-width="0.6"/>
+          <circle cx="31.5" cy="29" r="1.1" fill="#992a21"/>
+          <path d="M18 23 Q21 21 24 23" fill="none" stroke="#3b2316" stroke-width="2"/>
+        </g>
+        <rect width="40" height="40" rx="9" fill="url(#apps-tile-gloss)"/>
+      </g>
+      <!-- Tithe.ly: the green sprout on black -->
+      <g transform="translate(227.5 167) scale(1.075)">
+        <rect x="1" y="3" width="40" height="40" rx="9" fill="#120404" opacity="0.45"/>
+        <rect width="40" height="40" rx="9" fill="#181818"/>
+        <path d="M20 6.5 C24.5 10 25 15 24.5 17 C24 19.5 22 20.5 20 21.5 C18 20.5 16 19.5 15.5 17 C15 15 15.5 10 20 6.5 Z" fill="url(#apps-leaf)"/>
+        <path d="M7 18.5 H13.5 C17.5 18.5 19.5 22.5 19.5 27.5 H13 C9 27.5 7 24 7 18.5 Z" fill="url(#apps-leaf)"/>
+        <path d="M33 18.5 H26.5 C22.5 18.5 21 22.5 21 26 V33.5 H21.6 L21.8 28 Q22.2 27.5 25 27.5 C29.5 27.5 33 24.5 33 18.5 Z" fill="url(#apps-leaf)"/>
+        <rect width="40" height="40" rx="9" fill="url(#apps-tile-gloss)"/>
+      </g>
+      <!-- names under the tiles, as bars -->
+      <rect x="138" y="217" width="26" height="4" rx="2" fill="#fff4d6" opacity="0.75"/>
+      <rect x="189" y="217" width="22" height="4" rx="2" fill="#fff4d6" opacity="0.75"/>
+      <rect x="237" y="217" width="24" height="4" rx="2" fill="#fff4d6" opacity="0.75"/>
+
+      <!-- dock -->
+      <rect x="133" y="296" width="134" height="38" rx="16" fill="#f9efec" opacity="0.16"/>
+      <rect x="133" y="296" width="134" height="38" rx="16" fill="none" stroke="#fff4d6" stroke-opacity="0.22"/>
+      <circle cx="160" cy="315" r="11" fill="#f9efec" opacity="0.18"/>
+      <circle cx="187" cy="315" r="11" fill="#f9efec" opacity="0.18"/>
+      <circle cx="214" cy="315" r="11" fill="#f9efec" opacity="0.18"/>
+      <circle cx="241" cy="315" r="11" fill="#f9efec" opacity="0.18"/>
+      <!-- page dots -->
+      <circle cx="195" cy="285" r="2" fill="#fff4d6"/>
+      <circle cx="205" cy="285" r="2" fill="#fff4d6" opacity="0.4"/>
+
+      <!-- glass glare -->
+      <path d="M100 40 L190 40 L120 380 L30 380 Z" fill="url(#apps-glare)"/>
+      <path d="M210 40 L236 40 L166 380 L140 380 Z" fill="url(#apps-glare)" opacity="0.6"/>
+    </g>
+    <!-- screen rim highlight -->
+    <rect x="127" y="59" width="146" height="282" rx="20" fill="none" stroke="#000" stroke-opacity="0.6" stroke-width="1.2"/>
+    <path d="M140 52.6 H262" stroke="#fff4d6" stroke-opacity="0.55" stroke-width="1"/>
+    <path d="M120.6 80 V250" stroke="#fff4d6" stroke-opacity="0.35" stroke-width="1"/>
+
+    <!-- fingertips wrapping the left edge -->
+    <g>
+      <path d="M126 236 C114 234 104 238 103 246 C102 254 112 258 126 256 Z" fill="url(#apps-skin)"/>
+      <path d="M126 263 C112 261 101 265 100 274 C99 283 111 287 126 285 Z" fill="url(#apps-skin)"/>
+      <path d="M126 292 C113 290 104 294 103 302 C102 310 112 313 126 312 Z" fill="url(#apps-skin)"/>
+      <path d="M126 318 C116 317 109 320 109 326 C109 332 116 335 126 334 Z" fill="url(#apps-skin)"/>
+      <path d="M126 236 C118 238 116 252 126 256 Z" fill="#8f4f36" opacity="0.4"/>
+      <path d="M126 263 C117 266 115 281 126 285 Z" fill="#8f4f36" opacity="0.4"/>
+      <path d="M126 292 C118 295 116 308 126 312 Z" fill="#8f4f36" opacity="0.4"/>
+      <path d="M126 318 C119 321 119 331 126 334 Z" fill="#8f4f36" opacity="0.4"/>
+      <path d="M108 241 C110 239 114 238 117 238" fill="none" stroke="#fbe0c4" stroke-width="1.6" stroke-linecap="round" opacity="0.8"/>
+      <path d="M105 269 C107 267 111 266 114 266" fill="none" stroke="#fbe0c4" stroke-width="1.6" stroke-linecap="round" opacity="0.8"/>
+      <path d="M107 297 C109 295 113 294 116 294" fill="none" stroke="#fbe0c4" stroke-width="1.6" stroke-linecap="round" opacity="0.8"/>
+    </g>
+
+    <!-- thumb over the right edge -->
+    <path d="M300 300 C292 286 276 270 258 258 C248 251 236 252 234 260 C232 268 240 272 250 276 C266 283 278 296 284 312 Z" fill="#000" opacity="0.35" filter="url(#apps-blur-md)" transform="translate(-3 6)"/>
+    <path d="M304 296 C296 282 280 266 262 254 C250 246 238 246 235 255 C232 264 241 269 252 273 C266 279 276 292 282 310 Z" fill="url(#apps-skin)"/>
+    <path d="M304 296 C298 286 290 278 282 272 C276 282 280 296 282 310 Z" fill="url(#apps-skin-shade)" opacity="0.7"/>
+    <!-- thumbnail -->
+    <path d="M238 254 C240 248 248 248 256 253 C260 256 259 262 254 263 C248 264 240 262 238 254 Z" fill="#f6d4bc"/>
+    <path d="M240 252 C243 249 249 249 254 252" fill="none" stroke="#fff4ea" stroke-width="1.4" stroke-linecap="round"/>
+    <path d="M262 270 C268 274 272 279 275 285" fill="none" stroke="#a8694a" stroke-width="1.2" stroke-linecap="round" opacity="0.7"/>
+  </g>
+
+  <!-- final warm vignette -->
+  <circle cx="200" cy="200" r="200" fill="none" stroke="#2b0d0d" stroke-width="40" opacity="0.35" filter="url(#apps-blur-lg)"/>
+</svg></g></g>
+  <circle cx="500" cy="322" r="214" fill="none" stroke="url(#trim)" stroke-width="8"/>
+  <circle cx="500" cy="322" r="224" fill="none" stroke="#dcae45" stroke-width="1.5" opacity="0.7"/>
+
+  <text x="500" y="628" text-anchor="middle" font-family="Georgia" font-size="70"
+        font-weight="bold" letter-spacing="7" fill="#f9efec">OUR APPS</text>
+
+  <rect x="280" y="676" width="440" height="78" rx="39" fill="#c4261a" stroke="url(#trim)" stroke-width="3"/>
+  <g transform="translate(340 715) scale(0.72)"><circle cx="-30" cy="0" r="7" fill="#f9efec"/><path d="M-14.73596875004335 -14.040000000000001A18 18 0 0 1 -14.73596875004335 14.040000000000001" fill="none" stroke="#f9efec" stroke-width="7" stroke-linecap="round"/><path d="M-4.723496527859659 -26.52A34 34 0 0 1 -4.723496527859659 26.52" fill="none" stroke="#f9efec" stroke-width="7" stroke-linecap="round"/><path d="M5.28897569432403 -39A50 50 0 0 1 5.28897569432403 39" fill="none" stroke="#f9efec" stroke-width="7" stroke-linecap="round"/></g>
+  <text x="534" y="726" text-anchor="middle" font-family="Georgia" font-size="31" font-weight="bold"
+        letter-spacing="2" fill="#f9efec">TAP YOUR PHONE</text>
+
+  <text x="500" y="812" text-anchor="middle" font-family="Georgia" font-size="25" fill="#f9efec" opacity="0.85">www.spsmwayland.org/c/apps</text>
+</svg>

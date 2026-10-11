@@ -1,0 +1,332 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 400 400" width="400" height="400">
+  <defs>
+    <linearGradient id="give-wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3b1a12"/>
+      <stop offset="0.6" stop-color="#2f140f"/>
+      <stop offset="1" stop-color="#1e0907"/>
+    </linearGradient>
+    <radialGradient id="give-warm" cx="105" cy="190" r="210" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ecd28f" stop-opacity="0.55"/>
+      <stop offset="0.25" stop-color="#c86d5f" stop-opacity="0.32"/>
+      <stop offset="0.6" stop-color="#6e1a14" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#2b0d0d" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="give-floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4a2a1c"/>
+      <stop offset="1" stop-color="#1a0807"/>
+    </linearGradient>
+    <linearGradient id="give-niche" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#5a2a1c"/>
+      <stop offset="0.5" stop-color="#2b0d0d"/>
+      <stop offset="1" stop-color="#1e0907"/>
+    </linearGradient>
+    <linearGradient id="give-stone" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#b07a4a"/>
+      <stop offset="0.5" stop-color="#8a5a34"/>
+      <stop offset="1" stop-color="#3b2316"/>
+    </linearGradient>
+    <linearGradient id="give-iconGold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ecd28f"/>
+      <stop offset="0.5" stop-color="#b08d43"/>
+      <stop offset="1" stop-color="#7c5f24"/>
+    </linearGradient>
+    <linearGradient id="give-robe" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#992a21"/>
+      <stop offset="1" stop-color="#481010"/>
+    </linearGradient>
+    <linearGradient id="give-front" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#b07a4a"/>
+      <stop offset="0.45" stop-color="#8a5a34"/>
+      <stop offset="1" stop-color="#5a3a22"/>
+    </linearGradient>
+    <linearGradient id="give-side" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3b2316"/>
+      <stop offset="1" stop-color="#22110a"/>
+    </linearGradient>
+    <linearGradient id="give-top" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#d4a06a"/>
+      <stop offset="1" stop-color="#8a5a34"/>
+    </linearGradient>
+    <linearGradient id="give-brass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff4d6"/>
+      <stop offset="0.35" stop-color="#d9b867"/>
+      <stop offset="1" stop-color="#7c5f24"/>
+    </linearGradient>
+    <linearGradient id="give-tray" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ecd28f"/>
+      <stop offset="0.5" stop-color="#b08d43"/>
+      <stop offset="1" stop-color="#5a3a22"/>
+    </linearGradient>
+    <linearGradient id="give-sand" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ecd28f"/>
+      <stop offset="1" stop-color="#b08d43"/>
+    </linearGradient>
+    <linearGradient id="give-wax" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff4d6"/>
+      <stop offset="0.6" stop-color="#ecd28f"/>
+      <stop offset="1" stop-color="#b08d43"/>
+    </linearGradient>
+    <radialGradient id="give-halo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fff4d6" stop-opacity="0.95"/>
+      <stop offset="0.35" stop-color="#ecd28f" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#d9b867" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="give-flame" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#c86d5f"/>
+      <stop offset="0.35" stop-color="#ecd28f"/>
+      <stop offset="1" stop-color="#fff4d6"/>
+    </linearGradient>
+    <linearGradient id="give-skin" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e6b48a"/>
+      <stop offset="0.6" stop-color="#c58c62"/>
+      <stop offset="1" stop-color="#8a5a34"/>
+    </linearGradient>
+    <linearGradient id="give-sleeve" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6e1a14"/>
+      <stop offset="1" stop-color="#2b0d0d"/>
+    </linearGradient>
+    <linearGradient id="give-envelope" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff4d6"/>
+      <stop offset="1" stop-color="#e8d3b4"/>
+    </linearGradient>
+    <linearGradient id="give-faceglow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ecd28f" stop-opacity="0.22"/>
+      <stop offset="0.5" stop-color="#ecd28f" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="give-blur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6"/>
+    </filter>
+    <filter id="give-soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.5"/>
+    </filter>
+    <g id="give-fl">
+      <ellipse cx="0" cy="-8" rx="13" ry="16" fill="url(#give-halo)"/>
+      <path d="M0 0 C-4.2 -3 -4.5 -9 0 -18 C4.5 -9 4.2 -3 0 0 Z" fill="url(#give-flame)"/>
+      <path d="M0 -1.5 C-1.8 -3 -1.8 -6 0 -10 C1.8 -6 1.8 -3 0 -1.5 Z" fill="#fff"/>
+    </g>
+  </defs>
+
+  <!-- wall -->
+  <rect width="400" height="400" fill="url(#give-wall)"/>
+  <!-- stone courses -->
+  <g stroke="#1e0907" stroke-width="1.2" opacity="0.5" fill="none">
+    <path d="M0 70 H400 M0 130 H400 M0 190 H400 M0 250 H400"/>
+    <path d="M60 10 V70 M180 10 V70 M300 10 V70 M120 70 V130 M240 70 V130 M360 70 V130 M60 130 V190 M330 130 V190 M30 190 V250 M350 190 V250 M90 250 V300 M320 250 V300"/>
+  </g>
+
+  <!-- arched niche with icon -->
+  <path d="M146 300 V122 A74 74 0 0 1 294 122 V300 Z" fill="url(#give-stone)"/>
+  <path d="M156 300 V124 A64 64 0 0 1 284 124 V300 Z" fill="url(#give-niche)"/>
+  <path d="M146 122 A74 74 0 0 1 294 122" fill="none" stroke="#ecd28f" stroke-width="1.5" opacity="0.5"/>
+
+  <!-- icon -->
+  <g>
+    <path d="M176 222 V128 A44 44 0 0 1 264 128 V222 Z" fill="#5a3a22"/>
+    <path d="M180 218 V129 A40 40 0 0 1 260 129 V218 Z" fill="url(#give-iconGold)"/>
+    <!-- saint -->
+    <circle cx="220" cy="128" r="21" fill="#ecd28f" stroke="#7c5f24" stroke-width="1.5"/>
+    <circle cx="220" cy="128" r="17" fill="none" stroke="#b08d43" stroke-width="0.8"/>
+    <path d="M214 140 Q220 146 226 140 L226 150 L214 150 Z" fill="#a5714a"/>
+    <ellipse cx="220" cy="130" rx="9" ry="11.5" fill="#c58c62"/>
+    <path d="M211 127 Q213 117 220 117 Q227 117 229 127 Q226 121 220 121 Q214 121 211 127 Z" fill="#3b2316"/>
+    <path d="M212 134 Q220 148 228 134 Q227 141 220 145 Q213 141 212 134 Z" fill="#3b2316"/>
+    <path d="M190 218 Q192 160 220 150 Q248 160 250 218 Z" fill="url(#give-robe)"/>
+    <path d="M206 218 Q208 168 220 154 Q232 168 234 218 Z" fill="#2b0d0d" opacity="0.55"/>
+    <path d="M212 218 Q214 176 220 160 Q226 176 228 218" fill="none" stroke="#d9b867" stroke-width="1.6"/>
+    <path d="M196 200 Q205 176 214 170" fill="none" stroke="#c86d5f" stroke-width="1.4" opacity="0.8"/>
+    <path d="M244 200 Q236 176 226 170" fill="none" stroke="#2b0d0d" stroke-width="1.4" opacity="0.6"/>
+    <!-- gospel book held -->
+    <path d="M200 180 L216 176 L218 198 L202 202 Z" fill="#7c5f24"/>
+    <path d="M201 180 L215 176.5 L217 197 L203 200.5 Z" fill="#d9b867"/>
+    <path d="M206 186 l6 -1.5 M209 182 l1 9" stroke="#992a21" stroke-width="1.4"/>
+    <ellipse cx="214" cy="190" rx="4" ry="3.2" fill="#c58c62"/>
+  </g>
+
+  <!-- hanging oil lamp -->
+  <g>
+    <path d="M96 0 V44" stroke="#7c5f24" stroke-width="1.4" stroke-dasharray="3 2"/>
+    <path d="M96 44 L82 60 M96 44 L110 60 M96 44 V60" stroke="#b08d43" stroke-width="1"/>
+    <ellipse cx="96" cy="78" rx="26" ry="26" fill="url(#give-halo)" opacity="0.6"/>
+    <path d="M80 60 H112 Q112 80 96 86 Q80 80 80 60 Z" fill="#992a21"/>
+    <path d="M80 60 H112 Q111 68 108 72 H84 Q81 68 80 60 Z" fill="#c86d5f" opacity="0.7"/>
+    <path d="M84 63 Q86 76 94 82" fill="none" stroke="#f6e8e3" stroke-width="1.2" opacity="0.5"/>
+    <ellipse cx="96" cy="60" rx="17" ry="3.5" fill="url(#give-brass)"/>
+    <path d="M92 85 L96 92 L100 85 Z" fill="#b08d43"/>
+    <use xlink:href="#give-fl" transform="translate(96 58) scale(0.8)"/>
+  </g>
+
+  <!-- warm candle light over everything behind -->
+  <rect width="400" height="400" fill="url(#give-warm)"/>
+
+  <!-- floor -->
+  <path d="M0 300 H400 V400 H0 Z" fill="url(#give-floor)"/>
+  <g stroke="#1a0807" stroke-width="1.2" opacity="0.6">
+    <path d="M0 322 H400 M0 352 H400"/>
+    <path d="M70 300 L50 400 M160 300 L150 400 M250 300 L262 400 M340 300 L370 400"/>
+  </g>
+  <ellipse cx="110" cy="312" rx="90" ry="10" fill="#ecd28f" opacity="0.12"/>
+
+  <!-- candle stand (left) -->
+  <g>
+    <path d="M100 306 L120 306 L116 252 L104 252 Z" fill="#7c5f24"/>
+    <path d="M104 252 L108 252 L111 306 L104 306 Z" fill="#d9b867" opacity="0.6"/>
+    <ellipse cx="110" cy="308" rx="28" ry="6" fill="#5a3a22"/>
+    <ellipse cx="110" cy="306" rx="26" ry="5" fill="url(#give-tray)"/>
+    <ellipse cx="110" cy="252" rx="10" ry="3" fill="#b08d43"/>
+    <!-- tray -->
+    <path d="M44 226 L176 226 L168 246 L52 246 Z" fill="url(#give-tray)"/>
+    <path d="M52 246 L168 246 L164 250 L56 250 Z" fill="#5a3a22"/>
+    <ellipse cx="110" cy="226" rx="66" ry="9" fill="#7c5f24"/>
+    <ellipse cx="110" cy="225" rx="62" ry="7.5" fill="url(#give-sand)"/>
+    <path d="M48 228 Q110 238 172 228" fill="none" stroke="#fff4d6" stroke-width="1.3" opacity="0.6"/>
+    <!-- candles: back row -->
+    <rect x="62" y="178" width="4" height="47" fill="url(#give-wax)"/>
+    <rect x="80" y="166" width="4" height="58" fill="url(#give-wax)"/>
+    <rect x="100" y="182" width="4" height="42" fill="url(#give-wax)"/>
+    <rect x="120" y="160" width="4" height="64" fill="url(#give-wax)"/>
+    <rect x="140" y="174" width="4" height="50" fill="url(#give-wax)"/>
+    <rect x="156" y="186" width="4" height="39" fill="url(#give-wax)"/>
+    <!-- front row -->
+    <rect x="71" y="194" width="4.5" height="34" fill="url(#give-wax)"/>
+    <rect x="90" y="186" width="4.5" height="42" fill="url(#give-wax)"/>
+    <rect x="110" y="198" width="4.5" height="30" fill="url(#give-wax)"/>
+    <rect x="130" y="190" width="4.5" height="38" fill="url(#give-wax)"/>
+    <rect x="148" y="200" width="4.5" height="28" fill="url(#give-wax)"/>
+    <!-- wicks + flames -->
+    <g stroke="#2b0d0d" stroke-width="0.8">
+      <path d="M64 178 v-2 M82 166 v-2 M102 182 v-2 M122 160 v-2 M142 174 v-2 M158 186 v-2 M73.2 194 v-2 M92.2 186 v-2 M112.2 198 v-2 M132.2 190 v-2 M150.2 200 v-2"/>
+    </g>
+    <use xlink:href="#give-fl" transform="translate(64 176)"/>
+    <use xlink:href="#give-fl" transform="translate(82 164)"/>
+    <use xlink:href="#give-fl" transform="translate(102 180)"/>
+    <use xlink:href="#give-fl" transform="translate(122 158)"/>
+    <use xlink:href="#give-fl" transform="translate(142 172)"/>
+    <use xlink:href="#give-fl" transform="translate(158 184)"/>
+    <use xlink:href="#give-fl" transform="translate(73.2 192)"/>
+    <use xlink:href="#give-fl" transform="translate(92.2 184)"/>
+    <use xlink:href="#give-fl" transform="translate(112.2 196)"/>
+    <use xlink:href="#give-fl" transform="translate(132.2 188)"/>
+    <use xlink:href="#give-fl" transform="translate(150.2 198)"/>
+  </g>
+
+  <!-- shadow of box on floor -->
+  <ellipse cx="272" cy="362" rx="74" ry="10" fill="#0e0403" opacity="0.7" filter="url(#give-soft)"/>
+
+  <!-- offering box: pedestal -->
+  <g transform="translate(0 300) scale(1 0.86) translate(0 -300)">
+    <path d="M232 300 H290 V352 H232 Z" fill="url(#give-front)"/>
+    <path d="M290 300 L300 292 V346 L290 352 Z" fill="url(#give-side)"/>
+    <path d="M238 306 H284 V346 H238 Z" fill="none" stroke="#3b2316" stroke-width="1.5"/>
+    <path d="M239 307 V345" stroke="#d4a06a" stroke-width="1" opacity="0.6"/>
+    <path d="M222 352 H300 V368 H222 Z" fill="url(#give-front)"/>
+    <path d="M300 352 L312 344 V362 L300 368 Z" fill="url(#give-side)"/>
+    <path d="M222 352 L234 344 H312 L300 352 Z" fill="#b07a4a"/>
+    <path d="M222 353 H300" stroke="#e6b48a" stroke-width="1" opacity="0.7"/>
+  </g>
+
+  <!-- offering box: body -->
+  <g>
+    <!-- side -->
+    <path d="M318 222 L336 208 V288 L318 304 Z" fill="url(#give-side)"/>
+    <!-- front -->
+    <rect x="200" y="222" width="118" height="82" fill="url(#give-front)"/>
+    <!-- grain -->
+    <g fill="none" stroke="#5a3a22" stroke-width="0.8" opacity="0.55">
+      <path d="M204 236 Q240 232 270 238 T316 236"/>
+      <path d="M204 262 Q236 258 262 264 T316 260"/>
+      <path d="M204 290 Q232 286 258 292 T316 288"/>
+      <path d="M204 248 Q226 246 240 250"/>
+      <path d="M280 276 Q296 272 314 276"/>
+    </g>
+    <!-- top molding -->
+    <path d="M194 214 H322 V224 H194 Z" fill="#8a5a34"/>
+    <path d="M194 214 H322" stroke="#e6b48a" stroke-width="1.5"/>
+    <path d="M322 214 L342 199 V209 L322 224 Z" fill="#2a160d"/>
+    <!-- lid -->
+    <path d="M194 214 L214 199 H342 L322 214 Z" fill="url(#give-top)"/>
+    <path d="M214 199 H342" stroke="#5a3a22" stroke-width="1"/>
+    <!-- brass slot plate on lid -->
+    <path d="M238 210 L248 203 H300 L290 210 Z" fill="url(#give-brass)" stroke="#7c5f24" stroke-width="0.8"/>
+    <path d="M250 207.6 L254 205 H290 L286 207.6 Z" fill="#1a0807"/>
+    <!-- bottom molding -->
+    <path d="M196 302 H322 V310 H196 Z" fill="#5a3a22"/>
+    <path d="M322 302 L340 288 V296 L322 310 Z" fill="#22110a"/>
+    <path d="M196 302 H322" stroke="#b07a4a" stroke-width="1"/>
+    <!-- recessed panel -->
+    <rect x="212" y="234" width="94" height="60" fill="#5a3a22" opacity="0.55"/>
+    <path d="M212 294 V234 H306" fill="none" stroke="#2b1408" stroke-width="2"/>
+    <path d="M306 234 V294 H212" fill="none" stroke="#d4a06a" stroke-width="1.2" opacity="0.7"/>
+    <!-- inlaid Coptic cross -->
+    <g transform="translate(259 264)">
+      <circle r="23" fill="none" stroke="#b08d43" stroke-width="2"/>
+      <circle r="23" fill="none" stroke="#fff4d6" stroke-width="0.6" opacity="0.5" transform="translate(-0.6 -0.6)"/>
+      <g fill="url(#give-brass)" stroke="#7c5f24" stroke-width="0.6">
+        <path d="M-3.5 -3.5 L-5 -16 L-3 -18 H3 L5 -16 L3.5 -3.5 Z"/>
+        <path d="M-3.5 3.5 L-5 16 L-3 18 H3 L5 16 L3.5 3.5 Z"/>
+        <path d="M-3.5 -3.5 L-16 -5 L-18 -3 V3 L-16 5 L-3.5 3.5 Z"/>
+        <path d="M3.5 -3.5 L16 -5 L18 -3 V3 L16 5 L3.5 3.5 Z"/>
+        <circle cx="0" cy="-20" r="2"/>
+        <circle cx="0" cy="20" r="2"/>
+        <circle cx="-20" cy="0" r="2"/>
+        <circle cx="20" cy="0" r="2"/>
+        <circle cx="0" cy="0" r="3.2"/>
+      </g>
+    </g>
+    <!-- corner brass studs -->
+    <g fill="url(#give-brass)">
+      <circle cx="205" cy="229" r="2.4"/>
+      <circle cx="313" cy="229" r="2.4"/>
+      <circle cx="205" cy="298" r="2.4"/>
+      <circle cx="313" cy="298" r="2.4"/>
+    </g>
+    <!-- candle glow on the front face -->
+    <rect x="200" y="222" width="118" height="82" fill="url(#give-faceglow)"/>
+  </g>
+
+  <!-- envelope going into the slot -->
+  <g transform="rotate(-4 270 206)">
+    <rect x="256" y="132" width="28" height="75" rx="1.5" fill="url(#give-envelope)"/>
+    <path d="M256 132 L270 150 L284 132" fill="none" stroke="#c9ab86" stroke-width="1.2"/>
+    <rect x="276" y="132" width="8" height="75" fill="#b08d43" opacity="0.18"/>
+    <rect x="256" y="132" width="28" height="75" rx="1.5" fill="none" stroke="#b08d43" stroke-width="0.8"/>
+    <circle cx="270" cy="176" r="4.2" fill="#992a21"/>
+    <path d="M267.6 176 h4.8 M270 173.6 v4.8" stroke="#ecd28f" stroke-width="1"/>
+  </g>
+  <!-- front lip of the slot, over the envelope -->
+  <path d="M250 207.6 L286 207.6 L290 210 L238 210 Z" fill="url(#give-brass)"/>
+  <path d="M244 210 H290" stroke="#7c5f24" stroke-width="0.8"/>
+
+  <!-- hand and sleeve -->
+  <g>
+    <!-- sleeve -->
+    <path d="M412 64 L412 162 Q372 160 338 160 Q328 140 330 116 Q366 92 412 64 Z" fill="url(#give-sleeve)"/>
+    <path d="M330 116 Q362 96 408 74" fill="none" stroke="#c86d5f" stroke-width="1.5" opacity="0.55"/>
+    <path d="M356 106 Q368 128 372 160" fill="none" stroke="#1a0807" stroke-width="2.2" opacity="0.6"/>
+    <path d="M384 92 Q392 120 394 160" fill="none" stroke="#1a0807" stroke-width="1.6" opacity="0.5"/>
+    <!-- cuff -->
+    <path d="M330 116 Q326 138 338 160 L346 160 Q334 140 338 114 Z" fill="#b08d43"/>
+    <!-- curled fingers, behind -->
+    <g fill="#a5714a" stroke="#6b4228" stroke-width="0.8">
+      <path d="M300 150 Q290 150 288 157 Q289 163 297 162 L310 158 Z"/>
+      <path d="M308 156 Q299 158 298 164 Q300 169 307 167 L318 162 Z"/>
+    </g>
+    <!-- index finger behind the envelope, tip showing at left -->
+    <path d="M304 128 Q284 126 270 134 Q262 139 263 144 Q266 147 272 144 Q286 140 304 144 Z" fill="#b5805a" stroke="#6b4228" stroke-width="0.8"/>
+    <!-- back of hand -->
+    <path d="M334 114 Q316 112 300 120 Q290 126 290 136 Q292 150 306 156 Q324 162 340 160 Q332 138 334 114 Z" fill="url(#give-skin)" stroke="#6b4228" stroke-width="0.8"/>
+    <!-- thumb, in front of the envelope -->
+    <path d="M308 146 Q292 140 278 142 Q266 144 262 150 Q262 155 269 155 Q282 153 296 156 Q306 157 310 152 Z" fill="#e0aa7e" stroke="#6b4228" stroke-width="0.8"/>
+    <path d="M265 148 Q266 151 270 151" fill="none" stroke="#fff4d6" stroke-width="1" opacity="0.7"/>
+    <!-- highlights -->
+    <path d="M300 121 Q314 114 330 116" fill="none" stroke="#f6d3ae" stroke-width="2" opacity="0.8"/>
+    <path d="M294 130 Q293 138 297 144" fill="none" stroke="#f6d3ae" stroke-width="1.2" opacity="0.6"/>
+    <path d="M280 145 Q290 144 300 147" fill="none" stroke="#f6d3ae" stroke-width="1" opacity="0.7"/>
+  </g>
+
+  <!-- vignette -->
+  <radialGradient id="give-vig" cx="200" cy="200" r="210" gradientUnits="userSpaceOnUse">
+    <stop offset="0.6" stop-color="#1a0807" stop-opacity="0"/>
+    <stop offset="1" stop-color="#1a0807" stop-opacity="0.75"/>
+  </radialGradient>
+  <rect width="400" height="400" fill="url(#give-vig)"/>
+</svg>

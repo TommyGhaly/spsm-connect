@@ -49,6 +49,23 @@ It fails if the eight slugs have drifted from `src/clip/experiences.ts`, which
 is the table the URLs, the fallback pages and the association file all come
 from.
 
+## The NFC stickers
+
+`nfc-stickers/` holds the stickers that go over the NFC tags: one per
+experience plus Taksis's `/c/register-vehicle`, all nine in the same maroon
+and gold so they read as one set. Each is a 3-inch circle, as SVG and as a 1200px
+PNG (400 dpi at that size): the church's name on the rim, an illustrated scene
+in a gold-framed window, the name, TAP YOUR PHONE, and the URL for a phone that
+cannot read NFC. The scenes are hand-drawn SVGs in `scripts/nfc-scenes/`, one
+per slug, and `sheet.png` is all nine together, for a proof.
+
+```bash
+npm run nfc-stickers
+```
+
+Write each tag with exactly the URL printed on its sticker — lowercase, with
+`www.`. A capitalised path is the website's 404.
+
 ## What goes where
 
 ### Google Play

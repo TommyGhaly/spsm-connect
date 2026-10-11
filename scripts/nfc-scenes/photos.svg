@@ -1,0 +1,347 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <defs>
+    <radialGradient id="photos-bg" cx="30%" cy="25%" r="85%">
+      <stop offset="0%" stop-color="#992a21"/>
+      <stop offset="40%" stop-color="#6e1a14"/>
+      <stop offset="80%" stop-color="#3a0e0c"/>
+      <stop offset="100%" stop-color="#2b0d0d"/>
+    </radialGradient>
+    <filter id="photos-blur-lg" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="10"/></filter>
+    <filter id="photos-shadow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="6"/></filter>
+    <filter id="photos-shadow-sm" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2.5"/></filter>
+    <filter id="photos-glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="5"/></filter>
+    <filter id="photos-soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.5"/></filter>
+
+    <linearGradient id="photos-print" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fffdf6"/>
+      <stop offset="100%" stop-color="#eadbd0"/>
+    </linearGradient>
+    <!-- print 1: the dome at dusk -->
+    <linearGradient id="photos-sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#6e1a14"/>
+      <stop offset="45%" stop-color="#c86d5f"/>
+      <stop offset="80%" stop-color="#ecd28f"/>
+      <stop offset="100%" stop-color="#fff4d6"/>
+    </linearGradient>
+    <linearGradient id="photos-stone" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#f6e8e3"/>
+      <stop offset="55%" stop-color="#d9c2b3"/>
+      <stop offset="100%" stop-color="#8a6a58"/>
+    </linearGradient>
+    <linearGradient id="photos-dome" x1="0" y1="0" x2="1" y2="0.4">
+      <stop offset="0%" stop-color="#ecd28f"/>
+      <stop offset="50%" stop-color="#b08d43"/>
+      <stop offset="100%" stop-color="#5a3a22"/>
+    </linearGradient>
+    <!-- print 2: people gathered in a lit church -->
+    <radialGradient id="photos-hall" cx="50%" cy="30%" r="80%">
+      <stop offset="0%" stop-color="#fff4d6"/>
+      <stop offset="35%" stop-color="#d9b867"/>
+      <stop offset="100%" stop-color="#5a3a22"/>
+    </radialGradient>
+    <!-- print 3: a candle in the dark -->
+    <radialGradient id="photos-candle-bg" cx="50%" cy="38%" r="65%">
+      <stop offset="0%" stop-color="#b07a4a"/>
+      <stop offset="35%" stop-color="#5a2a18"/>
+      <stop offset="100%" stop-color="#1a0606"/>
+    </radialGradient>
+    <radialGradient id="photos-flame-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fff4d6" stop-opacity="1"/>
+      <stop offset="40%" stop-color="#ecd28f" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#d9b867" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="photos-wax" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#fff4d6"/>
+      <stop offset="60%" stop-color="#f6e8e3"/>
+      <stop offset="100%" stop-color="#c9a894"/>
+    </linearGradient>
+    <linearGradient id="photos-flame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff4d6"/>
+      <stop offset="60%" stop-color="#ecd28f"/>
+      <stop offset="100%" stop-color="#c86d5f"/>
+    </linearGradient>
+    <clipPath id="photos-img"><rect x="0" y="0" width="88" height="88"/></clipPath>
+
+    <!-- camera -->
+    <linearGradient id="photos-plate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff4d6"/>
+      <stop offset="30%" stop-color="#e6d3b8"/>
+      <stop offset="70%" stop-color="#b8a28a"/>
+      <stop offset="100%" stop-color="#7c6a58"/>
+    </linearGradient>
+    <linearGradient id="photos-plate-h" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#fff" stop-opacity="0.35"/>
+      <stop offset="40%" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#3b2316" stop-opacity="0.35"/>
+    </linearGradient>
+    <linearGradient id="photos-body" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0%" stop-color="#5a3a2a"/>
+      <stop offset="40%" stop-color="#3b2316"/>
+      <stop offset="100%" stop-color="#160806"/>
+    </linearGradient>
+    <pattern id="photos-leather" width="5" height="5" patternUnits="userSpaceOnUse">
+      <circle cx="1.5" cy="1.5" r="0.9" fill="#000" opacity="0.28"/>
+      <circle cx="4" cy="3.8" r="0.7" fill="#b07a4a" opacity="0.18"/>
+    </pattern>
+    <linearGradient id="photos-barrel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6a5a50"/>
+      <stop offset="45%" stop-color="#241614"/>
+      <stop offset="100%" stop-color="#0a0404"/>
+    </linearGradient>
+    <linearGradient id="photos-ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fff4d6"/>
+      <stop offset="40%" stop-color="#b08d43"/>
+      <stop offset="100%" stop-color="#3b2316"/>
+    </linearGradient>
+    <radialGradient id="photos-glass" cx="45%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#2a1640"/>
+      <stop offset="35%" stop-color="#160c26"/>
+      <stop offset="75%" stop-color="#070310"/>
+      <stop offset="100%" stop-color="#000"/>
+    </radialGradient>
+    <radialGradient id="photos-glass-inner" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#3b2a5a" stop-opacity="0.9"/>
+      <stop offset="70%" stop-color="#1a0f30" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="photos-flare" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="photos-gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff4d6"/>
+      <stop offset="45%" stop-color="#d9b867"/>
+      <stop offset="100%" stop-color="#7c5f24"/>
+    </linearGradient>
+    <linearGradient id="photos-strap" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#c86d5f"/>
+      <stop offset="50%" stop-color="#992a21"/>
+      <stop offset="100%" stop-color="#481010"/>
+    </linearGradient>
+  </defs>
+
+  <!-- backdrop -->
+  <rect width="400" height="400" fill="url(#photos-bg)"/>
+  <!-- the table it rests on -->
+  <path d="M0 300 C120 290 280 290 400 300 V400 H0 Z" fill="#2b0d0d" opacity="0.55"/>
+  <path d="M0 300 C120 290 280 290 400 300" fill="none" stroke="#c86d5f" stroke-width="1.5" opacity="0.25"/>
+  <circle cx="70" cy="60" r="90" fill="#ecd28f" opacity="0.18" filter="url(#photos-blur-lg)"/>
+  <g filter="url(#photos-glow)" fill="#ecd28f">
+    <circle cx="52" cy="200" r="9" opacity="0.4"/>
+    <circle cx="350" cy="214" r="11" opacity="0.3"/>
+    <circle cx="336" cy="96" r="7" opacity="0.35"/>
+  </g>
+
+  <!-- the prints, fanned -->
+  <!-- left: people gathered -->
+  <g transform="translate(120 136) rotate(-15)">
+    <rect x="-50" y="-55" width="100" height="118" rx="2" fill="#120303" opacity="0.6" filter="url(#photos-shadow)" transform="translate(5 7)"/>
+    <rect x="-50" y="-55" width="100" height="118" rx="2" fill="url(#photos-print)"/>
+    <g transform="translate(-44 -49)" clip-path="url(#photos-img)">
+      <rect width="88" height="88" fill="url(#photos-hall)"/>
+      <!-- arch and iconostasis glow behind them -->
+      <path d="M24 88 V36 a20 20 0 0 1 40 0 V88 Z" fill="#fff4d6" opacity="0.55"/>
+      <path d="M30 88 V40 a14 14 0 0 1 28 0 V88 Z" fill="#b08d43" opacity="0.5"/>
+      <rect x="42.5" y="26" width="3" height="14" fill="#7c5f24"/>
+      <rect x="38" y="30" width="12" height="3" fill="#7c5f24"/>
+      <g transform="translate(0 -12)">
+      <!-- back row -->
+      <g>
+        <path d="M2 88 C2 66 26 66 26 88 Z" fill="#6e1a14"/>
+        <circle cx="14" cy="60" r="7" fill="#c98a62"/>
+        <path d="M7 58 C7 50 21 50 21 58 C18 54 10 54 7 58 Z" fill="#2b1810"/>
+        <path d="M60 88 C60 64 86 64 86 88 Z" fill="#3b2316"/>
+        <circle cx="73" cy="57" r="7.5" fill="#e0b08a"/>
+        <path d="M65.5 56 C65 47 81 47 80.5 56 C78 51 68 51 65.5 56 Z" fill="#5a3a22"/>
+        <path d="M33 88 C33 68 55 68 55 88 Z" fill="#f6e8e3"/>
+        <circle cx="44" cy="62" r="6.5" fill="#b07a4a"/>
+        <path d="M37.5 60 C37.5 52 50.5 52 50.5 60 C47 57 41 57 37.5 60 Z" fill="#2b1810"/>
+      </g>
+      <!-- front row -->
+      <g>
+        <path d="M-6 92 C-6 72 22 72 22 92 Z" fill="#992a21"/>
+        <circle cx="8" cy="70" r="7.5" fill="#d9a07a"/>
+        <path d="M0 70 C-1 59 17 59 16 70 C16 64 12 62 8 62 C4 62 0 64 0 70 Z" fill="#3b2316"/>
+        <path d="M26 92 C26 74 50 74 50 92 Z" fill="#b08d43"/>
+        <circle cx="38" cy="74" r="6.5" fill="#e8bc96"/>
+        <path d="M31 73 C31 64 45 64 45 73 C42 69 34 69 31 73 Z" fill="#5a3a22"/>
+        <path d="M54 92 C54 72 82 72 82 92 Z" fill="#481010"/>
+        <circle cx="68" cy="71" r="7" fill="#c48660"/>
+        <path d="M61 69 C61 61 75 61 75 69 C71 66 65 66 61 69 Z" fill="#160806"/>
+      </g>
+      <rect x="0" y="86" width="88" height="14" fill="#2b0d0d"/>
+      </g>
+      <rect width="88" height="88" fill="#fff4d6" opacity="0.06"/>
+    </g>
+    <rect x="-44" y="-49" width="88" height="88" fill="none" stroke="#2b0d0d" stroke-opacity="0.25" stroke-width="0.8"/>
+  </g>
+
+  <!-- right: the candle -->
+  <g transform="translate(282 138) rotate(14)">
+    <rect x="-50" y="-55" width="100" height="118" rx="2" fill="#120303" opacity="0.6" filter="url(#photos-shadow)" transform="translate(5 7)"/>
+    <rect x="-50" y="-55" width="100" height="118" rx="2" fill="url(#photos-print)"/>
+    <g transform="translate(-44 -49)" clip-path="url(#photos-img)">
+      <rect width="88" height="88" fill="url(#photos-candle-bg)"/>
+      <circle cx="44" cy="28" r="30" fill="url(#photos-flame-glow)" opacity="0.7"/>
+      <!-- candle -->
+      <rect x="36" y="38" width="16" height="44" rx="2" fill="url(#photos-wax)"/>
+      <path d="M36 40 C38 36 50 36 52 40 C50 42 47 41 46 46 C45 42 40 43 36 40 Z" fill="#fff4d6"/>
+      <path d="M46 40 C47 44 47 49 46 52 C45 48 45 44 46 40 Z" fill="#e8d6c8"/>
+      <path d="M44 36 V31" stroke="#2b0d0d" stroke-width="1.2"/>
+      <path d="M44 12 C50 20 51 27 44 33 C37 27 38 20 44 12 Z" fill="url(#photos-flame)"/>
+      <path d="M44 20 C47 24 47 28 44 31 C41 28 41 24 44 20 Z" fill="#fff"/>
+      <!-- brass holder -->
+      <ellipse cx="44" cy="82" rx="20" ry="5" fill="url(#photos-gold)"/>
+      <rect x="30" y="78" width="28" height="5" rx="1.5" fill="#b08d43"/>
+      <ellipse cx="44" cy="78" rx="14" ry="3" fill="#ecd28f"/>
+      <ellipse cx="44" cy="92" rx="34" ry="8" fill="#7c5f24" opacity="0.5"/>
+    </g>
+    <rect x="-44" y="-49" width="88" height="88" fill="none" stroke="#2b0d0d" stroke-opacity="0.25" stroke-width="0.8"/>
+  </g>
+
+  <!-- centre: the church dome at dusk -->
+  <g transform="translate(200 104) rotate(3)">
+    <rect x="-50" y="-55" width="100" height="118" rx="2" fill="#120303" opacity="0.6" filter="url(#photos-shadow)" transform="translate(5 7)"/>
+    <rect x="-50" y="-55" width="100" height="118" rx="2" fill="url(#photos-print)"/>
+    <g transform="translate(-44 -49)" clip-path="url(#photos-img)">
+      <rect width="88" height="88" fill="url(#photos-sky)"/>
+      <circle cx="22" cy="58" r="16" fill="#fff4d6" opacity="0.65" filter="url(#photos-soft)"/>
+      <path d="M0 50 C14 48 24 52 36 50" fill="none" stroke="#fff4d6" stroke-width="2" opacity="0.4"/>
+      <path d="M52 22 C64 20 74 24 88 21" fill="none" stroke="#f6e8e3" stroke-width="2.5" opacity="0.35"/>
+      <!-- trees behind -->
+      <path d="M0 76 C4 64 10 66 12 72 C14 62 22 64 22 74 L22 88 H0 Z" fill="#3b2316"/>
+      <path d="M68 74 C70 62 78 62 80 70 C82 64 88 66 88 72 V88 H68 Z" fill="#3b2316"/>
+      <!-- church -->
+      <rect x="18" y="56" width="52" height="32" fill="url(#photos-stone)"/>
+      <path d="M14 58 L44 50 L74 58 Z" fill="#8a5a34"/>
+      <rect x="30" y="40" width="28" height="14" fill="url(#photos-stone)"/>
+      <path d="M28 41 H60 V43 H28 Z" fill="#b07a4a"/>
+      <path d="M30 41 A14 15 0 0 1 58 41 Z" fill="url(#photos-dome)"/>
+      <path d="M36 32 A8 9 0 0 1 42 28" fill="none" stroke="#fff4d6" stroke-width="1.6" stroke-linecap="round" opacity="0.8"/>
+      <rect x="43" y="16" width="2" height="11" fill="#7c5f24"/>
+      <rect x="40" y="19" width="8" height="2" fill="#7c5f24"/>
+      <circle cx="44" cy="15.5" r="1.3" fill="#d9b867"/>
+      <!-- arched windows, lit -->
+      <g fill="#ecd28f">
+        <path d="M34 54 V47 a2.5 2.5 0 0 1 5 0 V54 Z"/>
+        <path d="M41.5 54 V47 a2.5 2.5 0 0 1 5 0 V54 Z"/>
+        <path d="M49 54 V47 a2.5 2.5 0 0 1 5 0 V54 Z"/>
+        <path d="M23 74 V66 a3 3 0 0 1 6 0 V74 Z"/>
+        <path d="M59 74 V66 a3 3 0 0 1 6 0 V74 Z"/>
+      </g>
+      <path d="M38 88 V72 a6 6 0 0 1 12 0 V88 Z" fill="#481010"/>
+      <path d="M38.5 88 V72.5 a5.5 5.5 0 0 1 5.5 -5.5 V88 Z" fill="#6e1a14"/>
+      <rect x="0" y="84" width="88" height="4" fill="#5a3a22"/>
+    </g>
+    <rect x="-44" y="-49" width="88" height="88" fill="none" stroke="#2b0d0d" stroke-opacity="0.25" stroke-width="0.8"/>
+    <!-- gloss across the print -->
+    <path d="M-44 -49 L10 -49 L-30 39 L-44 39 Z" fill="#fff" opacity="0.1"/>
+  </g>
+
+  <!-- camera strap, curling down off the table edge -->
+  <path d="M92 226 C62 236 48 280 62 320 C72 350 94 374 122 394" fill="none" stroke="#120303" stroke-width="13" stroke-linecap="round" opacity="0.5" filter="url(#photos-shadow-sm)" transform="translate(4 5)"/>
+  <path d="M308 226 C338 236 352 280 338 320 C328 350 306 374 278 394" fill="none" stroke="#120303" stroke-width="13" stroke-linecap="round" opacity="0.5" filter="url(#photos-shadow-sm)" transform="translate(4 5)"/>
+  <path d="M92 226 C62 236 48 280 62 320 C72 350 94 374 122 394" fill="none" stroke="url(#photos-strap)" stroke-width="11" stroke-linecap="round"/>
+  <path d="M308 226 C338 236 352 280 338 320 C328 350 306 374 278 394" fill="none" stroke="url(#photos-strap)" stroke-width="11" stroke-linecap="round"/>
+  <path d="M92 226 C62 236 48 280 62 320 C72 350 94 374 122 394" fill="none" stroke="#d9b867" stroke-width="1" stroke-dasharray="3 3" opacity="0.8" transform="translate(2 -1)"/>
+  <path d="M308 226 C338 236 352 280 338 320 C328 350 306 374 278 394" fill="none" stroke="#d9b867" stroke-width="1" stroke-dasharray="3 3" opacity="0.8" transform="translate(-2 -1)"/>
+  <path d="M64 250 C58 270 56 290 60 310" fill="none" stroke="#f6e8e3" stroke-width="1.5" stroke-linecap="round" opacity="0.35"/>
+
+  <!-- camera -->
+  <g>
+    <!-- contact shadow on the table -->
+    <ellipse cx="206" cy="342" rx="128" ry="14" fill="#120303" opacity="0.75" filter="url(#photos-shadow)"/>
+
+    <!-- viewfinder hump -->
+    <path d="M164 196 L172 168 C173 164 176 162 180 162 H220 C224 162 227 164 228 168 L236 196 Z" fill="url(#photos-plate)"/>
+    <path d="M164 196 L172 168 C173 164 176 162 180 162 H186 L176 196 Z" fill="#fff" opacity="0.3"/>
+    <path d="M226 166 L236 196 H226 Z" fill="#3b2316" opacity="0.3"/>
+    <rect x="186" y="170" width="28" height="12" rx="2" fill="#2b1810"/>
+    <rect x="188" y="172" width="24" height="3" rx="1.5" fill="#fff4d6" opacity="0.25"/>
+    <!-- hot shoe -->
+    <rect x="184" y="156" width="32" height="7" rx="1.5" fill="#7c6a58"/>
+    <rect x="186" y="157" width="28" height="2" fill="#e6d3b8"/>
+
+    <!-- top plate -->
+    <rect x="94" y="192" width="212" height="28" rx="10" fill="url(#photos-plate)"/>
+    <rect x="94" y="192" width="212" height="28" rx="10" fill="url(#photos-plate-h)"/>
+    <path d="M104 193.5 H296" stroke="#fff" stroke-width="1.2" opacity="0.8"/>
+
+    <!-- mode dial on the left -->
+    <rect x="110" y="178" width="40" height="16" rx="3" fill="#3b2316"/>
+    <rect x="110" y="178" width="40" height="16" rx="3" fill="none" stroke="#0a0404" stroke-width="1"/>
+    <g stroke="#7c6a58" stroke-width="1.6">
+      <path d="M115 180 V192"/><path d="M120 180 V192"/><path d="M125 180 V192"/><path d="M130 180 V192"/>
+      <path d="M135 180 V192"/><path d="M140 180 V192"/><path d="M145 180 V192"/>
+    </g>
+    <ellipse cx="130" cy="178" rx="20" ry="4" fill="#5a4a40"/>
+    <ellipse cx="128" cy="177.5" rx="12" ry="2" fill="#a8968a" opacity="0.6"/>
+    <!-- shutter button and dial on the right -->
+    <rect x="252" y="182" width="34" height="12" rx="3" fill="#7c6a58"/>
+    <ellipse cx="269" cy="182" rx="17" ry="3.5" fill="#d9c8b4"/>
+    <rect x="262" y="172" width="14" height="10" rx="2" fill="url(#photos-gold)"/>
+    <ellipse cx="269" cy="172" rx="7" ry="2.2" fill="#fff4d6"/>
+    <rect x="230" y="186" width="16" height="8" rx="2" fill="#3b2316"/>
+
+    <!-- body -->
+    <rect x="94" y="214" width="212" height="112" rx="14" fill="url(#photos-body)"/>
+    <rect x="94" y="214" width="212" height="112" rx="14" fill="url(#photos-leather)"/>
+    <!-- grip on the right -->
+    <path d="M262 214 H292 C300 214 306 220 306 228 V312 C306 320 300 326 292 326 H262 C270 300 272 240 262 214 Z" fill="#160806" opacity="0.55"/>
+    <path d="M268 222 C274 250 274 290 268 318" fill="none" stroke="#5a3a2a" stroke-width="1.5" opacity="0.6"/>
+    <!-- metal band where top plate meets body -->
+    <rect x="94" y="214" width="212" height="5" fill="#7c6a58" opacity="0.8"/>
+    <path d="M96 326 H304" stroke="#000" stroke-width="2" opacity="0.6"/>
+    <path d="M100 224 V310" stroke="#fff4d6" stroke-width="1.2" opacity="0.18"/>
+    <!-- strap lugs -->
+    <rect x="88" y="222" width="8" height="12" rx="2" fill="url(#photos-plate)"/>
+    <rect x="304" y="222" width="8" height="12" rx="2" fill="url(#photos-plate)"/>
+
+    <!-- AF lamp and a little gold badge -->
+    <circle cx="124" cy="236" r="5" fill="#2b0d0d"/>
+    <circle cx="124" cy="236" r="3.4" fill="#c86d5f"/>
+    <circle cx="123" cy="235" r="1.2" fill="#fff4d6" opacity="0.9"/>
+    <circle cx="282" cy="236" r="4" fill="url(#photos-gold)"/>
+
+    <!-- lens -->
+    <circle cx="200" cy="270" r="68" fill="#0a0303" opacity="0.6" filter="url(#photos-shadow-sm)" transform="translate(3 5)"/>
+    <circle cx="200" cy="270" r="66" fill="url(#photos-barrel)"/>
+    <circle cx="200" cy="270" r="65" fill="none" stroke="#a8968a" stroke-width="1.2" opacity="0.6"/>
+    <!-- knurled focus ring -->
+    <circle cx="200" cy="270" r="58" fill="#1a0e0c"/>
+    <circle cx="200" cy="270" r="58" fill="none" stroke="#4a3a34" stroke-width="7" stroke-dasharray="2.2 2.2"/>
+    <path d="M154 236 A58 58 0 0 1 234 223" fill="none" stroke="#8a7a70" stroke-width="7" stroke-dasharray="2.2 2.2" opacity="0.7"/>
+    <!-- gold accent ring -->
+    <circle cx="200" cy="270" r="52.5" fill="none" stroke="url(#photos-ring)" stroke-width="2.5"/>
+    <circle cx="200" cy="270" r="50" fill="#120808"/>
+    <!-- engraved front ring -->
+    <circle cx="200" cy="270" r="47" fill="none" stroke="#3b2e2a" stroke-width="3"/>
+    <g fill="#a8968a" opacity="0.8">
+      <rect x="198.8" y="221.5" width="2.4" height="4"/>
+      <rect x="198.8" y="314.5" width="2.4" height="4"/>
+      <rect x="151.5" y="268.8" width="4" height="2.4"/>
+      <rect x="244.5" y="268.8" width="4" height="2.4"/>
+    </g>
+    <!-- glass -->
+    <circle cx="200" cy="270" r="42" fill="url(#photos-glass)"/>
+    <circle cx="200" cy="270" r="28" fill="url(#photos-glass-inner)"/>
+    <circle cx="200" cy="270" r="28" fill="none" stroke="#5a4a80" stroke-width="1" opacity="0.5"/>
+    <circle cx="200" cy="270" r="16" fill="#05020a"/>
+    <circle cx="200" cy="270" r="16" fill="none" stroke="#3a2a60" stroke-width="1.5" opacity="0.7"/>
+    <!-- coating reflections -->
+    <path d="M226 290 A32 32 0 0 1 206 302" fill="none" stroke="#c86d5f" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
+    <path d="M230 278 A32 32 0 0 1 228 286" fill="none" stroke="#7fd6a0" stroke-width="2.5" stroke-linecap="round" opacity="0.55"/>
+    <path d="M222 296 A26 26 0 0 1 214 300" fill="none" stroke="#ecd28f" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+    <!-- the window's reflection, upper left -->
+    <path d="M168 258 A34 34 0 0 1 196 236 L198 246 A24 24 0 0 0 178 262 Z" fill="url(#photos-flare)" opacity="0.85"/>
+    <circle cx="186" cy="254" r="4.5" fill="#fff" opacity="0.9"/>
+    <circle cx="214" cy="284" r="2.2" fill="#fff" opacity="0.6"/>
+    <circle cx="206" cy="262" r="1.6" fill="#fff4d6" opacity="0.7"/>
+    <!-- rim lights on the barrel -->
+    <path d="M150 248 A56 56 0 0 1 188 213" fill="none" stroke="#fff4d6" stroke-width="2" stroke-linecap="round" opacity="0.55"/>
+    <path d="M262 286 A66 66 0 0 1 238 324" fill="none" stroke="#c86d5f" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+  </g>
+
+  <!-- vignette -->
+  <circle cx="200" cy="200" r="215" fill="none" stroke="#1a0505" stroke-width="60" opacity="0.35" filter="url(#photos-shadow)"/>
+</svg>

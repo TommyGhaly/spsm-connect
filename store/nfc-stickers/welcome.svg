@@ -1,0 +1,433 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1000" height="1000" viewBox="0 0 1000 1000">
+  <defs>
+    <radialGradient id="band" cx="50%" cy="50%" r="50%">
+      <stop offset="80%" stop-color="#a8231a"/>
+      <stop offset="100%" stop-color="#6a120b"/>
+    </radialGradient>
+    <radialGradient id="ground" cx="50%" cy="36%" r="60%">
+      <stop offset="0%" stop-color="#6a1811"/>
+      <stop offset="100%" stop-color="#330906"/>
+    </radialGradient>
+    <linearGradient id="trim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fff0b8"/>
+      <stop offset="50%" stop-color="#dcae45"/>
+      <stop offset="100%" stop-color="#a07824"/>
+    </linearGradient>
+    <!-- The scenes were drawn dim and candlelit; this lifts them to match the frame. -->
+    <filter id="vivid" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+      <feColorMatrix type="saturate" values="1.3"/>
+      <feComponentTransfer>
+        <feFuncR type="linear" slope="1.12" intercept="0.02"/>
+        <feFuncG type="linear" slope="1.12" intercept="0.02"/>
+        <feFuncB type="linear" slope="1.12" intercept="0.02"/>
+      </feComponentTransfer>
+    </filter>
+    <clipPath id="viewClip"><circle cx="500" cy="322" r="214"/></clipPath>
+  </defs>
+
+  <circle cx="500" cy="500" r="500" fill="url(#band)"/>
+  <circle cx="500" cy="500" r="488" fill="none" stroke="url(#trim)" stroke-width="7"/>
+  <circle cx="500" cy="500" r="477" fill="none" stroke="#dcae45" stroke-width="1.5" opacity="0.7"/>
+  <text transform="translate(242.9 147.9) rotate(-36.13)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">S</text><text transform="translate(263.0 134.1) rotate(-32.93)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">T</text><text transform="translate(279.6 123.8) rotate(-30.36)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">.</text><text transform="translate(308.5 108.3) rotate(-26.05)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">P</text><text transform="translate(334.1 96.8) rotate(-22.36)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">H</text><text transform="translate(356.8 88.2) rotate(-19.18)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">I</text><text transform="translate(376.9 81.7) rotate(-16.39)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">L</text><text transform="translate(402.7 75.0) rotate(-12.90)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">O</text><text transform="translate(429.1 69.8) rotate(-9.36)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">P</text><text transform="translate(455.0 66.3) rotate(-5.93)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">A</text><text transform="translate(480.9 64.4) rotate(-2.51)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">T</text><text transform="translate(506.4 64.0) rotate(0.85)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">E</text><text transform="translate(533.3 65.3) rotate(4.38)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">R</text><text transform="translate(574.8 70.5) rotate(9.88)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">&amp;</text><text transform="translate(613.5 79.0) rotate(15.09)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">S</text><text transform="translate(636.8 86.0) rotate(18.29)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">T</text><text transform="translate(655.3 92.6) rotate(20.86)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">.</text><text transform="translate(689.5 107.3) rotate(25.76)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">M</text><text transform="translate(712.6 119.3) rotate(29.18)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">I</text><text transform="translate(732.6 131.2) rotate(32.24)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">N</text><text transform="translate(755.8 146.9) rotate(35.91)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">A</text>
+  <g transform="translate(49 500)"><g fill="url(#trim)"><g transform="rotate(0)">
+    <rect x="-3.4000000000000004" y="-12.24" width="6.800000000000001" height="12.24" rx="1.02"/>
+    <circle cx="0" cy="-14.28" r="2.72"/>
+    <circle cx="-4.08" cy="-11.56" r="2.21"/>
+    <circle cx="4.08" cy="-11.56" r="2.21"/></g><g transform="rotate(90)">
+    <rect x="-3.4000000000000004" y="-12.24" width="6.800000000000001" height="12.24" rx="1.02"/>
+    <circle cx="0" cy="-14.28" r="2.72"/>
+    <circle cx="-4.08" cy="-11.56" r="2.21"/>
+    <circle cx="4.08" cy="-11.56" r="2.21"/></g><g transform="rotate(180)">
+    <rect x="-3.4000000000000004" y="-12.24" width="6.800000000000001" height="12.24" rx="1.02"/>
+    <circle cx="0" cy="-14.28" r="2.72"/>
+    <circle cx="-4.08" cy="-11.56" r="2.21"/>
+    <circle cx="4.08" cy="-11.56" r="2.21"/></g><g transform="rotate(270)">
+    <rect x="-3.4000000000000004" y="-12.24" width="6.800000000000001" height="12.24" rx="1.02"/>
+    <circle cx="0" cy="-14.28" r="2.72"/>
+    <circle cx="-4.08" cy="-11.56" r="2.21"/>
+    <circle cx="4.08" cy="-11.56" r="2.21"/></g><circle r="4.760000000000001"/></g></g>
+  <g transform="translate(951 500)"><g fill="url(#trim)"><g transform="rotate(0)">
+    <rect x="-3.4000000000000004" y="-12.24" width="6.800000000000001" height="12.24" rx="1.02"/>
+    <circle cx="0" cy="-14.28" r="2.72"/>
+    <circle cx="-4.08" cy="-11.56" r="2.21"/>
+    <circle cx="4.08" cy="-11.56" r="2.21"/></g><g transform="rotate(90)">
+    <rect x="-3.4000000000000004" y="-12.24" width="6.800000000000001" height="12.24" rx="1.02"/>
+    <circle cx="0" cy="-14.28" r="2.72"/>
+    <circle cx="-4.08" cy="-11.56" r="2.21"/>
+    <circle cx="4.08" cy="-11.56" r="2.21"/></g><g transform="rotate(180)">
+    <rect x="-3.4000000000000004" y="-12.24" width="6.800000000000001" height="12.24" rx="1.02"/>
+    <circle cx="0" cy="-14.28" r="2.72"/>
+    <circle cx="-4.08" cy="-11.56" r="2.21"/>
+    <circle cx="4.08" cy="-11.56" r="2.21"/></g><g transform="rotate(270)">
+    <rect x="-3.4000000000000004" y="-12.24" width="6.800000000000001" height="12.24" rx="1.02"/>
+    <circle cx="0" cy="-14.28" r="2.72"/>
+    <circle cx="-4.08" cy="-11.56" r="2.21"/>
+    <circle cx="4.08" cy="-11.56" r="2.21"/></g><circle r="4.760000000000001"/></g></g>
+  <g transform="translate(500 951)"><g fill="url(#trim)"><g transform="rotate(0)">
+    <rect x="-3" y="-10.799999999999999" width="6" height="10.799999999999999" rx="0.8999999999999999"/>
+    <circle cx="0" cy="-12.6" r="2.4"/>
+    <circle cx="-3.5999999999999996" cy="-10.200000000000001" r="1.9500000000000002"/>
+    <circle cx="3.5999999999999996" cy="-10.200000000000001" r="1.9500000000000002"/></g><g transform="rotate(90)">
+    <rect x="-3" y="-10.799999999999999" width="6" height="10.799999999999999" rx="0.8999999999999999"/>
+    <circle cx="0" cy="-12.6" r="2.4"/>
+    <circle cx="-3.5999999999999996" cy="-10.200000000000001" r="1.9500000000000002"/>
+    <circle cx="3.5999999999999996" cy="-10.200000000000001" r="1.9500000000000002"/></g><g transform="rotate(180)">
+    <rect x="-3" y="-10.799999999999999" width="6" height="10.799999999999999" rx="0.8999999999999999"/>
+    <circle cx="0" cy="-12.6" r="2.4"/>
+    <circle cx="-3.5999999999999996" cy="-10.200000000000001" r="1.9500000000000002"/>
+    <circle cx="3.5999999999999996" cy="-10.200000000000001" r="1.9500000000000002"/></g><g transform="rotate(270)">
+    <rect x="-3" y="-10.799999999999999" width="6" height="10.799999999999999" rx="0.8999999999999999"/>
+    <circle cx="0" cy="-12.6" r="2.4"/>
+    <circle cx="-3.5999999999999996" cy="-10.200000000000001" r="1.9500000000000002"/>
+    <circle cx="3.5999999999999996" cy="-10.200000000000001" r="1.9500000000000002"/></g><circle r="4.2"/></g></g>
+
+  <circle cx="500" cy="500" r="418" fill="url(#ground)"/>
+  <circle cx="500" cy="500" r="418" fill="none" stroke="url(#trim)" stroke-width="5"/>
+  <g fill="#dcae45" opacity="0.75"><circle cx="500.0" cy="94.0" r="2.6"/><circle cx="526.6" cy="94.9" r="2.6"/><circle cx="553.0" cy="97.5" r="2.6"/><circle cx="579.2" cy="101.8" r="2.6"/><circle cx="605.1" cy="107.8" r="2.6"/><circle cx="630.5" cy="115.5" r="2.6"/><circle cx="655.4" cy="124.9" r="2.6"/><circle cx="679.6" cy="135.9" r="2.6"/><circle cx="703.0" cy="148.4" r="2.6"/><circle cx="725.6" cy="162.4" r="2.6"/><circle cx="747.2" cy="177.9" r="2.6"/><circle cx="767.7" cy="194.8" r="2.6"/><circle cx="787.1" cy="212.9" r="2.6"/><circle cx="805.2" cy="232.3" r="2.6"/><circle cx="822.1" cy="252.8" r="2.6"/><circle cx="837.6" cy="274.4" r="2.6"/><circle cx="851.6" cy="297.0" r="2.6"/><circle cx="864.1" cy="320.4" r="2.6"/><circle cx="875.1" cy="344.6" r="2.6"/><circle cx="884.5" cy="369.5" r="2.6"/><circle cx="892.2" cy="394.9" r="2.6"/><circle cx="898.2" cy="420.8" r="2.6"/><circle cx="902.5" cy="447.0" r="2.6"/><circle cx="905.1" cy="473.4" r="2.6"/><circle cx="906.0" cy="500.0" r="2.6"/><circle cx="905.1" cy="526.6" r="2.6"/><circle cx="902.5" cy="553.0" r="2.6"/><circle cx="898.2" cy="579.2" r="2.6"/><circle cx="892.2" cy="605.1" r="2.6"/><circle cx="884.5" cy="630.5" r="2.6"/><circle cx="875.1" cy="655.4" r="2.6"/><circle cx="864.1" cy="679.6" r="2.6"/><circle cx="851.6" cy="703.0" r="2.6"/><circle cx="837.6" cy="725.6" r="2.6"/><circle cx="822.1" cy="747.2" r="2.6"/><circle cx="805.2" cy="767.7" r="2.6"/><circle cx="787.1" cy="787.1" r="2.6"/><circle cx="767.7" cy="805.2" r="2.6"/><circle cx="747.2" cy="822.1" r="2.6"/><circle cx="725.6" cy="837.6" r="2.6"/><circle cx="703.0" cy="851.6" r="2.6"/><circle cx="679.6" cy="864.1" r="2.6"/><circle cx="655.4" cy="875.1" r="2.6"/><circle cx="630.5" cy="884.5" r="2.6"/><circle cx="605.1" cy="892.2" r="2.6"/><circle cx="579.2" cy="898.2" r="2.6"/><circle cx="553.0" cy="902.5" r="2.6"/><circle cx="526.6" cy="905.1" r="2.6"/><circle cx="500.0" cy="906.0" r="2.6"/><circle cx="473.4" cy="905.1" r="2.6"/><circle cx="447.0" cy="902.5" r="2.6"/><circle cx="420.8" cy="898.2" r="2.6"/><circle cx="394.9" cy="892.2" r="2.6"/><circle cx="369.5" cy="884.5" r="2.6"/><circle cx="344.6" cy="875.1" r="2.6"/><circle cx="320.4" cy="864.1" r="2.6"/><circle cx="297.0" cy="851.6" r="2.6"/><circle cx="274.4" cy="837.6" r="2.6"/><circle cx="252.8" cy="822.1" r="2.6"/><circle cx="232.3" cy="805.2" r="2.6"/><circle cx="212.9" cy="787.1" r="2.6"/><circle cx="194.8" cy="767.7" r="2.6"/><circle cx="177.9" cy="747.2" r="2.6"/><circle cx="162.4" cy="725.6" r="2.6"/><circle cx="148.4" cy="703.0" r="2.6"/><circle cx="135.9" cy="679.6" r="2.6"/><circle cx="124.9" cy="655.4" r="2.6"/><circle cx="115.5" cy="630.5" r="2.6"/><circle cx="107.8" cy="605.1" r="2.6"/><circle cx="101.8" cy="579.2" r="2.6"/><circle cx="97.5" cy="553.0" r="2.6"/><circle cx="94.9" cy="526.6" r="2.6"/><circle cx="94.0" cy="500.0" r="2.6"/><circle cx="94.9" cy="473.4" r="2.6"/><circle cx="97.5" cy="447.0" r="2.6"/><circle cx="101.8" cy="420.8" r="2.6"/><circle cx="107.8" cy="394.9" r="2.6"/><circle cx="115.5" cy="369.5" r="2.6"/><circle cx="124.9" cy="344.6" r="2.6"/><circle cx="135.9" cy="320.4" r="2.6"/><circle cx="148.4" cy="297.0" r="2.6"/><circle cx="162.4" cy="274.4" r="2.6"/><circle cx="177.9" cy="252.8" r="2.6"/><circle cx="194.8" cy="232.3" r="2.6"/><circle cx="212.9" cy="212.9" r="2.6"/><circle cx="232.3" cy="194.8" r="2.6"/><circle cx="252.8" cy="177.9" r="2.6"/><circle cx="274.4" cy="162.4" r="2.6"/><circle cx="297.0" cy="148.4" r="2.6"/><circle cx="320.4" cy="135.9" r="2.6"/><circle cx="344.6" cy="124.9" r="2.6"/><circle cx="369.5" cy="115.5" r="2.6"/><circle cx="394.9" cy="107.8" r="2.6"/><circle cx="420.8" cy="101.8" r="2.6"/><circle cx="447.0" cy="97.5" r="2.6"/><circle cx="473.4" cy="94.9" r="2.6"/></g>
+
+  <circle cx="500" cy="322" r="214" fill="#330906"/>
+  <g clip-path="url(#viewClip)"><g filter="url(#vivid)"><svg x="286" y="108" width="428" height="428" viewBox="0 0 400 400">
+  <defs>
+    <linearGradient id="welcome-facade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b0d0d"/>
+      <stop offset="0.7" stop-color="#3b1a12"/>
+      <stop offset="1" stop-color="#2b120c"/>
+    </linearGradient>
+    <radialGradient id="welcome-facadeGlow" cx="200" cy="250" r="230" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d9b867" stop-opacity="0.38"/>
+      <stop offset="0.45" stop-color="#992a21" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#2b0d0d" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="welcome-arch" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#5a3a22"/>
+      <stop offset="0.5" stop-color="#b07a4a"/>
+      <stop offset="1" stop-color="#5a3a22"/>
+    </linearGradient>
+    <radialGradient id="welcome-inside" cx="200" cy="185" r="140" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff4d6"/>
+      <stop offset="0.35" stop-color="#ecd28f"/>
+      <stop offset="0.8" stop-color="#b07a4a"/>
+      <stop offset="1" stop-color="#8a5a34"/>
+    </radialGradient>
+    <linearGradient id="welcome-wallL" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8a5a34"/>
+      <stop offset="1" stop-color="#d9b867"/>
+    </linearGradient>
+    <linearGradient id="welcome-wallR" x1="1" y1="0" x2="0" y2="0">
+      <stop offset="0" stop-color="#7a4c2c"/>
+      <stop offset="1" stop-color="#d9b867"/>
+    </linearGradient>
+    <linearGradient id="welcome-ceil" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5a3a22"/>
+      <stop offset="1" stop-color="#b08d43"/>
+    </linearGradient>
+    <linearGradient id="welcome-floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ecd28f"/>
+      <stop offset="1" stop-color="#b07a4a"/>
+    </linearGradient>
+    <linearGradient id="welcome-carpet" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c86d5f"/>
+      <stop offset="1" stop-color="#6e1a14"/>
+    </linearGradient>
+    <linearGradient id="welcome-gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff4d6"/>
+      <stop offset="0.45" stop-color="#d9b867"/>
+      <stop offset="1" stop-color="#7c5f24"/>
+    </linearGradient>
+    <linearGradient id="welcome-doorL" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3b2316"/>
+      <stop offset="0.7" stop-color="#5a3a22"/>
+      <stop offset="1" stop-color="#8a5a34"/>
+    </linearGradient>
+    <linearGradient id="welcome-doorR" x1="1" y1="0" x2="0" y2="0">
+      <stop offset="0" stop-color="#3b2316"/>
+      <stop offset="0.7" stop-color="#5a3a22"/>
+      <stop offset="1" stop-color="#8a5a34"/>
+    </linearGradient>
+    <linearGradient id="welcome-spill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ecd28f" stop-opacity="0.7"/>
+      <stop offset="0.45" stop-color="#d9b867" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#d9b867" stop-opacity="0.04"/>
+    </linearGradient>
+    <linearGradient id="welcome-stepTop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8a5a34"/>
+      <stop offset="1" stop-color="#5a3a22"/>
+    </linearGradient>
+    <linearGradient id="welcome-riser" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3b2316"/>
+      <stop offset="1" stop-color="#2b120c"/>
+    </linearGradient>
+    <radialGradient id="welcome-halo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fff4d6" stop-opacity="0.95"/>
+      <stop offset="0.4" stop-color="#ecd28f" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#ecd28f" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="welcome-lantern" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ecd28f" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#992a21" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="welcome-doorSheen" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0.55" stop-color="#ecd28f" stop-opacity="0"/>
+      <stop offset="1" stop-color="#ecd28f" stop-opacity="0.28"/>
+    </linearGradient>
+    <linearGradient id="welcome-doorSheenR" x1="1" y1="0" x2="0" y2="0">
+      <stop offset="0.55" stop-color="#ecd28f" stop-opacity="0"/>
+      <stop offset="1" stop-color="#ecd28f" stop-opacity="0.28"/>
+    </linearGradient>
+    <clipPath id="welcome-opening">
+      <path d="M122 284 V130 A78 78 0 0 1 278 130 V284 Z"/>
+    </clipPath>
+    <filter id="welcome-blur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
+    <g id="welcome-lamp">
+      <path d="M0 -200 V-8" stroke="#7c5f24" stroke-width="0.9"/>
+      <path d="M0 -8 L-6 0 M0 -8 L6 0" stroke="#7c5f24" stroke-width="0.7"/>
+      <circle cx="0" cy="3" r="13" fill="url(#welcome-halo)"/>
+      <path d="M-7 0 H7 Q7 9 0 12 Q-7 9 -7 0 Z" fill="#992a21"/>
+      <path d="M-5 1 Q-4 7 -1 10" fill="none" stroke="#f6e8e3" stroke-width="0.8" opacity="0.6"/>
+      <ellipse cx="0" cy="0" rx="7.5" ry="1.6" fill="#d9b867"/>
+      <path d="M0 0 C-1.6 -1.4 -1.6 -4 0 -7 C1.6 -4 1.6 -1.4 0 0 Z" fill="#fff4d6"/>
+      <path d="M-1.5 12 L0 15 L1.5 12 Z" fill="#b08d43"/>
+    </g>
+    <g id="welcome-icon">
+      <path d="M-6 12 V-6 A6 6 0 0 1 6 -6 V12 Z" fill="url(#welcome-gold)" stroke="#5a3a22" stroke-width="0.7"/>
+      <circle cx="0" cy="-5" r="3.4" fill="#fff4d6" stroke="#b08d43" stroke-width="0.5"/>
+      <circle cx="0" cy="-4.6" r="1.6" fill="#a5714a"/>
+      <path d="M-4 12 Q-4 0 0 -2 Q4 0 4 12 Z" fill="#992a21"/>
+    </g>
+  </defs>
+
+  <!-- facade -->
+  <rect width="400" height="400" fill="url(#welcome-facade)"/>
+  <g stroke="#1a0807" stroke-width="1.3" fill="none" opacity="0.7">
+    <path d="M0 40 H400 M0 82 H400 M0 124 H400 M0 166 H400 M0 208 H400 M0 250 H400"/>
+    <path d="M30 0 V40 M110 0 V40 M290 0 V40 M370 0 V40 M70 40 V82 M330 40 V82 M30 82 V124 M370 82 V124 M60 124 V166 M340 124 V166 M20 166 V208 M380 166 V208 M64 208 V250 M336 208 V250 M28 250 V286 M372 250 V286"/>
+  </g>
+  <g stroke="#6e1a14" stroke-width="0.8" fill="none" opacity="0.5">
+    <path d="M0 41.5 H400 M0 83.5 H400 M0 125.5 H400 M0 167.5 H400 M0 209.5 H400 M0 251.5 H400"/>
+  </g>
+  <rect width="400" height="400" fill="url(#welcome-facadeGlow)"/>
+
+  <!-- archivolt -->
+  <path d="M96 290 V130 A104 104 0 0 1 304 130 V290 Z" fill="#2b120c"/>
+  <path d="M102 290 V130 A98 98 0 0 1 298 130 V290 Z" fill="url(#welcome-arch)"/>
+  <g stroke="#3b2316" stroke-width="1.2" opacity="0.8">
+    <path d="M200 32 V52"/>
+    <path d="M151 45.2 L161 62.4 M249 45.2 L239 62.4"/>
+    <path d="M115.1 81 L132.5 91 M284.9 81 L267.5 91"/>
+    <path d="M102 130 H122 M278 130 H298"/>
+    <path d="M102 180 H122 M278 180 H298 M102 230 H122 M278 230 H298"/>
+  </g>
+  <path d="M102 130 A98 98 0 0 1 298 130" fill="none" stroke="#ecd28f" stroke-width="1.2" opacity="0.45"/>
+  <!-- keystone with cross -->
+  <path d="M190 30 H210 L206 56 H194 Z" fill="#b07a4a" stroke="#3b2316" stroke-width="1"/>
+  <g transform="translate(200 41)" fill="#7c5f24">
+    <path d="M-1.5 -7 H1.5 V-1.5 H7 V1.5 H1.5 V7 H-1.5 V1.5 H-7 V-1.5 H-1.5 Z"/>
+    <circle cx="0" cy="-7.5" r="1.3"/><circle cx="0" cy="7.5" r="1.3"/><circle cx="-7.5" cy="0" r="1.3"/><circle cx="7.5" cy="0" r="1.3"/>
+  </g>
+
+  <!-- the nave seen through the doorway -->
+  <g clip-path="url(#welcome-opening)">
+    <rect x="100" y="40" width="200" height="260" fill="url(#welcome-inside)"/>
+    <!-- ceiling -->
+    <path d="M90 30 H310 L250 104 H150 Z" fill="url(#welcome-ceil)"/>
+    <path d="M150 104 Q200 84 250 104" fill="none" stroke="#7c5f24" stroke-width="1.2"/>
+    <path d="M128 62 Q200 34 272 62" fill="none" stroke="#7c5f24" stroke-width="1" opacity="0.7"/>
+    <!-- side walls with arcades -->
+    <path d="M90 30 L150 104 V222 L90 300 Z" fill="url(#welcome-wallL)"/>
+    <path d="M310 30 L250 104 V222 L310 300 Z" fill="url(#welcome-wallR)"/>
+    <g fill="#5a3a22" opacity="0.55">
+      <path d="M124 104 Q129 92 134 100 V226 L124 240 Z"/>
+      <path d="M140 108 Q143 101 146 106 V218 L140 226 Z"/>
+      <path d="M276 104 Q271 92 266 100 V226 L276 240 Z"/>
+      <path d="M260 108 Q257 101 254 106 V218 L260 226 Z"/>
+    </g>
+    <g fill="#ecd28f" opacity="0.5">
+      <rect x="134" y="100" width="2" height="128"/>
+      <rect x="146" y="106" width="1.4" height="112"/>
+      <rect x="264" y="100" width="2" height="128"/>
+      <rect x="252.6" y="106" width="1.4" height="112"/>
+    </g>
+    <!-- floor -->
+    <path d="M90 300 L150 222 H250 L310 300 Z" fill="url(#welcome-floor)"/>
+    <path d="M176 300 L196 222 H204 L224 300 Z" fill="url(#welcome-carpet)"/>
+    <path d="M178 300 L196.5 222 M222 300 L203.5 222" stroke="#d9b867" stroke-width="0.8" opacity="0.8"/>
+    <!-- pews -->
+    <g fill="#5a3a22">
+      <path d="M126 262 L170 262 L168 270 L118 272 Z"/>
+      <path d="M137 246 L174 246 L172.5 252 L131 253 Z"/>
+      <path d="M145 235 L177 235 L176 239.5 L140 240 Z"/>
+      <path d="M150 227 L179 227 L178.4 230.5 L146 231 Z"/>
+      <path d="M274 262 L230 262 L232 270 L282 272 Z"/>
+      <path d="M263 246 L226 246 L227.5 252 L269 253 Z"/>
+      <path d="M255 235 L223 235 L224 239.5 L260 240 Z"/>
+      <path d="M250 227 L221 227 L221.6 230.5 L254 231 Z"/>
+    </g>
+    <g fill="#3b2316">
+      <path d="M118 272 L168 270 L167 278 L114 280 Z"/>
+      <path d="M131 253 L172.5 252 L171.8 257 L128 258 Z"/>
+      <path d="M282 272 L232 270 L233 278 L286 280 Z"/>
+      <path d="M269 253 L227.5 252 L228.2 257 L272 258 Z"/>
+    </g>
+    <!-- iconostasis -->
+    <rect x="150" y="104" width="100" height="118" fill="#fff4d6" opacity="0.6"/>
+    <rect x="156" y="140" width="88" height="80" fill="#5a3a22"/>
+    <rect x="156" y="140" width="88" height="80" fill="none" stroke="#d9b867" stroke-width="1.4"/>
+    <rect x="158" y="143" width="84" height="10" fill="#3b2316"/>
+    <g fill="url(#welcome-gold)">
+      <rect x="160" y="144.5" width="8" height="7"/><rect x="171" y="144.5" width="8" height="7"/>
+      <rect x="182" y="144.5" width="8" height="7"/><rect x="193" y="144.5" width="14" height="7"/>
+      <rect x="210" y="144.5" width="8" height="7"/><rect x="221" y="144.5" width="8" height="7"/>
+      <rect x="232" y="144.5" width="8" height="7"/>
+    </g>
+    <g fill="#992a21" opacity="0.85">
+      <circle cx="164" cy="148" r="1.4"/><circle cx="175" cy="148" r="1.4"/><circle cx="186" cy="148" r="1.4"/>
+      <circle cx="200" cy="148" r="1.6"/>
+      <circle cx="214" cy="148" r="1.4"/><circle cx="225" cy="148" r="1.4"/><circle cx="236" cy="148" r="1.4"/>
+    </g>
+    <use xlink:href="#welcome-icon" transform="translate(166 172) scale(1.15)"/>
+    <use xlink:href="#welcome-icon" transform="translate(181 172) scale(1.15)"/>
+    <use xlink:href="#welcome-icon" transform="translate(219 172) scale(1.15)"/>
+    <use xlink:href="#welcome-icon" transform="translate(234 172) scale(1.15)"/>
+    <!-- royal door -->
+    <path d="M190 220 V168 A10 10 0 0 1 210 168 V220 Z" fill="#d9b867"/>
+    <path d="M192 220 V168.5 A8 8 0 0 1 208 168.5 V220 Z" fill="#6e1a14"/>
+    <path d="M196 220 Q198 190 200 166 Q202 190 204 220" fill="#992a21"/>
+    <path d="M198.6 178 h2.8 v4 h4 v2.8 h-4 v6 h-2.8 v-6 h-4 v-2.8 h4 Z" fill="#ecd28f"/>
+    <!-- cross on top -->
+    <path d="M198.8 118 h2.4 v6 h5 v2.4 h-5 v13.6 h-2.4 v-13.6 h-5 v-2.4 h5 Z" fill="url(#welcome-gold)"/>
+    <rect x="152" y="216" width="96" height="6" fill="#3b2316"/>
+    <!-- candles before the iconostasis -->
+    <g>
+      <rect x="171" y="202" width="2" height="18" fill="#7c5f24"/>
+      <rect x="227" y="202" width="2" height="18" fill="#7c5f24"/>
+      <rect x="171.3" y="196" width="1.4" height="6" fill="#fff4d6"/>
+      <rect x="227.3" y="196" width="1.4" height="6" fill="#fff4d6"/>
+      <circle cx="172" cy="193" r="6" fill="url(#welcome-halo)"/>
+      <circle cx="228" cy="193" r="6" fill="url(#welcome-halo)"/>
+      <path d="M172 196 c-1.2 -1 -1.2 -3 0 -5 c1.2 2 1.2 4 0 5Z M228 196 c-1.2 -1 -1.2 -3 0 -5 c1.2 2 1.2 4 0 5Z" fill="#fff"/>
+    </g>
+    <!-- glow at the far end -->
+    <ellipse cx="200" cy="180" rx="60" ry="50" fill="#fff4d6" opacity="0.18" filter="url(#welcome-blur)"/>
+    <!-- hanging lamps -->
+    <use xlink:href="#welcome-lamp" transform="translate(186 136) scale(0.55)"/>
+    <use xlink:href="#welcome-lamp" transform="translate(214 136) scale(0.55)"/>
+    <use xlink:href="#welcome-lamp" transform="translate(200 128) scale(0.5)"/>
+    <use xlink:href="#welcome-lamp" transform="translate(166 116) scale(0.85)"/>
+    <use xlink:href="#welcome-lamp" transform="translate(234 116) scale(0.85)"/>
+    <use xlink:href="#welcome-lamp" transform="translate(146 92) scale(1.2)"/>
+    <use xlink:href="#welcome-lamp" transform="translate(254 92) scale(1.2)"/>
+    <!-- the wall's thickness, lit from within -->
+    <path d="M122 284 V130 A78 78 0 0 1 278 130 V284 H270 V132 A70 70 0 0 0 130 132 V284 Z" fill="#b07a4a" opacity="0.85"/>
+    <path d="M130 284 V132 A70 70 0 0 1 270 132 V284" fill="none" stroke="#fff4d6" stroke-width="1.2" opacity="0.7"/>
+  </g>
+
+  <!-- open doors, swung out -->
+  <g>
+    <path d="M122 284 V130 Q100 70 64 48 V300 Z" fill="url(#welcome-doorL)"/>
+    <path d="M278 284 V130 Q300 70 336 48 V300 Z" fill="url(#welcome-doorR)"/>
+    <!-- panels -->
+    <g fill="none" stroke="#2b120c" stroke-width="1.6">
+      <path d="M72 70 Q96 86 114 136 V184 L72 186 Z"/>
+      <path d="M72 200 L114 196 V272 L72 288 Z"/>
+      <path d="M328 70 Q304 86 286 136 V184 L328 186 Z"/>
+      <path d="M328 200 L286 196 V272 L328 288 Z"/>
+    </g>
+    <g fill="none" stroke="#b07a4a" stroke-width="0.9" opacity="0.7">
+      <path d="M73.5 72 Q97 88 115.5 138"/>
+      <path d="M73.5 202 L115.5 198"/>
+      <path d="M326.5 72 Q303 88 284.5 138"/>
+      <path d="M326.5 202 L284.5 198"/>
+    </g>
+    <!-- planks -->
+    <g stroke="#2b120c" stroke-width="0.7" opacity="0.6">
+      <path d="M86 58 V295 M100 72 V291 M300 72 V291 M314 58 V295"/>
+    </g>
+    <!-- iron straps and studs -->
+    <g stroke="#1a0807" stroke-width="3" fill="none">
+      <path d="M64 120 L122 150 M64 246 L122 248"/>
+      <path d="M336 120 L278 150 M336 246 L278 248"/>
+    </g>
+    <g fill="#d9b867">
+      <circle cx="72" cy="124" r="1.6"/><circle cx="90" cy="133" r="1.6"/><circle cx="108" cy="143" r="1.6"/>
+      <circle cx="72" cy="246" r="1.6"/><circle cx="90" cy="247" r="1.6"/><circle cx="108" cy="247.6" r="1.6"/>
+      <circle cx="328" cy="124" r="1.6"/><circle cx="310" cy="133" r="1.6"/><circle cx="292" cy="143" r="1.6"/>
+      <circle cx="328" cy="246" r="1.6"/><circle cx="310" cy="247" r="1.6"/><circle cx="292" cy="247.6" r="1.6"/>
+    </g>
+    <!-- light on the door edges -->
+    <path d="M120 284 V130" stroke="#ecd28f" stroke-width="2.5" opacity="0.8"/>
+    <path d="M280 284 V130" stroke="#ecd28f" stroke-width="2.5" opacity="0.8"/>
+    <path d="M64 48 V300" stroke="#8a5a34" stroke-width="2"/>
+    <path d="M336 48 V300" stroke="#8a5a34" stroke-width="2"/>
+    <path d="M122 284 V130 Q100 70 64 48 V300 Z" fill="url(#welcome-doorSheen)"/>
+    <path d="M278 284 V130 Q300 70 336 48 V300 Z" fill="url(#welcome-doorSheenR)"/>
+    <!-- ring pulls -->
+    <circle cx="74" cy="200" r="5" fill="none" stroke="#d9b867" stroke-width="1.6"/>
+    <circle cx="326" cy="200" r="5" fill="none" stroke="#d9b867" stroke-width="1.6"/>
+  </g>
+
+  <!-- wall lanterns -->
+  <g>
+    <circle cx="40" cy="150" r="30" fill="url(#welcome-lantern)"/>
+    <circle cx="360" cy="150" r="30" fill="url(#welcome-lantern)"/>
+    <g fill="#1a0807">
+      <path d="M32 134 H48 L45 140 H35 Z"/>
+      <path d="M352 134 H368 L365 140 H355 Z"/>
+      <path d="M35 162 H45 L42 168 H38 Z"/>
+      <path d="M355 162 H365 L362 168 H358 Z"/>
+      <path d="M40 128 V134 M360 128 V134" stroke="#1a0807" stroke-width="2"/>
+    </g>
+    <rect x="35" y="140" width="10" height="22" fill="#ecd28f"/>
+    <rect x="355" y="140" width="10" height="22" fill="#ecd28f"/>
+    <path d="M40 140 V162 M360 140 V162" stroke="#1a0807" stroke-width="1"/>
+    <circle cx="40" cy="153" r="3" fill="#fff4d6"/>
+    <circle cx="360" cy="153" r="3" fill="#fff4d6"/>
+  </g>
+
+  <!-- steps -->
+  <g>
+    <path d="M60 284 H340 V300 H60 Z" fill="url(#welcome-stepTop)"/>
+    <path d="M44 300 H356 V312 H44 Z" fill="url(#welcome-riser)"/>
+    <path d="M40 312 H360 V326 H40 Z" fill="url(#welcome-stepTop)"/>
+    <path d="M24 326 H376 V340 H24 Z" fill="url(#welcome-riser)"/>
+    <path d="M20 340 H380 V356 H20 Z" fill="url(#welcome-stepTop)"/>
+    <path d="M0 356 H400 V372 H0 Z" fill="url(#welcome-riser)"/>
+    <path d="M0 372 H400 V400 H0 Z" fill="url(#welcome-stepTop)"/>
+    <g stroke="#b07a4a" stroke-width="1" opacity="0.55">
+      <path d="M60 284.5 H340 M44 300.5 H356 M40 312.5 H360 M24 326.5 H376 M20 340.5 H380 M0 356.5 H400 M0 372.5 H400"/>
+    </g>
+    <g stroke="#2b120c" stroke-width="0.8" opacity="0.6">
+      <path d="M110 284 V300 M200 284 V300 M290 284 V300 M80 312 V326 M160 312 V326 M240 312 V326 M320 312 V326 M60 340 V356 M140 340 V356 M260 340 V356 M340 340 V356 M100 372 V400 M220 372 V400 M320 372 V400"/>
+    </g>
+  </g>
+  <!-- light spilling out down the steps -->
+  <path d="M122 284 H278 L360 400 H40 Z" fill="url(#welcome-spill)" filter="url(#welcome-blur)"/>
+  <path d="M140 284 H260 L310 400 H90 Z" fill="url(#welcome-spill)" opacity="0.5" filter="url(#welcome-blur)"/>
+  <path d="M122 284 H278" stroke="#fff4d6" stroke-width="2"/>
+  <!-- lit risers' edges in the spill -->
+  <g stroke="#fff4d6" stroke-width="1.2" opacity="0.4">
+    <path d="M112 300 H288 M106 312 H294 M96 326 H304 M88 340 H312 M78 356 H322 M68 372 H332"/>
+  </g>
+  <!-- the steps' shadow on the sides -->
+  <path d="M0 284 H60 L40 400 H0 Z M400 284 H340 L360 400 H400 Z" fill="#1a0807" opacity="0.35"/>
+
+  <radialGradient id="welcome-vig" cx="200" cy="200" r="205" gradientUnits="userSpaceOnUse">
+    <stop offset="0.62" stop-color="#1a0807" stop-opacity="0"/>
+    <stop offset="1" stop-color="#1a0807" stop-opacity="0.7"/>
+  </radialGradient>
+  <rect width="400" height="400" fill="url(#welcome-vig)"/>
+</svg></g></g>
+  <circle cx="500" cy="322" r="214" fill="none" stroke="url(#trim)" stroke-width="8"/>
+  <circle cx="500" cy="322" r="224" fill="none" stroke="#dcae45" stroke-width="1.5" opacity="0.7"/>
+
+  <text x="500" y="628" text-anchor="middle" font-family="Georgia" font-size="50"
+        font-weight="bold" letter-spacing="5" fill="#f9efec">WELCOME NEWCOMERS</text>
+
+  <rect x="280" y="676" width="440" height="78" rx="39" fill="#c4261a" stroke="url(#trim)" stroke-width="3"/>
+  <g transform="translate(340 715) scale(0.72)"><circle cx="-30" cy="0" r="7" fill="#f9efec"/><path d="M-14.73596875004335 -14.040000000000001A18 18 0 0 1 -14.73596875004335 14.040000000000001" fill="none" stroke="#f9efec" stroke-width="7" stroke-linecap="round"/><path d="M-4.723496527859659 -26.52A34 34 0 0 1 -4.723496527859659 26.52" fill="none" stroke="#f9efec" stroke-width="7" stroke-linecap="round"/><path d="M5.28897569432403 -39A50 50 0 0 1 5.28897569432403 39" fill="none" stroke="#f9efec" stroke-width="7" stroke-linecap="round"/></g>
+  <text x="534" y="726" text-anchor="middle" font-family="Georgia" font-size="31" font-weight="bold"
+        letter-spacing="2" fill="#f9efec">TAP YOUR PHONE</text>
+
+  <text x="500" y="812" text-anchor="middle" font-family="Georgia" font-size="25" fill="#f9efec" opacity="0.85">www.spsmwayland.org/c/welcome</text>
+</svg>

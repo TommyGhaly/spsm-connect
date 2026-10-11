@@ -1,0 +1,246 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <defs>
+    <linearGradient id="forms-desk" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8a5a34"/>
+      <stop offset="50%" stop-color="#5a3a22"/>
+      <stop offset="100%" stop-color="#2b120c"/>
+    </linearGradient>
+    <radialGradient id="forms-light" cx="22%" cy="18%" r="75%">
+      <stop offset="0%" stop-color="#ecd28f" stop-opacity="0.55"/>
+      <stop offset="40%" stop-color="#d9b867" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#2b0d0d" stop-opacity="0.55"/>
+    </radialGradient>
+    <filter id="forms-shadow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="8"/></filter>
+    <filter id="forms-shadow-sm" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter>
+    <filter id="forms-soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.2"/></filter>
+    <linearGradient id="forms-board" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#d9a26a"/>
+      <stop offset="45%" stop-color="#b07a4a"/>
+      <stop offset="100%" stop-color="#7a4a2a"/>
+    </linearGradient>
+    <linearGradient id="forms-board-edge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f0c38c"/>
+      <stop offset="100%" stop-color="#5a3a22"/>
+    </linearGradient>
+    <linearGradient id="forms-paper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fffaf0"/>
+      <stop offset="60%" stop-color="#f9efec"/>
+      <stop offset="100%" stop-color="#ead7cc"/>
+    </linearGradient>
+    <linearGradient id="forms-clip" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff4d6"/>
+      <stop offset="35%" stop-color="#d9b867"/>
+      <stop offset="70%" stop-color="#b08d43"/>
+      <stop offset="100%" stop-color="#7c5f24"/>
+    </linearGradient>
+    <linearGradient id="forms-clip-side" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ecd28f"/>
+      <stop offset="50%" stop-color="#b08d43"/>
+      <stop offset="100%" stop-color="#7c5f24"/>
+    </linearGradient>
+    <linearGradient id="forms-pen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#c86d5f"/>
+      <stop offset="30%" stop-color="#992a21"/>
+      <stop offset="75%" stop-color="#481010"/>
+      <stop offset="100%" stop-color="#2b0d0d"/>
+    </linearGradient>
+    <linearGradient id="forms-gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff4d6"/>
+      <stop offset="40%" stop-color="#d9b867"/>
+      <stop offset="100%" stop-color="#7c5f24"/>
+    </linearGradient>
+    <linearGradient id="forms-phone-screen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fffaf0"/>
+      <stop offset="100%" stop-color="#ead7cc"/>
+    </linearGradient>
+    <linearGradient id="forms-phone-frame" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ecd28f"/>
+      <stop offset="40%" stop-color="#5a3a22"/>
+      <stop offset="100%" stop-color="#1a0a08"/>
+    </linearGradient>
+    <linearGradient id="forms-header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#992a21"/>
+      <stop offset="100%" stop-color="#6e1a14"/>
+    </linearGradient>
+  </defs>
+
+  <!-- desk -->
+  <rect width="400" height="400" fill="url(#forms-desk)"/>
+  <!-- plank seams and grain, running on a slight diagonal -->
+  <g transform="rotate(-14 200 200)" fill="none">
+    <g stroke="#2b120c" stroke-width="2.5" opacity="0.55">
+      <path d="M-100 70 H500"/>
+      <path d="M-100 175 H500"/>
+      <path d="M-100 285 H500"/>
+      <path d="M-100 395 H500"/>
+    </g>
+    <g stroke="#b07a4a" stroke-width="1" opacity="0.5">
+      <path d="M-100 72.5 H500"/>
+      <path d="M-100 177.5 H500"/>
+      <path d="M-100 287.5 H500"/>
+    </g>
+    <g stroke="#3b2316" stroke-width="1.2" opacity="0.35">
+      <path d="M-100 92 C0 86 80 98 160 92 S320 84 500 94"/>
+      <path d="M-100 112 C20 118 120 106 220 114 S380 120 500 110"/>
+      <path d="M-100 140 C40 134 140 146 240 138 S400 132 500 142"/>
+      <path d="M-100 158 C60 162 160 154 260 160 S420 164 500 156"/>
+      <path d="M-100 200 C30 194 110 206 210 198 S380 192 500 204"/>
+      <path d="M-100 226 C50 232 150 220 250 228 S400 234 500 224"/>
+      <path d="M-100 252 C40 246 150 258 260 250 S420 244 500 254"/>
+      <path d="M-100 310 C40 304 150 316 260 308 S420 302 500 312"/>
+      <path d="M-100 338 C60 344 160 332 260 340 S420 346 500 336"/>
+      <path d="M-100 366 C40 360 150 372 260 364 S420 358 500 368"/>
+      <path d="M-100 44 C40 38 150 50 260 42 S420 36 500 46"/>
+      <path d="M-100 20 C60 26 160 14 260 22 S420 28 500 18"/>
+    </g>
+    <g stroke="#d9a26a" stroke-width="1" opacity="0.25">
+      <path d="M-100 100 C0 94 80 106 160 100 S320 92 500 102"/>
+      <path d="M-100 214 C30 208 110 220 210 212 S380 206 500 218"/>
+      <path d="M-100 324 C40 318 150 330 260 322 S420 316 500 326"/>
+    </g>
+    <ellipse cx="60" cy="236" rx="16" ry="5" stroke="#3b2316" stroke-width="1.2" opacity="0.4"/>
+    <ellipse cx="60" cy="236" rx="8" ry="2.5" stroke="#3b2316" stroke-width="1" opacity="0.4"/>
+  </g>
+  <rect width="400" height="400" fill="url(#forms-light)"/>
+
+  <g transform="translate(200 196) scale(0.93) translate(-200 -210)">
+  <!-- phone lying on the desk, showing the same form -->
+  <g transform="rotate(14 290 180)">
+    <rect x="252" y="104" width="82" height="160" rx="15" fill="#120404" opacity="0.6" filter="url(#forms-shadow)" transform="translate(8 10)"/>
+    <rect x="252" y="104" width="82" height="160" rx="15" fill="url(#forms-phone-frame)"/>
+    <rect x="254" y="106" width="78" height="156" rx="13.5" fill="#160807"/>
+    <rect x="258" y="110" width="70" height="148" rx="10" fill="url(#forms-phone-screen)"/>
+    <rect x="282" y="113" width="22" height="6" rx="3" fill="#160807"/>
+    <rect x="258" y="124" width="70" height="20" fill="url(#forms-header)"/>
+    <rect x="265" y="131" width="30" height="5" rx="2.5" fill="#fff4d6"/>
+    <g fill="#c86d5f" opacity="0.55">
+      <rect x="265" y="152" width="22" height="3" rx="1.5"/>
+      <rect x="265" y="174" width="26" height="3" rx="1.5"/>
+      <rect x="265" y="196" width="18" height="3" rx="1.5"/>
+    </g>
+    <g fill="#fff" stroke="#c9b3a8" stroke-width="1">
+      <rect x="265" y="158" width="56" height="10" rx="3"/>
+      <rect x="265" y="180" width="56" height="10" rx="3"/>
+    </g>
+    <rect x="265" y="202" width="8" height="8" rx="2" fill="#992a21"/>
+    <path d="M266.6 206 l2 2 l3.4 -4" fill="none" stroke="#fff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="277" y="204" width="34" height="3.5" rx="1.75" fill="#c86d5f" opacity="0.55"/>
+    <rect x="265" y="230" width="56" height="16" rx="8" fill="#992a21"/>
+    <rect x="281" y="236" width="24" height="4" rx="2" fill="#fff4d6"/>
+    <path d="M262 112 L300 112 L270 256 L258 256 Z" fill="#fff" opacity="0.18"/>
+  </g>
+
+  <!-- clipboard -->
+  <g transform="rotate(-5 190 210)">
+    <!-- cast shadow, toward the lower right -->
+    <rect x="104" y="62" width="168" height="302" rx="12" fill="#1a0505" opacity="0.7" filter="url(#forms-shadow)" transform="translate(10 12)"/>
+    <!-- board: a thickness edge then the face -->
+    <rect x="104" y="62" width="168" height="302" rx="12" fill="#5a3a22" transform="translate(2.5 3.5)"/>
+    <rect x="104" y="62" width="168" height="302" rx="12" fill="url(#forms-board)"/>
+    <!-- wood grain on the board -->
+    <g fill="none" stroke="#7a4a2a" stroke-width="1" opacity="0.45">
+      <path d="M112 80 C130 120 118 170 132 220 S124 320 136 356"/>
+      <path d="M248 72 C238 120 256 180 244 240 S258 320 250 356"/>
+      <path d="M262 90 C256 140 266 200 258 260 S266 330 262 352"/>
+      <path d="M118 240 C126 270 120 310 128 350"/>
+    </g>
+    <rect x="104" y="62" width="168" height="302" rx="12" fill="none" stroke="url(#forms-board-edge)" stroke-width="1.6"/>
+
+    <!-- paper, with a second sheet peeking beneath -->
+    <rect x="121" y="91" width="136" height="260" rx="2" fill="#e3cfc4" transform="rotate(1.6 188 220)"/>
+    <rect x="118" y="88" width="138" height="262" rx="2" fill="#2b0d0d" opacity="0.25" filter="url(#forms-shadow-sm)" transform="translate(2 3)"/>
+    <rect x="118" y="88" width="138" height="262" rx="2" fill="url(#forms-paper)"/>
+
+    <!-- letterhead: a cross and a title bar -->
+    <rect x="118" y="88" width="138" height="5" fill="#992a21"/>
+    <g transform="translate(135 112)" fill="#992a21">
+      <rect x="-1.7" y="-7" width="3.4" height="14"/>
+      <rect x="-7" y="-1.7" width="14" height="3.4"/>
+      <circle r="2.6"/>
+      <g>
+        <circle cx="0" cy="-9.2" r="2"/><circle cx="-2.6" cy="-7.4" r="1.5"/><circle cx="2.6" cy="-7.4" r="1.5"/>
+      </g>
+      <g transform="rotate(90)"><circle cx="0" cy="-9.2" r="2"/><circle cx="-2.6" cy="-7.4" r="1.5"/><circle cx="2.6" cy="-7.4" r="1.5"/></g>
+      <g transform="rotate(180)"><circle cx="0" cy="-9.2" r="2"/><circle cx="-2.6" cy="-7.4" r="1.5"/><circle cx="2.6" cy="-7.4" r="1.5"/></g>
+      <g transform="rotate(270)"><circle cx="0" cy="-9.2" r="2"/><circle cx="-2.6" cy="-7.4" r="1.5"/><circle cx="2.6" cy="-7.4" r="1.5"/></g>
+    </g>
+    <rect x="150" y="104" width="70" height="7" rx="3.5" fill="#481010"/>
+    <rect x="150" y="115" width="48" height="4" rx="2" fill="#b08d43"/>
+    <path d="M128 130 H246" stroke="#d9b867" stroke-width="1.2"/>
+
+    <!-- two filled-in fields: label bar, then a handwritten line on a rule -->
+    <rect x="128" y="140" width="28" height="3.5" rx="1.75" fill="#8a5a34" opacity="0.7"/>
+    <path d="M128 160 H246" stroke="#b9a196" stroke-width="1"/>
+    <path d="M131 156 c3 -6 5 -6 6 0 c1 -5 4 -5 5 0 c2 -4 4 -4 5 -1 c3 -3 6 -3 8 0 c2 -2 5 -3 7 0 c3 -2 5 -2 8 0" fill="none" stroke="#2b0d0d" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="128" y="168" width="22" height="3.5" rx="1.75" fill="#8a5a34" opacity="0.7"/>
+    <path d="M128 188 H246" stroke="#b9a196" stroke-width="1"/>
+    <path d="M131 184 c2 -5 4 -5 5 0 c2 -4 4 -4 6 -1 c2 -3 5 -3 7 0 c3 -3 5 -3 7 0 m6 0 c2 -4 4 -4 6 0 c2 -3 4 -3 6 0 c2 -3 5 -3 7 0" fill="none" stroke="#2b0d0d" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- checkboxes: two ticked, one empty -->
+    <g>
+      <rect x="128" y="200" width="12" height="12" rx="2" fill="#fff" stroke="#992a21" stroke-width="1.6"/>
+      <path d="M130.5 206 l3 3.5 l7 -9" fill="none" stroke="#992a21" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="146" y="204.5" width="62" height="4" rx="2" fill="#8a5a34" opacity="0.55"/>
+      <rect x="128" y="219" width="12" height="12" rx="2" fill="#fff" stroke="#992a21" stroke-width="1.6"/>
+      <path d="M130.5 225 l3 3.5 l7 -9" fill="none" stroke="#992a21" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="146" y="223.5" width="78" height="4" rx="2" fill="#8a5a34" opacity="0.55"/>
+      <rect x="128" y="238" width="12" height="12" rx="2" fill="#fff" stroke="#992a21" stroke-width="1.6"/>
+      <rect x="146" y="242.5" width="50" height="4" rx="2" fill="#8a5a34" opacity="0.55"/>
+    </g>
+
+    <!-- a note box -->
+    <rect x="128" y="258" width="118" height="34" rx="3" fill="#fffdf8" stroke="#cdb5aa" stroke-width="1"/>
+    <rect x="134" y="265" width="86" height="3" rx="1.5" fill="#c9b3a8"/>
+    <rect x="134" y="273" width="100" height="3" rx="1.5" fill="#c9b3a8"/>
+    <rect x="134" y="281" width="60" height="3" rx="1.5" fill="#c9b3a8"/>
+
+    <!-- signature -->
+    <path d="M128 330 H210" stroke="#7c5f24" stroke-width="1.2"/>
+    <path d="M131 324 C136 304 146 304 141 322 C138 332 146 318 151 314 C154 312 152 326 158 320 C162 316 164 312 168 318 C171 322 175 312 180 316 C186 320 192 314 200 312" fill="none" stroke="#481010" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="128" y="336" width="24" height="3" rx="1.5" fill="#8a5a34" opacity="0.6"/>
+
+    <!-- the gold clip -->
+    <rect x="152" y="58" width="76" height="40" rx="6" fill="#2b0d0d" opacity="0.5" filter="url(#forms-shadow-sm)" transform="translate(3 5)"/>
+    <path d="M160 92 H220 L228 74 C230 70 226 64 220 64 H160 C154 64 150 70 152 74 Z" fill="url(#forms-clip)"/>
+    <path d="M160 92 H220 L224 84 H156 Z" fill="#7c5f24" opacity="0.55"/>
+    <rect x="166" y="52" width="48" height="16" rx="8" fill="url(#forms-clip-side)"/>
+    <rect x="180" y="56" width="20" height="8" rx="4" fill="#3b2316"/>
+    <path d="M170 56 H210" stroke="#fff4d6" stroke-width="1.4" stroke-linecap="round" opacity="0.8"/>
+    <path d="M160 67.5 H218" stroke="#fff4d6" stroke-width="1.6" stroke-linecap="round" opacity="0.85"/>
+    <circle cx="160" cy="79" r="2.4" fill="#7c5f24"/><circle cx="159.5" cy="78.5" r="1" fill="#fff4d6"/>
+    <circle cx="220" cy="79" r="2.4" fill="#7c5f24"/><circle cx="219.5" cy="78.5" r="1" fill="#fff4d6"/>
+  </g>
+
+  <!-- fountain pen lying across the lower right, nib toward the signature -->
+  <g transform="translate(232 318) rotate(-33)">
+    <!-- shadow on the paper and desk -->
+    <rect x="0" y="-7" width="150" height="15" rx="7.5" fill="#1a0505" opacity="0.55" filter="url(#forms-shadow-sm)" transform="translate(4 10)"/>
+    <!-- nib -->
+    <path d="M-30 0 L-4 -6.5 L4 -6.5 L4 6.5 L-4 6.5 Z" fill="url(#forms-gold)"/>
+    <path d="M-30 0 L-6 -1.2 L-6 1.2 Z" fill="#3b2316" opacity="0.6"/>
+    <circle cx="-8" cy="0" r="1.6" fill="#3b2316"/>
+    <path d="M-28 -0.4 L-6 -5.2" stroke="#fff4d6" stroke-width="1" opacity="0.9"/>
+    <!-- grip section -->
+    <rect x="2" y="-7" width="18" height="14" rx="3" fill="#2b0d0d"/>
+    <rect x="2" y="-6" width="18" height="3" rx="1.5" fill="#6e1a14" opacity="0.8"/>
+    <!-- barrel -->
+    <rect x="18" y="-8.5" width="70" height="17" rx="4" fill="url(#forms-pen)"/>
+    <!-- gold bands -->
+    <rect x="86" y="-9.5" width="7" height="19" rx="1.5" fill="url(#forms-gold)"/>
+    <rect x="18" y="-8.5" width="4" height="17" fill="url(#forms-gold)"/>
+    <!-- cap posted on the end -->
+    <rect x="92" y="-9" width="56" height="18" rx="8.5" fill="url(#forms-pen)"/>
+    <rect x="140" y="-8" width="8" height="16" rx="6" fill="#2b0d0d" opacity="0.5"/>
+    <!-- pocket clip -->
+    <path d="M100 -11 H138 C142 -11 142 -6 138 -6 H104 Z" fill="url(#forms-gold)"/>
+    <circle cx="104" cy="-8.5" r="2" fill="#ecd28f"/>
+    <!-- specular highlight along the barrel -->
+    <rect x="24" y="-5.5" width="60" height="2.6" rx="1.3" fill="#fff4d6" opacity="0.55"/>
+    <rect x="96" y="-5.5" width="40" height="2.4" rx="1.2" fill="#fff4d6" opacity="0.5"/>
+  </g>
+
+  </g>
+
+  <!-- vignette -->
+  <circle cx="200" cy="200" r="215" fill="none" stroke="#1a0505" stroke-width="60" opacity="0.32" filter="url(#forms-shadow)"/>
+</svg>
