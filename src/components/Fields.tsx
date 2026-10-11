@@ -44,7 +44,7 @@ import { lineHeightFor } from '@/theme/tokens';
 import { useTheme } from '@/theme/ThemeProvider';
 
 /** Wide enough for a form on a tablet, and no wider than reading comfortably. */
-const MAX_SHEET_WIDTH = 520;
+export const MAX_SHEET_WIDTH = 520;
 
 /**
  * How much of the window the keyboard is covering, in points.
@@ -65,7 +65,7 @@ const MAX_SHEET_WIDTH = 520;
  * time this fires, so the subtraction comes out at nought there and the same
  * keyboard is not counted twice.
  */
-function useKeyboardInset() {
+export function useKeyboardInset() {
   const [inset, setInset] = useState(0);
 
   useEffect(() => {

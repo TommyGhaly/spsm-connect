@@ -63,6 +63,7 @@ import {
   type FulfillmentStatus,
   type Order,
   type Product,
+  type ProductSize,
 } from '@spsm/shared';
 
 import { apiPost } from '@/api/client';
@@ -329,6 +330,39 @@ export async function setProductTaxable(slug: string, taxable: boolean): Promise
 
   await updateDoc(doc(getFirestore(), COLLECTIONS.products, slug), {
     taxable,
+    updatedAt: serverTimestamp(),
+    updatedBy: uid,
+  });
+}
+
+/**
+ * Clothing sizes, or null to stop treating it as clothing. The parish's field;
+ * the checkout Function reads it through `cleanSizes` and lowers the counts as
+ * sizes sell online. Square never sees it, so a sale on the register does not.
+ */
+export async function setProductSizes(
+  slug: string,
+  sizes: readonly ProductSize[] | null,
+): Promise<void> {
+  const uid = uidOrThrow();
+
+  await updateDoc(doc(getFirestore(), COLLECTIONS.products, slug), {
+    sizes: sizes ? sizes.map(({ label, count, extraCents }) => ({ label, count, extraCents })) : null,
+    updatedAt: serverTimestamp(),
+    updatedBy: uid,
+  });
+}
+
+/**
+ * The price before clearance, shown crossed out, or null to end the sale. The
+ * parish's field; the save that sends it also sends Square the new price — see
+ * `sendOne` in pendingEdits.tsx for the order the two go in.
+ */
+export async function setWasPrice(slug: string, wasPriceCents: number | null): Promise<void> {
+  const uid = uidOrThrow();
+
+  await updateDoc(doc(getFirestore(), COLLECTIONS.products, slug), {
+    wasPriceCents,
     updatedAt: serverTimestamp(),
     updatedBy: uid,
   });

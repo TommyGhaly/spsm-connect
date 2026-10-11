@@ -131,7 +131,14 @@ export function AdminFab({
       },
       (index) => {
         const chosen = ordered[index];
-        if (chosen) chosen.onPress();
+        /*
+         * After the sheet has gone, not as it goes. The callback fires while
+         * UIKit is still dismissing the action sheet, and a `Modal` presented
+         * in that window is silently dropped — "Edit the shop" did nothing on
+         * the first press and opened on the second. A route push does not
+         * care; a sheet does.
+         */
+        if (chosen) setTimeout(chosen.onPress, 350);
       },
     );
   }

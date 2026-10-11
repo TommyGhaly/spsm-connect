@@ -1,85 +1,64 @@
 /**
- * One book's settings, inside the sheet a shopper already opens.
+ * One item's settings, in the shop editor.
  *
  * ---------------------------------------------------------------------------
- * The website reached this arrangement by rejecting two others, and both
- * rejections apply here with more force rather than less.
+ * Three tabs and one Save, at Tommy's direction on the website — the panel
+ * there had grown to a 1,200px scroll with two ways of saving: the title,
+ * price, description and clearance each sent straight to Square from their own
+ * buttons, and everything else waited for a bar at the foot of the shop.
+ * Clothing sizes ticked and never saved were the result. This app had the same
+ * two ways — "Save to Square" in the sheet, the Save bar under the shelf.
  *
- * **A "Catalog" tab listing every title with three controls per row.** Rejected
- * because arranging a shop from a table of its names means the shop itself is
- * somewhere else — *"i dont want it to be in the catelog I want the orders and
- * metrics section to make the products have editing functionality in place."*
+ * Now it is Details / Price & stock / Shipping, and every change to the item is
+ * held: a dot marks the tab with unsaved changes, and the footer's Save sends
+ * the lot (`saveOne` → `sendOne` in pendingEdits.tsx). Discard puts every field
+ * back. Leaving the item with changes held is refused by the editor, so
+ * nothing is lost by pressing Back or Done.
  *
- * **A properties column down the side.** Rejected as *"way too confusing"*,
- * with the fix stated: *"a lot of the settings can be done in the space that the
- * product already takes up rather than on the side view."* A phone has no side
- * to put a column on, so this one decides itself.
+ * A box whose text is not a value yet — a price of `12.` — blocks Save rather
+ * than being ignored: keeping the old price after somebody typed a new one is
+ * worse than asking them to finish typing.
  *
- * What is left is the book's own sheet — the same dialog a shopper opens, which
- * already shows this book at full size and nothing else. It is opened
- * deliberately, it holds one book, and closing it puts you back on the shelf
- * exactly where you were. The card keeps a compact stepper for the fast path of
- * counting a shelf; this is where a photograph is large enough to judge.
- *
- * ## Two kinds of control, and the sheet says which is which
- *
- * Stock, categories, shipping, sales tax and pictures are **held** for the Save
- * bar. The title, price
- * and description go **straight to Square** behind their own button, because
- * they are one book at a time, they change what the till charges as well as what
- * the shop shows, and an explicit button is the honest control for that.
- * Removing a book is immediate too, and has its own confirmation.
+ * Removing an item is the one thing that still acts at once. It has its own
+ * confirmation, and a destructive action queued behind a Save is a trap: the
+ * item would sit there looking removed while still being for sale.
  * ---------------------------------------------------------------------------
  */
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, View } from 'react-native';
-import type { BookstoreSection } from '@spsm/shared';
+import { Pressable, TextInput, View } from 'react-native';
+import {
+  MAX_SIZE_COUNT,
+  MAX_SIZE_EXTRA_CENTS,
+  SIZE_PRESETS,
+  type BookstoreSection,
+  type ProductSize,
+} from '@spsm/shared';
 
-import { Field, Problem } from '@/components/Fields';
+import { Check, Field, Problem } from '@/components/Fields';
 import { Icon } from '@/components/Icon';
 import { Button } from '@/components/Surface';
-import { Body, Label, Micro, Small } from '@/components/Type';
+import { Body, Micro, Small } from '@/components/Type';
+import { money } from '@/payments/money';
 import { useTheme } from '@/theme/ThemeProvider';
 
 import type { ShopProduct } from '../data';
+import { EditTabs, PanelBlock, PanelBody, SaveFooter } from './EditPanel';
 import { PictureRow, PictureSource, PictureTile } from './Pictures';
 import { CategoryChecklist, ShippingFields, TaxableField } from './ProductFields';
-import { actualValues, usePendingEdit, usePendingEdits } from './pendingEdits';
+import { actualValues, usePendingEdit, usePendingEdits, type HeldField } from './pendingEdits';
 
 /**
- * Run a write, and report on it.
- *
- * The boolean is not decoration: controls here show the new value immediately,
- * so a refusal has to be able to put the old one back. Without it a failed save
- * leaves a sheet reading "8 in stock" when Square still holds four, which is
- * worse than the error message it sits next to.
- *
- * "Saving…" while it is in flight and "Saved" for a moment afterwards is the
- * difference between a control that answers and one that appears to be dead —
- * a photograph going to Square and back is long enough for somebody to press
- * the button again.
+ * Run a write that acts at once — removing the item, which is the only one —
+ * and report on it. The boolean says whether it landed, so the caller knows
+ * whether to leave.
  */
 function useWriter(onError: (message: string) => void) {
   const [busy, setBusy] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(
-    () => () => {
-      if (savedTimer.current) clearTimeout(savedTimer.current);
-    },
-    [],
-  );
 
   const write = async (run: () => Promise<void>): Promise<boolean> => {
     setBusy(true);
     try {
       await run();
-      /* Only a write that landed says so. A refusal has its own notice, and a
-         "Saved" beside it would contradict it. */
-      setSaved(true);
-      if (savedTimer.current) clearTimeout(savedTimer.current);
-      savedTimer.current = setTimeout(() => setSaved(false), 1800);
       return true;
     } catch (cause) {
       onError(cause instanceof Error ? cause.message : 'That change was refused.');
@@ -89,18 +68,16 @@ function useWriter(onError: (message: string) => void) {
     }
   };
 
-  return { busy, saved, write };
+  return { busy, write };
 }
 
-/** "Saving…", then "Saved", then nothing — and "Edited" while a change is held. */
-function SaveState({ busy, saved, dirty }: { busy: boolean; saved: boolean; dirty: boolean }) {
-  const theme = useTheme();
+type Tab = 'details' | 'price' | 'shipping';
 
-  if (busy) return <Micro color={theme.color.inkFaint}>Saving…</Micro>;
-  if (saved) return <Micro color={theme.color.accentStrong}>Saved</Micro>;
-  if (dirty) return <Micro color={theme.color.accent}>Edited</Micro>;
-  return null;
-}
+const TABS: { id: Tab; label: string; fields: readonly HeldField[] }[] = [
+  { id: 'details', label: 'Details', fields: ['name', 'description', 'categoryIds'] },
+  { id: 'price', label: 'Price & stock', fields: ['priceCents', 'wasPriceCents', 'stockCount', 'sizes'] },
+  { id: 'shipping', label: 'Shipping', fields: ['weightOz', 'mediaMail', 'taxable'] },
+];
 
 export function ProductSettings({
   product,
@@ -109,275 +86,626 @@ export function ProductSettings({
 }: {
   product: ShopProduct;
   sections: BookstoreSection[];
-  /** Close the sheet: the book is no longer on the shop. */
+  /** Back to the items: the item is no longer on the shop. */
   onRemoved: () => void;
 }) {
   const theme = useTheme();
+  const [tab, setTab] = useState<Tab>('details');
+  /* Boxes holding text that is not a value yet, by field. Any one blocks Save. */
+  const [broken, setBroken] = useState<Record<string, boolean>>({});
+  /* Bumped by Discard, so every box re-seeds from what is saved. */
+  const [round, setRound] = useState(0);
   const [failed, setFailed] = useState<string | null>(null);
-  const { busy, saved, write } = useWriter(setFailed);
-  const held = usePendingEdits();
+  const { busy, write } = useWriter(setFailed);
+  const { saveOne, saving, release } = usePendingEdits();
   const pending = usePendingEdit(product.slug, actualValues(product));
 
-  return (
-    <View
-      style={{
-        gap: theme.space.md,
-        paddingTop: theme.space.md,
-        borderTopWidth: 1,
-        borderTopColor: theme.color.rule,
-      }}
-    >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.sm }}>
-        <View style={{ flex: 1 }}>
-          <Label>Book settings</Label>
-        </View>
-        <SaveState busy={busy} saved={saved} dirty={pending.dirty} />
-      </View>
+  const markBroken = (field: string, is: boolean) =>
+    setBroken((was) => (Boolean(was[field]) === is ? was : { ...was, [field]: is }));
 
-      <Micro color={theme.color.inkFaint}>
-        Stock, categories, shipping, sales tax and pictures are saved with the bar at the
-        foot of the shop. The title, price and description go straight to Square.
-      </Micro>
+  const onSale = pending.wasPriceCents !== null;
+  const saleWrong =
+    onSale && !(pending.priceCents > 0 && pending.priceCents < (pending.wasPriceCents ?? 0));
+  const anyBroken = Object.values(broken).some(Boolean);
+  const working = busy || saving;
+  const key = `${product.slug}-${round}`;
 
-      {/* Every refusal on this sheet goes to one place. Six controls with six
-          error slots is six things that are usually empty. */}
-      {failed ? (
-        <Problem>
-          <Body color={theme.color.ink}>{failed}</Body>
-        </Problem>
-      ) : null}
+  const tabDirty = (one: (typeof TABS)[number]) =>
+    one.fields.some((field) => pending.changed.includes(field)) ||
+    (one.id === 'details' && pending.hasImageEdits);
 
-      {/*
-        Keyed on the saved values, which is what re-seeds the boxes.
-
-        This was a `useEffect` copying four props into four pieces of state —
-        the arrangement React's own docs call "adjusting state when a prop
-        changes", and name a key as the better answer to. It has to happen in
-        two cases: the sheet moving to a different book, and a save landing, at
-        which point `product` comes back through the subscription carrying the
-        new title. Without the second, a successful save leaves the boxes
-        showing what was typed and the button still lit as though nothing had
-        happened.
-      */}
-      <DetailsForm
-        key={`${product.slug}:${product.name}:${product.amount}:${product.description}`}
-        product={product}
-        busy={busy}
-        onWrite={write}
-      />
-
-      <View style={{ gap: theme.space.sm }}>
-        <Label>Pictures</Label>
-        <Pictures product={product} busy={busy} onError={setFailed} />
-        {product.images.length > 1 ? (
-          <Micro color={theme.color.inkFaint}>
-            The first picture is the one shown on the shelf. Reorder them in Square.
-          </Micro>
-        ) : null}
-      </View>
-
-      <View style={{ gap: theme.space.sm }}>
-        <Label>In stock</Label>
-        <StockStepper product={product} busy={busy} />
-      </View>
-
-      {sections.length > 0 ? (
-        <View style={{ gap: theme.space.xs }}>
-          <Label>Categories</Label>
-          <CategoryChecklist
-            sections={sections}
-            chosen={pending.categoryIds}
-            busy={busy}
-            onChange={pending.setCategories}
-          />
-        </View>
-      ) : null}
-
-      <View style={{ gap: theme.space.xs }}>
-        <Label>Shipping</Label>
-        {/* Keyed on the book so the weight box re-seeds when the sheet moves
-            to another one — and only then; see `ShippingFields`. */}
-        <ShippingFields
-          key={product.slug}
-          weightOz={pending.weightOz}
-          mediaMail={pending.mediaMail}
-          busy={busy}
-          onChange={pending.setShipping}
-        />
-        {/* Here, under the shipping fields, because it is the number on the
-            shelf label and the till — the one staff read out when they weigh
-            or count a book. Square's, and assigned by the Functions alone. */}
-        {product.sku ? <Micro color={theme.color.inkFaint}>SKU {product.sku}</Micro> : null}
-      </View>
-
-      <View style={{ gap: theme.space.xs }}>
-        <Label>Sales tax</Label>
-        <TaxableField taxable={pending.taxable} busy={busy} onChange={pending.setTaxable} />
-      </View>
-
-      {/*
-        Save, without closing the sheet to find the bar.
-
-        The bar at the foot of the shop is the canonical control and is not
-        going anywhere — it is what says how many books are waiting. But it is
-        *behind this sheet*, and the commonest sequence in here is: take a
-        photograph of the cover, watch the tile appear, and want it sent. Making
-        that a close-then-hunt was the one place editing in place stopped being
-        in place.
-
-        It calls the same `save()` and therefore sends **every** held book, not
-        just this one — so the label says how many, in the bar's own words. Two
-        controls, one action, and neither of them lies about its scope.
-      */}
-      {held.count > 0 ? (
-        <Button
-          label={
-            held.saving
-              ? 'Saving…'
-              : held.count === 1
-                ? 'Save this book'
-                : `Save ${held.count} books`
-          }
-          onPress={() => void held.save()}
-          disabled={busy}
-          busy={held.saving}
-        />
-      ) : null}
-
-      {/* Keyed, so a half-pressed Remove cannot carry across to another book.
-          Nothing else in here needs resetting, which is why it is a key on one
-          component rather than one on the panel. */}
+  const foot = (
+    <View style={{ gap: theme.space.sm }}>
+      {product.sku ? <Micro color={theme.color.inkFaint}>SKU {product.sku}</Micro> : null}
       <RemoveProduct
         key={product.slug}
         product={product}
-        busy={busy}
+        busy={working}
         onWrite={write}
         onDone={onRemoved}
       />
     </View>
   );
-}
-
-/* -------------------------------------------------------------------------- */
-/* The three things Square owns                                                */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Title, price and description, edited together and saved on demand.
- *
- * ---------------------------------------------------------------------------
- * Not held for the Save bar, and not saved on blur either.
- *
- * The bar exists for the stepper, the categories, the weights and the pictures — edits that
- * are cheap, reversible, and made across several books in a row. These are none
- * of those. Saving on blur was the website's first attempt at the title and is
- * worse than either: moving the keyboard off a field you only meant to read
- * renames a book in Square, and there is nothing to press to undo it.
- *
- * ## One button for the three
- *
- * `setProductDetails` sends only what actually differs, so pressing Save once
- * after editing all three is one write — and one Square catalog version, which
- * matters because `catalog.version.updated` triggers a full mirror.
- *
- * The boxes re-seed when the sheet moves to a different book *or* when a saved
- * value comes back changed. `product` is the live document, so without the
- * second half a successful save would leave the boxes showing what was typed
- * and the button still lit as though nothing had happened.
- * ---------------------------------------------------------------------------
- */
-function DetailsForm({
-  product,
-  busy,
-  onWrite,
-}: {
-  product: ShopProduct;
-  busy: boolean;
-  onWrite: (run: () => Promise<void>) => Promise<boolean>;
-}) {
-  const theme = useTheme();
-
-  /*
-   * Dollars as typed, cents when sent. `Math.round`, never `trunc`: `4.35 * 100`
-   * is `434.99999999999994` in binary floating point, and truncating charges a
-   * cent less than the parish set.
-   */
-  const asDollars = (cents: number) => (cents / 100).toFixed(2);
-
-  const [name, setName] = useState(product.name);
-  const [price, setPrice] = useState(asDollars(product.amount));
-  const [description, setDescription] = useState(product.description);
-
-  const title = name.trim().replace(/\s+/g, ' ');
-  const blurb = description.trim();
-  const cents = parsePrice(price);
-
-  const titleChanged = title.length > 0 && title !== product.name;
-  const priceChanged = cents !== null && cents !== product.amount;
-  const blurbChanged = blurb !== product.description;
-  /* A price box that cannot be parsed blocks Save rather than being ignored —
-     silently keeping the old price after somebody typed a new one is worse. */
-  const priceBroken = price.trim() !== '' && cents === null;
-  const changed = (titleChanged || priceChanged || blurbChanged) && !priceBroken && title.length > 0;
-
-  const save = async () => {
-    if (!changed || busy) return;
-    await onWrite(async () => {
-      const { setProductDetails } = await import('./adminData');
-      await setProductDetails(product.slug, {
-        ...(titleChanged ? { name: title } : {}),
-        ...(priceChanged ? { priceCents: cents } : {}),
-        ...(blurbChanged ? { description: blurb } : {}),
-      });
-    });
-  };
 
   return (
-    <View style={{ gap: theme.space.sm }}>
-      <Field label="Title" value={name} onChange={setName} readOnly={busy} />
-
-      <Field
-        label="Price"
-        value={price}
-        onChange={setPrice}
-        keyboard="numbers-and-punctuation"
-        placeholder="15.00"
-        invalid={priceBroken}
-        readOnly={busy}
-        error={priceBroken ? 'A price like 8 or 8.50, up to $1,000.00.' : null}
-        hint="In dollars. The till charges this too."
+    <View style={{ flex: 1 }}>
+      <EditTabs
+        tabs={TABS.map((one) => ({ id: one.id, label: one.label, dirty: tabDirty(one) }))}
+        value={tab}
+        onChange={setTab}
       />
 
-      <Field
-        label="Description"
-        value={description}
-        onChange={setDescription}
-        lines={3}
-        placeholder="A line about it — shown under the title on the shelf."
-        readOnly={busy}
-      />
+      <PanelBody>
+        {failed ? (
+          <Pressable onPress={() => setFailed(null)} accessibilityRole="button" accessibilityLabel="Dismiss">
+            <Problem>
+              <Body color={theme.color.ink}>{failed}</Body>
+            </Problem>
+          </Pressable>
+        ) : null}
 
-      <Button
-        label="Save to Square"
-        onPress={() => void save()}
-        disabled={busy || !changed}
-        busy={busy}
-      />
+        {tab === 'details' ? (
+          <>
+            <PanelBlock>
+              <TitleField
+                key={key}
+                value={pending.name}
+                busy={working}
+                onChange={(name) => pending.setDetails({ name })}
+                onBroken={(is) => markBroken('name', is)}
+              />
+              <Field
+                label="Description"
+                value={pending.description}
+                onChange={(description) => pending.setDetails({ description })}
+                lines={3}
+                placeholder="A line about it — shown under the title on the shelf."
+                readOnly={working}
+              />
+            </PanelBlock>
 
-      <Micro color={theme.color.inkFaint}>
-        Goes to Square, so the till shows it too. The web address stays as it is, so
-        nobody’s bookmark or past receipt breaks.
-      </Micro>
+            <PanelBlock label="Pictures">
+              <Pictures product={product} busy={working} onError={setFailed} />
+              {product.images.length > 1 ? (
+                <Micro color={theme.color.inkFaint}>The first picture is the one on the shelf.</Micro>
+              ) : null}
+            </PanelBlock>
+
+            {sections.length > 0 ? (
+              <PanelBlock label="Categories">
+                <CategoryChecklist
+                  sections={sections}
+                  chosen={pending.categoryIds}
+                  busy={working}
+                  onChange={pending.setCategories}
+                />
+              </PanelBlock>
+            ) : null}
+          </>
+        ) : null}
+
+        {tab === 'price' ? (
+          <>
+            <PanelBlock>
+              <MoneyField
+                key={`${key}-regular`}
+                label="Price"
+                value={onSale ? (pending.wasPriceCents as number) : pending.priceCents}
+                busy={working}
+                onChange={(cents) =>
+                  pending.setDetails(onSale ? { wasPriceCents: cents } : { priceCents: cents })
+                }
+                onBroken={(is) => markBroken('price', is)}
+              />
+
+              <Check
+                label="On clearance"
+                checked={onSale}
+                disabled={working}
+                onChange={(on) =>
+                  pending.setDetails(
+                    on
+                      ? // The sale price starts equal to the price, which Save refuses until it is lower.
+                        { wasPriceCents: pending.priceCents, priceCents: pending.priceCents }
+                      : { priceCents: pending.wasPriceCents ?? pending.priceCents, wasPriceCents: null },
+                  )
+                }
+              />
+
+              {onSale ? (
+                <>
+                  <MoneyField
+                    key={`${key}-sale`}
+                    label="Sale price"
+                    value={pending.priceCents}
+                    blankWhen={pending.wasPriceCents ?? undefined}
+                    busy={working}
+                    onChange={(cents) => pending.setDetails({ priceCents: cents })}
+                    onBroken={(is) => markBroken('sale', is)}
+                  />
+                  <Micro color={saleWrong ? theme.color.accentStrong : theme.color.inkFaint}>
+                    {saleWrong
+                      ? `Type a sale price below ${money(pending.wasPriceCents ?? 0)}.`
+                      : `${money(pending.wasPriceCents ?? 0)} → ${money(pending.priceCents)}, ` +
+                        `${Math.round((((pending.wasPriceCents ?? 0) - pending.priceCents) / (pending.wasPriceCents ?? 1)) * 100)}% off. ` +
+                        'Shown under Clearance on the shop and the homepage.'}
+                  </Micro>
+                </>
+              ) : null}
+            </PanelBlock>
+
+            <PanelBlock label="Sold as">
+              <Segmented
+                options={[
+                  { label: 'One item', on: pending.sizes === null },
+                  { label: 'By size (clothing)', on: pending.sizes !== null },
+                ]}
+                busy={working}
+                onPick={(index) => pending.setSizes(index === 1 ? (pending.sizes ?? []) : null)}
+              />
+            </PanelBlock>
+
+            <PanelBlock label={pending.sizes !== null ? 'Sizes in stock' : 'In stock'}>
+              {pending.sizes !== null ? (
+                <ClothingField
+                  key={key}
+                  name={product.name}
+                  priceCents={pending.priceCents}
+                  sizes={pending.sizes}
+                  busy={working}
+                  onChange={pending.setSizes}
+                />
+              ) : (
+                <StockStepper product={product} busy={working} />
+              )}
+            </PanelBlock>
+          </>
+        ) : null}
+
+        {tab === 'shipping' ? (
+          <>
+            <PanelBlock label="Shipping">
+              <ShippingFields
+                key={key}
+                weightOz={pending.weightOz}
+                mediaMail={pending.mediaMail}
+                busy={working}
+                onChange={pending.setShipping}
+              />
+            </PanelBlock>
+            <PanelBlock label="Sales tax">
+              <TaxableField taxable={pending.taxable} busy={working} onChange={pending.setTaxable} />
+            </PanelBlock>
+          </>
+        ) : null}
+
+        {foot}
+      </PanelBody>
+
+      {/* Always there, so where to save is never a question. */}
+      <SaveFooter
+        dirty={pending.dirty}
+        saving={saving}
+        problem={
+          anyBroken
+            ? 'Fix the box marked in red to save'
+            : saleWrong
+              ? `Type a sale price below ${money(pending.wasPriceCents ?? 0)} to save`
+              : null
+        }
+        onDiscard={() => {
+          release(product.slug);
+          setBroken({});
+          setRound((n) => n + 1);
+        }}
+        onSave={() => void saveOne(product.slug)}
+      />
     </View>
   );
 }
 
-/** "8", "8.50", "$8" → cents; anything else → null. Shared with the add form. */
+/* -------------------------------------------------------------------------- */
+/* Boxes that keep what is being typed                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * "8", "8.50", "$8" → cents; anything else → null. Shared with the add form.
+ * `Math.round`, never `trunc`: `4.35 * 100` is `434.99999999999994`.
+ */
 export function parsePrice(raw: string): number | null {
   const trimmed = raw.trim().replace(/^\$/, '');
   if (!/^\d+(\.\d{0,2})?$/.test(trimmed)) return null;
   const value = Math.round(Number(trimmed) * 100);
   return value > 0 && value <= 100_000 ? value : null;
+}
+
+/** Dollars as typed to cents, with no bounds — for a size's add-on, which may be 0. */
+function parseDollars(text: string): number | null {
+  const trimmed = text.trim().replace(/^\$/, '');
+  if (!/^\d+(\.\d{0,2})?$/.test(trimmed)) return null;
+  return Math.round(Number(trimmed) * 100);
+}
+
+/**
+ * A box's text, kept apart from the value it stands for.
+ *
+ * What somebody is halfway through typing — `1.` on the way to `1.50` — is not a
+ * value, so only text that reads as one is passed up. The text takes the value
+ * back whenever the value changes from outside — a save coming back, another
+ * item — which is told apart from the box's own changes by remembering the
+ * last value it pushed. The website's `useDraft`.
+ */
+function useDraft<T>(value: T, format: (value: T) => string) {
+  const [text, setText] = useState(() => format(value));
+  const pushed = useRef(value);
+  useEffect(() => {
+    if (!Object.is(value, pushed.current)) {
+      pushed.current = value;
+      setText(format(value));
+    }
+    // `format` is a pure function of the value.
+  }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
+  return {
+    text,
+    setText,
+    push: (next: T) => {
+      pushed.current = next;
+    },
+  };
+}
+
+function TitleField({
+  value,
+  busy,
+  onChange,
+  onBroken,
+}: {
+  value: string;
+  busy: boolean;
+  onChange: (next: string) => void;
+  onBroken: (broken: boolean) => void;
+}) {
+  const draft = useDraft(value, (v) => v);
+  const wrong = draft.text.trim().replace(/\s+/g, ' ').length === 0;
+  useEffect(() => onBroken(wrong), [wrong]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <Field
+      label="Title"
+      value={draft.text}
+      onChange={(text) => {
+        draft.setText(text);
+        const next = text.trim().replace(/\s+/g, ' ');
+        if (next) {
+          draft.push(next);
+          onChange(next);
+        }
+      }}
+      invalid={wrong}
+      error={wrong ? 'A title is needed.' : null}
+      readOnly={busy}
+    />
+  );
+}
+
+/**
+ * A price in dollars. `blankWhen` shows an empty box for that value — the sale
+ * price starts out equal to the price, which is not a sale anybody chose.
+ */
+function MoneyField({
+  label,
+  value,
+  blankWhen,
+  busy,
+  onChange,
+  onBroken,
+}: {
+  label: string;
+  value: number;
+  blankWhen?: number;
+  busy: boolean;
+  onChange: (cents: number) => void;
+  onBroken: (broken: boolean) => void;
+}) {
+  const draft = useDraft(value, (cents) => (cents === blankWhen ? '' : (cents / 100).toFixed(2)));
+  const wrong = draft.text.trim() !== '' && parsePrice(draft.text) === null;
+  useEffect(() => onBroken(wrong), [wrong]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <Field
+      label={`${label}, $`}
+      value={draft.text}
+      onChange={(text) => {
+        draft.setText(text);
+        const next = parsePrice(text);
+        if (next !== null) {
+          draft.push(next);
+          onChange(next);
+        }
+      }}
+      keyboard="numbers-and-punctuation"
+      placeholder="15.00"
+      invalid={wrong}
+      error={wrong ? 'A price like 8 or 8.50, up to $1,000.' : null}
+      readOnly={busy}
+    />
+  );
+}
+
+/** Two or three choices as one bar, the chosen one filled — the website's `.bkseg`. */
+function Segmented({
+  options,
+  busy,
+  onPick,
+}: {
+  options: { label: string; on: boolean }[];
+  busy: boolean;
+  onPick: (index: number) => void;
+}) {
+  const theme = useTheme();
+
+  return (
+    <View
+      accessibilityRole="radiogroup"
+      style={{
+        flexDirection: 'row',
+        borderWidth: 1,
+        borderColor: theme.color.rule,
+        borderRadius: theme.radius.sm,
+        overflow: 'hidden',
+      }}
+    >
+      {options.map((one, index) => (
+        <Pressable
+          key={one.label}
+          onPress={() => onPick(index)}
+          disabled={busy}
+          accessibilityRole="radio"
+          accessibilityState={{ checked: one.on, disabled: busy }}
+          style={({ pressed }) => ({
+            flex: 1,
+            minHeight: 44,
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingHorizontal: theme.space.xs,
+            borderLeftWidth: index === 0 ? 0 : 1,
+            borderLeftColor: theme.color.rule,
+            backgroundColor: one.on
+              ? theme.color.accent
+              : pressed
+                ? theme.color.accentSoft
+                : theme.color.paper,
+            opacity: busy ? 0.5 : 1,
+          })}
+        >
+          <Small color={one.on ? theme.color.inkInverse : theme.color.ink}>{one.label}</Small>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Clothing sizes                                                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Which sizes it comes in, how many of each are on hand, and what a size adds
+ * to the price. Shown when "Sold as" is By size. The website's table, as rows.
+ *
+ * The boxes keep their own text, as the weight box does; only text that reads
+ * as a number is passed up.
+ */
+function ClothingField({
+  name,
+  priceCents,
+  sizes,
+  busy,
+  onChange,
+}: {
+  name: string;
+  priceCents: number;
+  sizes: readonly ProductSize[];
+  busy: boolean;
+  onChange: (next: readonly ProductSize[]) => void;
+}) {
+  const theme = useTheme();
+  const [texts, setTexts] = useState<Record<string, { count: string; extra: string }>>(() =>
+    Object.fromEntries(
+      sizes.map((size) => [
+        size.label,
+        { count: String(size.count), extra: size.extraCents ? (size.extraCents / 100).toFixed(2) : '' },
+      ]),
+    ),
+  );
+
+  const byLabel = new Map(sizes.map((size) => [size.label, size]));
+  /** The list with one size replaced, added or removed, kept in preset order. */
+  const put = (label: string, next: ProductSize | null) => {
+    const merged = new Map(byLabel);
+    if (next) merged.set(label, next);
+    else merged.delete(label);
+    onChange(SIZE_PRESETS.flatMap((one) => merged.get(one) ?? []));
+  };
+
+  const textOf = (label: string) => texts[label] ?? { count: '0', extra: '' };
+  const setText = (label: string, patch: Partial<{ count: string; extra: string }>) =>
+    setTexts((was) => ({ ...was, [label]: { ...(was[label] ?? { count: '0', extra: '' }), ...patch } }));
+
+  /*
+   * A box whose text reads as a number other than the held value has been
+   * overtaken — a save coming back, or an online sale lowering a count — so it
+   * takes the value. Text that does not read as a number yet is somebody
+   * mid-typing and is left alone.
+   *
+   * During render, against the last list seen, rather than in an effect: the
+   * "adjusting state when a prop changes" shape, which the compiler rules here
+   * accept and which never draws a frame with the stale text.
+   */
+  const [seen, setSeen] = useState(sizes);
+  if (seen !== sizes) {
+    setSeen(sizes);
+    let next = texts;
+    for (const size of sizes) {
+      const text = texts[size.label];
+      if (!text) continue;
+      const count = /^\d+$/.test(text.count.trim()) ? Number(text.count) : null;
+      const extra = text.extra.trim() === '' ? 0 : parseDollars(text.extra);
+      if ((count !== null && count !== size.count) || (extra !== null && extra !== size.extraCents)) {
+        next = {
+          ...next,
+          [size.label]: {
+            count: String(size.count),
+            extra: size.extraCents ? (size.extraCents / 100).toFixed(2) : '',
+          },
+        };
+      }
+    }
+    if (next !== texts) setTexts(next);
+  }
+
+  const onHand = sizes.reduce((sum, size) => sum + size.count, 0);
+
+  return (
+    <View style={{ gap: theme.space.xs }}>
+      <View style={{ flexDirection: 'row', gap: theme.space.xs }}>
+        <View style={{ flex: 1 }}>
+          <Micro color={theme.color.inkFaint}>Size</Micro>
+        </View>
+        <View style={{ width: 64 }}>
+          <Micro color={theme.color.inkFaint}>On hand</Micro>
+        </View>
+        <View style={{ width: 72 }}>
+          <Micro color={theme.color.inkFaint}>Adds, $</Micro>
+        </View>
+        <View style={{ width: 60, alignItems: 'flex-end' }}>
+          <Micro color={theme.color.inkFaint}>Price</Micro>
+        </View>
+      </View>
+
+      {SIZE_PRESETS.map((label) => {
+        const size = byLabel.get(label);
+        const text = textOf(label);
+        const countWrong = size !== undefined && !/^\d+$/.test(text.count.trim());
+        const extra = text.extra.trim() === '' ? 0 : parseDollars(text.extra);
+        const extraWrong = size !== undefined && (extra === null || extra > MAX_SIZE_EXTRA_CENTS);
+        return (
+          <View key={label} style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.xs }}>
+            <View style={{ flex: 1 }}>
+              <Check
+                label={label}
+                checked={size !== undefined}
+                disabled={busy}
+                onChange={(on) =>
+                  put(
+                    label,
+                    on
+                      ? {
+                          label,
+                          count: /^\d+$/.test(text.count.trim())
+                            ? Math.min(MAX_SIZE_COUNT, Number(text.count))
+                            : 0,
+                          extraCents: extra !== null && extra <= MAX_SIZE_EXTRA_CENTS ? extra : 0,
+                        }
+                      : null,
+                  )
+                }
+              />
+            </View>
+            <MiniInput
+              width={64}
+              label={`How many ${label} of ${name} on hand`}
+              value={size ? text.count : ''}
+              placeholder="—"
+              wrong={countWrong}
+              disabled={busy || !size}
+              keyboard="numeric"
+              onChange={(value) => {
+                setText(label, { count: value });
+                if (size && /^\d+$/.test(value.trim())) {
+                  put(label, { ...size, count: Math.min(MAX_SIZE_COUNT, Number(value.trim())) });
+                }
+              }}
+            />
+            <MiniInput
+              width={72}
+              label={`What ${label} adds to the price, in dollars`}
+              value={size ? text.extra : ''}
+              placeholder="0"
+              wrong={extraWrong}
+              disabled={busy || !size}
+              keyboard="numbers-and-punctuation"
+              onChange={(value) => {
+                setText(label, { extra: value });
+                const cents = value.trim() === '' ? 0 : parseDollars(value);
+                if (size && cents !== null && cents <= MAX_SIZE_EXTRA_CENTS) {
+                  put(label, { ...size, extraCents: cents });
+                }
+              }}
+            />
+            <View style={{ width: 60, alignItems: 'flex-end' }}>
+              <Micro color={theme.color.inkSoft}>{size ? money(priceCents + size.extraCents) : ''}</Micro>
+            </View>
+          </View>
+        );
+      })}
+
+      <Micro color={theme.color.inkFaint}>
+        {sizes.length === 0
+          ? 'Tick the sizes it comes in. Until one is ticked it cannot be bought.'
+          : `${onHand} on hand across ${sizes.length} ${sizes.length === 1 ? 'size' : 'sizes'}. ` +
+            'Counted on the website only — an online sale lowers the count, a sale on the register does not. ' +
+            'A size at 0 shows as sold out.'}
+      </Micro>
+    </View>
+  );
+}
+
+/** A small box for one cell of the size table — `Field`'s finish without its label. */
+function MiniInput({
+  width,
+  label,
+  value,
+  placeholder,
+  wrong,
+  disabled,
+  keyboard,
+  onChange,
+}: {
+  width: number;
+  label: string;
+  value: string;
+  placeholder: string;
+  wrong: boolean;
+  disabled: boolean;
+  keyboard: 'numeric' | 'numbers-and-punctuation';
+  onChange: (next: string) => void;
+}) {
+  const theme = useTheme();
+
+  return (
+    <TextInput
+      value={value}
+      onChangeText={onChange}
+      editable={!disabled}
+      placeholder={placeholder}
+      placeholderTextColor={theme.color.inkFaint}
+      keyboardType={keyboard}
+      accessibilityLabel={label}
+      style={{
+        width,
+        minHeight: 40,
+        paddingHorizontal: theme.space.xs,
+        color: theme.color.ink,
+        fontFamily: theme.fontFamily.body,
+        fontSize: theme.fontSize.small,
+        backgroundColor: disabled ? theme.color.paperSunken : theme.color.paper,
+        borderColor: wrong ? theme.color.accent : theme.color.rule,
+        borderWidth: 1,
+        borderRadius: theme.radius.sm,
+      }}
+    />
+  );
 }
 
 /* -------------------------------------------------------------------------- */

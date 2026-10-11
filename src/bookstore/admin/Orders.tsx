@@ -366,6 +366,8 @@ function OrderCard({
           {(order.lineItems ?? []).map((line, index) => (
             <Micro key={`${order.id}-${index}`} color={theme.color.inkSoft}>
               {line.quantity}× {line.name}
+              {/* The size, bold: it is what whoever packs the order has to pull. */}
+              {line.size ? <Micro color={theme.color.ink}>{` — size ${line.size}`}</Micro> : null}
               {/* The SKU and the price each, where the order kept them — so a
                   question about one line can be answered from here. Older
                   orders have neither and just print the name. */}

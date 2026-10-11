@@ -1,20 +1,17 @@
 /**
  * How delivery is priced, and the sales-tax rate — the shop's two money
- * settings, in one sheet off the Manage pill.
+ * settings, on the editor's Settings tab.
  *
  * ---------------------------------------------------------------------------
- * The mobile port of `ShippingSettings` and `TaxSettings` from the website's
- * `EditControls.tsx`, which live in its shop-wide inspector panel. A phone has
- * no inspector, so they get a sheet of their own, reached the way the category
- * editor is.
+ * The mobile port of `ShopSettings`, `ShippingSettings` and `TaxSettings` from
+ * the website's `EditControls.tsx`.
  *
- * ## Saved with their own buttons, not the bar
+ * ## One Save for the two
  *
- * The bar holds per-book edits made in a run across the shelf. Each of these is
- * one decision about money, made once, and an explicit Save is the honest
- * control for it — the same reasoning as a book's title and price. Save stays
- * off until something has actually changed, so a box nobody touched never
- * reads as an edit.
+ * They had a Save button each, as the website's did, and the website gave them
+ * the editor's one footer instead — the same words and place as an item's, so
+ * where to save is never a question. Save stays off until something has
+ * actually changed, so a box nobody touched never reads as an edit.
  *
  * ## Laid out as a question first
  *
@@ -32,7 +29,7 @@
  * writable from here (or from the website) and is shown only for reference.
  * ---------------------------------------------------------------------------
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import {
   MAX_BOX_INCHES,
@@ -48,107 +45,106 @@ import {
   type ShippingService,
 } from '@spsm/shared';
 
-import { Check, Choice, Close, Field, Problem, Sheet } from '@/components/Fields';
-import { Button } from '@/components/Surface';
-import { Body, Heading, Label, Micro } from '@/components/Type';
+import { Check, Choice, Field } from '@/components/Fields';
+import { Label, Micro } from '@/components/Type';
 import { money } from '@/payments/money';
 import { useTheme } from '@/theme/ThemeProvider';
 
-/**
- * Busy while a save is in flight, "Saved" for a moment after one lands, and the
- * refusal in words when it does not. `ProductSettings` has the same shape; this
- * one reports to the sheet's single error slot.
- */
-function useWriter(onError: (message: string | null) => void) {
-  const [busy, setBusy] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+import { PanelBlock, PanelBody, SaveFooter } from './EditPanel';
 
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    [],
-  );
-
-  const write = async (run: () => Promise<void>) => {
-    setBusy(true);
-    onError(null);
-    try {
-      await run();
-      setSaved(true);
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => setSaved(false), 1800);
-    } catch (cause) {
-      onError(cause instanceof Error ? cause.message : 'That change was refused.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return { busy, saved, write };
-}
+type Report<T> = { changed: boolean; valid: boolean; next: T };
 
 /**
- * Mounted only while open, like the category editor, so a half-typed handling
- * fee goes with the sheet rather than coming back next time.
+ * The editor's Settings tab: delivery and sales tax, saved together with the
+ * one footer — the website's `ShopSettings`. Each form says what it would save,
+ * whether that differs from what is saved, and whether it can be saved; the
+ * footer does the rest.
  */
 export function ShopSettings({
   settings,
   taxedCount,
-  onClose,
+  onDirty,
 }: {
   settings: BookstoreConfig;
-  /** How many books are marked taxable, so the rate is not set in a vacuum. */
+  /** How many items are marked taxable, so the rate is not set in a vacuum. */
   taxedCount: number;
-  onClose: () => void;
+  /** Holding unsaved changes — the tab's dot, and what refuses leaving it. */
+  onDirty: (dirty: boolean) => void;
 }) {
   const theme = useTheme();
-  const [failed, setFailed] = useState<string | null>(null);
+  /* Bumped by Discard: the two forms remount and re-seed from what is saved. */
+  const [round, setRound] = useState(0);
+  const [ship, setShip] = useState<Report<BookstoreShipping> | null>(null);
+  const [tax, setTax] = useState<Report<number> | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const dirty = Boolean(ship?.changed || tax?.changed);
+  useEffect(() => onDirty(dirty), [dirty, onDirty]);
+  useEffect(() => () => onDirty(false), [onDirty]);
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+    try {
+      const { writeShipping, writeTaxRate } = await import('./adminData');
+      if (ship?.changed) await writeShipping(ship.next);
+      if (tax?.changed) await writeTaxRate(tax.next);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'That could not be saved.');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
-    <Sheet
-      open
-      onClose={onClose}
-      label="Shipping and sales tax"
-      header={
-        <View style={{ flexDirection: 'row', gap: theme.space.sm }}>
-          <View style={{ flex: 1, gap: theme.space.xs }}>
-            <Label>Bookstore</Label>
-            <Heading>Shipping & tax</Heading>
-          </View>
-          <Close onPress={onClose} what="the shipping and tax settings" />
-        </View>
-      }
-    >
-      {failed ? (
-        <Problem>
-          <Body color={theme.color.ink}>{failed}</Body>
-        </Problem>
-      ) : null}
+    <View style={{ flex: 1 }}>
+      <PanelBody>
+        <PanelBlock label="Delivery">
+          {/*
+            Keyed on what is saved as well as on Discard, which is what re-seeds
+            the boxes when a save comes back through the live subscription — so
+            the footer goes quiet once it has landed, rather than staying lit
+            against stale text.
+          */}
+          <ShippingSettings
+            key={`ship-${round}-${JSON.stringify(settings.shipping)}`}
+            shipping={settings.shipping}
+            flatCents={settings.deliveryCents}
+            busy={saving}
+            onReport={setShip}
+          />
+        </PanelBlock>
 
-      {/*
-        Keyed on what is saved, which is what re-seeds the boxes when a save
-        comes back through the live subscription — so the button goes quiet
-        once it has landed, rather than staying lit against stale text. The
-        same arrangement as the book's own details form.
-      */}
-      <ShippingSettings
-        key={JSON.stringify(settings.shipping)}
-        shipping={settings.shipping}
-        flatCents={settings.deliveryCents}
-        onError={setFailed}
+        <View style={{ height: 1, backgroundColor: theme.color.rule }} />
+
+        <PanelBlock label="Sales tax">
+          <TaxSettings
+            key={`tax-${round}-${settings.taxRateBps}`}
+            taxRateBps={settings.taxRateBps}
+            taxed={taxedCount}
+            busy={saving}
+            onReport={setTax}
+          />
+        </PanelBlock>
+      </PanelBody>
+
+      <SaveFooter
+        dirty={dirty}
+        saving={saving}
+        error={error}
+        problem={
+          (ship?.changed && !ship.valid) || (tax?.changed && !tax.valid)
+            ? 'Fix the box marked in red to save'
+            : null
+        }
+        onDiscard={() => {
+          setRound((n) => n + 1);
+          setError(null);
+        }}
+        onSave={() => void save()}
       />
-
-      <View style={{ height: 1, backgroundColor: theme.color.rule }} />
-
-      <TaxSettings
-        key={settings.taxRateBps}
-        taxRateBps={settings.taxRateBps}
-        taxed={taxedCount}
-        onError={setFailed}
-      />
-    </Sheet>
+    </View>
   );
 }
 
@@ -159,15 +155,17 @@ export function ShopSettings({
 function ShippingSettings({
   shipping,
   flatCents,
-  onError,
+  busy,
+  onReport,
 }: {
   shipping: BookstoreShipping;
   /** The flat delivery charge, shown for reference; set by the office. */
   flatCents: number;
-  onError: (message: string | null) => void;
+  busy: boolean;
+  /** What would be saved, whether it differs, and whether it can be. */
+  onReport: (report: Report<BookstoreShipping>) => void;
 }) {
   const theme = useTheme();
-  const { busy, saved, write } = useWriter(onError);
 
   const [draft, setDraft] = useState(shipping);
   // What is typed, kept as text so a half-typed "1." is not rewritten.
@@ -229,6 +227,11 @@ function ShippingSettings({
     },
   };
   const changed = JSON.stringify(next) !== JSON.stringify(shipping);
+  const nextKey = JSON.stringify(next);
+  useEffect(() => {
+    onReport({ changed, valid, next: JSON.parse(nextKey) as BookstoreShipping });
+    // `onReport` is the parent's setter; the report is a function of these.
+  }, [changed, valid, nextKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const type = (key: keyof typeof text) => (value: string) =>
     setText((was) => ({ ...was, [key]: value }));
@@ -339,28 +342,12 @@ function ShippingSettings({
           </View>
 
           <Micro color={theme.color.inkFaint}>
-            Each book’s weight is set in the book’s own sheet. An order with a book that has no
+            Each item’s weight is set on the item itself. An order with an item that has no
             weight pays the flat rate.
           </Micro>
         </View>
       ) : null}
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.sm }}>
-        <View style={{ flex: 1 }}>
-          <Button
-            label={busy ? 'Saving…' : 'Save shipping'}
-            onPress={() =>
-              void write(async () => {
-                const { writeShipping } = await import('./adminData');
-                await writeShipping(next);
-              })
-            }
-            disabled={busy || !changed || !valid}
-            busy={busy}
-          />
-        </View>
-        <SaveState saved={saved} dirty={changed} />
-      </View>
     </View>
   );
 }
@@ -372,20 +359,24 @@ function ShippingSettings({
 function TaxSettings({
   taxRateBps,
   taxed,
-  onError,
+  busy,
+  onReport,
 }: {
   taxRateBps: number;
   taxed: number;
-  onError: (message: string | null) => void;
+  busy: boolean;
+  onReport: (report: Report<number>) => void;
 }) {
   const theme = useTheme();
-  const { busy, saved, write } = useWriter(onError);
   const [text, setText] = useState(taxPercentage(taxRateBps));
 
   const trimmed = text.trim().replace(/%$/, '').trim();
   const value = /^\d{1,2}(\.\d{1,2})?$/.test(trimmed) ? Math.round(Number(trimmed) * 100) : null;
   const valid = value !== null && value <= MAX_TAX_RATE_BPS;
-  const changed = valid && value !== taxRateBps;
+  const changed = valid ? value !== taxRateBps : text !== taxPercentage(taxRateBps);
+  useEffect(() => {
+    onReport({ changed, valid, next: value ?? taxRateBps });
+  }, [changed, valid, value]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <View style={{ gap: theme.space.sm }}>
@@ -402,29 +393,6 @@ function TaxSettings({
         } Delivery is never taxed.`}
       />
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.sm }}>
-        <View style={{ flex: 1 }}>
-          <Button
-            label={busy ? 'Saving…' : 'Save tax rate'}
-            onPress={() =>
-              void write(async () => {
-                const { writeTaxRate } = await import('./adminData');
-                await writeTaxRate(value as number);
-              })
-            }
-            disabled={busy || !changed}
-            busy={busy}
-          />
-        </View>
-        <SaveState saved={saved} dirty={changed} />
-      </View>
     </View>
   );
-}
-
-function SaveState({ saved, dirty }: { saved: boolean; dirty: boolean }) {
-  const theme = useTheme();
-  if (saved) return <Micro color={theme.color.accentStrong}>Saved</Micro>;
-  if (dirty) return <Micro color={theme.color.accent}>Edited</Micro>;
-  return null;
 }

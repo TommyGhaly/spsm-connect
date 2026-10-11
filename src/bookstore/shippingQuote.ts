@@ -54,7 +54,7 @@ export function useShippingQuote({
   postalCode,
 }: {
   enabled: boolean;
-  cart: readonly { slug: string; quantity: number }[];
+  cart: readonly { slug: string; quantity: number; size?: string }[];
   postalCode: string;
 }): QuoteState & { refresh: () => void } {
   /*
@@ -73,7 +73,9 @@ export function useShippingQuote({
 
   const zip = usableZip(postalCode);
   // The basket as a string, so a new array with the same lines is not a change.
-  const basket = JSON.stringify(cart.map((line) => [line.slug, line.quantity]));
+  // Sizes included: the server adds a shirt's sizes together, and has to be
+  // sent each of them to do it.
+  const basket = JSON.stringify(cart.map((line) => [line.slug, line.quantity, line.size ?? '']));
   const key = `${zip ?? ''}|${basket}|${attempt}`;
 
   useEffect(() => {
@@ -85,10 +87,9 @@ export function useShippingQuote({
         let state: QuoteState;
         try {
           const body = await apiPost<ShippingQuoteResponse>('/api/shipping/quote', {
-            cart: (JSON.parse(basket) as [string, number][]).map(([slug, quantity]) => ({
-              slug,
-              quantity,
-            })),
+            cart: (JSON.parse(basket) as [string, number, string][]).map(
+              ([slug, quantity, size]) => ({ slug, quantity, ...(size ? { size } : {}) }),
+            ),
             postalCode: zip,
           });
           if (typeof body.fallbackCents !== 'number') throw new Error('No flat charge in the quote.');

@@ -22,15 +22,15 @@
  * be able to miss it by four points and get a dialog instead.
  */
 import { Pressable, View } from 'react-native';
+import { clearanceOf } from '@spsm/shared';
 
 import { Icon } from '@/components/Icon';
-import { Body, Small, Micro } from '@/components/Type';
-import { money } from '@/payments/money';
+import { Body, Label, Small, Micro } from '@/components/Type';
 import { useTheme } from '@/theme/ThemeProvider';
 
 import { Cover } from './Cover';
-import { actualValues, usePendingEdit } from './admin/pendingEdits';
-import type { ShopProduct } from './data';
+import { PriceTag, priceWords } from './PriceTag';
+import { soldOutOf, type ShopProduct } from './data';
 
 /**
  * How tall a cover is on the shelf.
@@ -53,22 +53,13 @@ const COVER_HEIGHT = 190;
 export function Book({
   product,
   inCart,
-  editing,
   atRightEdge,
   onOpen,
   onAdd,
 }: {
   product: ShopProduct;
+  /** Every size of it in the basket, added up. */
   inCart: number;
-  /**
-   * The shop is being stocked rather than shopped.
-   *
-   * The card keeps its shape — same cover, same title, same price — and swaps
-   * the one control at its foot. Add becomes a stepper, because counting a
-   * shelf is the job somebody does eleven times in a row and it should not cost
-   * eleven dialogs. Everything else about a book is a tap away in its sheet.
-   */
-  editing: boolean;
   /**
    * This card is in the right-hand column, so its right edge is the screen's.
    *
@@ -81,21 +72,12 @@ export function Book({
    */
   atRightEdge: boolean;
   onOpen: () => void;
+  /** Straight into the basket — or, for clothing, the caller opens the size picker. */
   onAdd: () => void;
 }) {
   const theme = useTheme();
-  const soldOut = product.stockCount === 0;
-
-  /*
-   * Read on every card, in both modes, rather than only while editing.
-   *
-   * A hook cannot be called conditionally, and the alternative — a separate
-   * component mounted only in edit mode — would leave the "Edited" mark with
-   * nowhere to live, since it belongs on the cover beside "sold out". The cost
-   * is that every card re-renders when any held edit changes; the shop is
-   * eleven titles, so that is a measurement nobody will ever take.
-   */
-  const pending = usePendingEdit(product.slug, actualValues(product));
+  const soldOut = soldOutOf(product);
+  const sale = clearanceOf({ wasPriceCents: product.wasPriceCents, amountCents: product.amount });
 
   return (
     /*
@@ -170,10 +152,10 @@ export function Book({
            * sentence tying them together, and the price is the part most likely
            * to be missed.
            */
-          accessibilityLabel={`${product.name}, ${money(product.amount, product.currency)}${
-            soldOut ? ', sold out' : !editing && inCart > 0 ? `, ${inCart} in basket` : ''
-          }${editing && pending.dirty ? ', edited' : ''}`}
-          accessibilityHint={editing ? 'Opens this book’s settings' : 'Opens the book'}
+          accessibilityLabel={`${product.name}, ${priceWords(product)}${
+            sale && !soldOut ? `, ${sale.percentOff}% off` : ''
+          }${soldOut ? ', sold out' : inCart > 0 ? `, ${inCart} in basket` : ''}`}
+          accessibilityHint="Opens the item"
           /*
             No padding, and that is the change. The cover used to sit inside
             `space.sm` on all four sides, so a card showed a frame of paper
@@ -200,7 +182,6 @@ export function Book({
                 this is simply the shelf's finish.
               */
               radius={0}
-              live={editing}
             />
 
             {/*
@@ -208,13 +189,13 @@ export function Book({
             usually blank is furniture — which is why this is a ternary and
             not two independent conditions.
           */}
-            {editing && pending.dirty ? (
-              <Flag label="Edited" tone="in" />
-            ) : soldOut ? (
+            {soldOut ? (
               <Flag label="Sold out" tone="out" />
-            ) : !editing && inCart > 0 ? (
+            ) : inCart > 0 ? (
               <Flag label={`${inCart} in basket`} tone="in" />
             ) : null}
+            {/* The other corner from the basket flag, so both can be said at once. */}
+            {sale && !soldOut ? <SaleFlag percentOff={sale.percentOff} /> : null}
           </View>
 
           {/*
@@ -258,11 +239,11 @@ export function Book({
           thing anybody wants off a shelf, after which book it is. Softening
           it was treating it as metadata.
         */}
-          <Body color={theme.color.ink}>{money(product.amount, product.currency)}</Body>
+          <Body color={theme.color.ink}>
+            <PriceTag product={product} />
+          </Body>
 
-          {editing ? (
-            <ShelfStock product={product} pending={pending} />
-          ) : soldOut ? (
+          {soldOut ? (
             <Micro color={theme.color.inkFaint}>Unavailable</Micro>
           ) : (
             /*
@@ -283,7 +264,11 @@ export function Book({
               onPress={onAdd}
               accessibilityRole="button"
               accessibilityLabel={
-                inCart > 0 ? `Add another ${product.name}` : `Add ${product.name} to the basket`
+                product.sizes
+                  ? `Choose a size of ${product.name}`
+                  : inCart > 0
+                    ? `Add another ${product.name}`
+                    : `Add ${product.name} to the basket`
               }
               style={({ pressed }) => ({
                 flexDirection: 'row',
@@ -301,8 +286,10 @@ export function Book({
                 minHeight: 36,
               })}
             >
-              <Icon name="plus" color={theme.color.inkInverse} size={14} />
-              <Micro color={theme.color.inkInverse}>{inCart > 0 ? 'Another' : 'Add'}</Micro>
+              {product.sizes ? null : <Icon name="plus" color={theme.color.inkInverse} size={14} />}
+              <Micro color={theme.color.inkInverse}>
+                {product.sizes ? 'Choose size' : inCart > 0 ? 'Another' : 'Add'}
+              </Micro>
             </Pressable>
           )}
         </View>
@@ -314,9 +301,9 @@ export function Book({
 /**
  * The badge over the corner of a cover.
  *
- * Two tones and no third: "sold out" is the shop refusing, "in basket" is the
- * shop confirming, and they never appear together because a sold-out book
- * cannot be added. Hidden from assistive technology because both sentences are
+ * "Sold out" is the shop refusing, "in basket" is the shop confirming, and they
+ * never appear together because a sold-out book cannot be added. "% off" is
+ * `SaleFlag`, in the opposite corner, so it can sit beside "in basket". Hidden from assistive technology because both sentences are
  * already in the card's own label — announced here too they would be read
  * twice, once out of order.
  */
@@ -343,150 +330,30 @@ function Flag({ label, tone }: { label: string; tone: 'out' | 'in' }) {
 }
 
 /**
- * The count, on the card, while the shop is being stocked.
- *
- * ---------------------------------------------------------------------------
- * The fast path, and the only editing control that lives on the shelf.
- *
- * Everything else about a book — its title, its price, its pictures, its
- * category, whether it is on the shop at all — is a tap away in the book's own
- * sheet, where there is room to see what you are changing. Counting is
- * different: it is done to a whole shelf at once, standing at the bookstore
- * table with the books in front of you, and eleven dialogs to type eleven
- * numbers is the arrangement a stepper exists to replace.
- *
- * It holds rather than writes. Six presses on one card is one number on the
- * save bar, not six calls to Square's inventory API.
- *
- * ## Why the arrows cannot reach "not counted"
- *
- * `null` is not a number below zero. It means Square is not tracking this title
- * — which is most of the church's catalog — and it is a different state from
- * `0`, which is sold out and takes the book off the shop. A stepper that fell
- * off the bottom into `null` would turn "we sold the last one" into "stop
- * counting these", silently, at exactly the moment somebody is counting. So the
- * switch below is the only way in or out of it.
- * ---------------------------------------------------------------------------
+ * "25% off", top right, flush to the cover's edge and rounded only on the side
+ * that faces into it — the website's `.book__sale`. Hidden from assistive
+ * technology like `Flag`: the card's label already says it.
  */
-function ShelfStock({
-  product,
-  pending,
-}: {
-  product: ShopProduct;
-  pending: ReturnType<typeof usePendingEdit>;
-}) {
-  const theme = useTheme();
-  const count = pending.stockCount;
-
-  if (count === null) {
-    return (
-      <Pressable
-        onPress={() => pending.setStock(0)}
-        accessibilityRole="button"
-        accessibilityLabel={`Start counting copies of ${product.name}`}
-        style={({ pressed }) => ({
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderRadius: theme.radius.sm,
-          borderWidth: 1,
-          borderColor: theme.color.rule,
-          backgroundColor: pressed ? theme.color.accentSoft : 'transparent',
-          minHeight: 36,
-        })}
-      >
-        <Micro color={theme.color.inkSoft}>Not counted</Micro>
-      </Pressable>
-    );
-  }
-
-  return (
-    <View style={{ gap: 2 }}>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          borderRadius: theme.radius.sm,
-          borderWidth: 1,
-          borderColor: theme.color.rule,
-          overflow: 'hidden',
-        }}
-      >
-        <Nudge
-          icon="close"
-          label={`One fewer ${product.name}`}
-          disabled={count === 0}
-          onPress={() => pending.nudge(-1)}
-        />
-        <View style={{ flex: 1, alignItems: 'center' }}>
-          {/* `aria-live`'s equivalent: the number is what changed, and a
-              volunteer pressing + without looking should hear it. */}
-          <Small
-            accessibilityLiveRegion="polite"
-            color={count === 0 ? theme.color.accent : theme.color.ink}
-          >
-            {count}
-          </Small>
-        </View>
-        <Nudge
-          icon="plus"
-          label={`One more ${product.name}`}
-          disabled={false}
-          onPress={() => pending.nudge(1)}
-        />
-      </View>
-
-      <Pressable
-        onPress={() => pending.setStock(null)}
-        accessibilityRole="button"
-        accessibilityLabel={`Stop counting copies of ${product.name}`}
-        hitSlop={theme.space.xs}
-        style={{ alignItems: 'center', paddingVertical: 2 }}
-      >
-        <Micro color={theme.color.inkFaint}>
-          {count === 0 ? 'sold out · stop counting' : 'stop counting'}
-        </Micro>
-      </Pressable>
-    </View>
-  );
-}
-
-/**
- * One arrow of the shelf stepper.
- *
- * 36pt tall for the same reason the Add button it replaces is: two cards sit in
- * a row on a 390pt screen, and at 44 the card is taller than the cover it is
- * selling. The card itself remains the large target.
- */
-function Nudge({
-  icon,
-  label,
-  disabled,
-  onPress,
-}: {
-  icon: 'plus' | 'close';
-  label: string;
-  disabled: boolean;
-  onPress: () => void;
-}) {
+function SaleFlag({ percentOff }: { percentOff: number }) {
   const theme = useTheme();
 
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled }}
-      style={({ pressed }) => ({
-        width: 40,
-        height: 36,
-        alignItems: 'center',
-        justifyContent: 'center',
-        opacity: disabled ? 0.35 : 1,
-        backgroundColor: pressed && !disabled ? theme.color.accentSoft : 'transparent',
-      })}
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={{
+        position: 'absolute',
+        top: theme.space.sm,
+        right: 0,
+        paddingVertical: 2,
+        paddingLeft: theme.space.xs,
+        paddingRight: theme.space.sm,
+        borderTopLeftRadius: theme.radius.full,
+        borderBottomLeftRadius: theme.radius.full,
+        backgroundColor: theme.color.accent,
+      }}
     >
-      <Icon name={icon} color={theme.color.ink} size={14} />
-    </Pressable>
+      <Label color={theme.color.inkInverse}>{`${percentOff}% off`}</Label>
+    </View>
   );
 }

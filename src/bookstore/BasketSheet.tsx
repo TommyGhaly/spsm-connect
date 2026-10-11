@@ -77,10 +77,11 @@ import {
 import { useTheme } from '@/theme/ThemeProvider';
 
 import { Cover } from './Cover';
+import { PriceTag, priceWords } from './PriceTag';
+import { inCartOf, type Basket, type CartLine } from './cart';
+import { lineName, soldOutOf, type ShopProduct } from './data';
 import { useShippingQuote } from './shippingQuote';
 import { track } from './track';
-import type { Basket } from './cart';
-import type { ShopProduct } from './data';
 
 /** What was bought, captured at the moment it was paid for. */
 interface Receipt {
@@ -280,7 +281,11 @@ function BasketLines({
   const alsoHere = useMemo(
     () =>
       products
-        .filter((product) => !basket.cart[product.slug] && product.stockCount !== 0)
+        // Not clothing: one tap here cannot choose a size.
+        .filter(
+          (product) =>
+            !inCartOf(basket.cart, product.slug) && !soldOutOf(product) && !product.sizes,
+        )
         .slice(0, 3),
     [products, basket.cart],
   );
@@ -295,13 +300,12 @@ function BasketLines({
       ) : (
         <>
           <View style={{ gap: theme.space.sm }}>
-            {basket.lines.map(({ product, quantity }) => (
+            {basket.lines.map((line) => (
               <Line
-                key={product.slug}
-                product={product}
-                quantity={quantity}
-                onBump={(by) => basket.bump(product.slug, by)}
-                onRemove={() => basket.setQuantity(product.slug, 0)}
+                key={line.key}
+                line={line}
+                onBump={(by) => basket.bump(line.key, by)}
+                onRemove={() => basket.setQuantity(line.key, 0)}
               />
             ))}
           </View>
@@ -317,7 +321,7 @@ function BasketLines({
             }}
           >
             <Small color={theme.color.inkSoft}>
-              {basket.count} {basket.count === 1 ? 'book' : 'books'}
+              {basket.count} {basket.count === 1 ? 'item' : 'items'}
             </Small>
             <Body>{money(basket.subtotal)}</Body>
           </View>
@@ -344,7 +348,7 @@ function BasketLines({
               key={product.slug}
               onPress={() => onOpenProduct(product)}
               accessibilityRole="button"
-              accessibilityLabel={`${product.name}, ${money(product.amount, product.currency)}`}
+              accessibilityLabel={`${product.name}, ${priceWords(product)}`}
               style={({ pressed }) => ({
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -367,7 +371,7 @@ function BasketLines({
                 <Small numberOfLines={2}>{product.name}</Small>
               </View>
               <Micro color={theme.color.inkSoft}>
-                {money(product.amount, product.currency)}
+                <PriceTag product={product} />
               </Micro>
             </Pressable>
           ))}
@@ -378,17 +382,22 @@ function BasketLines({
 }
 
 function Line({
-  product,
-  quantity,
+  line,
   onBump,
   onRemove,
 }: {
-  product: ShopProduct;
-  quantity: number;
+  line: CartLine;
   onBump: (by: number) => void;
   onRemove: () => void;
 }) {
   const theme = useTheme();
+  const { product, size, quantity, unit } = line;
+  const name = lineName(product.name, size);
+  // No more of a size than there are on hand.
+  const ceiling = Math.min(
+    MAX_QUANTITY,
+    product.sizes?.find((one) => one.label === size)?.count ?? MAX_QUANTITY,
+  );
 
   return (
     <View style={{ flexDirection: 'row', gap: theme.space.sm, alignItems: 'flex-start' }}>
@@ -402,13 +411,13 @@ function Line({
       </View>
 
       <View style={{ flex: 1, gap: theme.space.xs }}>
-        <Small numberOfLines={2}>{product.name}</Small>
+        <Small numberOfLines={2}>{name}</Small>
         {/* The line's own total, not the unit price. A shopper checking a
             basket is checking the arithmetic, and "$8.00" beside a quantity of
             three is the number that makes them recount. */}
         <Micro color={theme.color.inkSoft}>
-          {quantity} × {money(product.amount, product.currency)} ={' '}
-          {money(product.amount * quantity, product.currency)}
+          {quantity} × {money(unit, product.currency)} ={' '}
+          {money(unit * quantity, product.currency)}
         </Micro>
         {/* The SKU, small, where the sync has given one — the number the
             receipt and the order email print beside the book. */}
@@ -417,7 +426,7 @@ function Line({
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.xs }}>
           <Tap
             icon="close"
-            label={quantity === 1 ? `Remove ${product.name}` : `One fewer ${product.name}`}
+            label={quantity === 1 ? `Remove ${name}` : `One fewer ${name}`}
             onPress={() => onBump(-1)}
             disabled={false}
           />
@@ -426,15 +435,15 @@ function Line({
           </View>
           <Tap
             icon="plus"
-            label={`One more ${product.name}`}
+            label={`One more ${name}`}
             onPress={() => onBump(1)}
-            disabled={quantity >= MAX_QUANTITY}
+            disabled={quantity >= ceiling}
           />
 
           <Pressable
             onPress={onRemove}
             accessibilityRole="button"
-            accessibilityLabel={`Remove ${product.name} from the basket`}
+            accessibilityLabel={`Remove ${name} from the basket`}
             hitSlop={theme.space.xs}
             style={{
               marginLeft: theme.space.xs,
@@ -522,7 +531,12 @@ function Checkout({
   const [requoted, setRequoted] = useState(false);
 
   const cart = useMemo(
-    () => basket.lines.map((line) => ({ slug: line.product.slug, quantity: line.quantity })),
+    () =>
+      basket.lines.map((line) => ({
+        slug: line.product.slug,
+        quantity: line.quantity,
+        ...(line.size ? { size: line.size } : {}),
+      })),
     [basket.lines],
   );
   const quote = useShippingQuote({ enabled: shipping, cart, postalCode: address.postalCode });
@@ -611,7 +625,7 @@ function Checkout({
   const tax = useMemo(() => {
     const cents = salesTaxCents(
       basket.lines.map((line) => ({
-        amountCents: line.product.amount * line.quantity,
+        amountCents: line.unit * line.quantity,
         taxable: line.product.taxable,
       })),
       settings.taxRateBps,
@@ -647,6 +661,9 @@ function Checkout({
       cart: basket.lines.map((line) => ({
         slug: line.product.slug,
         quantity: line.quantity,
+        // Clothing only. The Function charges a size's add-on from Firestore,
+        // never from this request.
+        ...(line.size ? { size: line.size } : {}),
       })),
       email: email.trim(),
       firstName: firstName.trim(),
@@ -701,10 +718,10 @@ function Checkout({
          * confirmation screen a Square reference and two sentences of hedging.
          */
         const lines = basket.lines.map((line) => ({
-          name: line.product.name,
+          name: lineName(line.product.name, line.size),
           sku: line.product.sku,
           quantity: line.quantity,
-          amount: line.product.amount * line.quantity,
+          amount: line.unit * line.quantity,
         }));
         const paidPostage = shipping
           ? { label: chosen ? chosen.label : 'Delivery', cents: postage }
@@ -1012,9 +1029,9 @@ function Done({
       </Body>
 
       <Card gap={theme.space.xs}>
-        {receipt.lines.map((line) => (
+        {receipt.lines.map((line, index) => (
           <Row
-            key={line.name}
+            key={`${index}-${line.name}`}
             label={`${line.quantity > 1 ? `${line.quantity} × ${line.name}` : line.name}${
               line.sku ? ` · ${line.sku}` : ''
             }`}

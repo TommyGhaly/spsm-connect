@@ -53,34 +53,31 @@ import {
   type BookstoreSection,
 } from '@spsm/shared';
 
-import { Close, Field, Problem, Sheet } from '@/components/Fields';
+import { Field, Problem } from '@/components/Fields';
 import { Icon } from '@/components/Icon';
 import { Button } from '@/components/Surface';
-import { Body, Heading, Label, Micro, Small } from '@/components/Type';
+import { Body, Micro, Small } from '@/components/Type';
 import { useTheme } from '@/theme/ThemeProvider';
 
 import type { ShopProduct } from '../data';
+import { PanelBody } from './EditPanel';
 import { sectionTree } from './ProductFields';
 
 /** How deep a category may be for "Add a subcategory" to be offered under it. */
 const MAX_PARENT_DEPTH = 1;
 
 /**
- * Mounted only while it is open — `ShopScreen` renders it conditionally — so a
- * half-typed rename and a half-pressed Remove go with it. Holding this open
- * with `null` and an effect to clear its state would be the same behaviour
- * written twice, once in React and once by hand.
+ * The editor's Categories tab. Mounted only while the tab is open, so a
+ * half-typed rename and a half-pressed Remove go with it.
  */
 export function CategoryEditor({
   sections,
   products,
-  onClose,
 }: {
   /** Every category the parish has, in order — including the empty ones. */
   sections: BookstoreSection[];
   /** The shelf, for the counts: what is under each row, and what is in none. */
   products: ShopProduct[];
-  onClose: () => void;
 }) {
   const theme = useTheme();
   const [busy, setBusy] = useState(false);
@@ -176,25 +173,12 @@ export function CategoryEditor({
   };
 
   return (
-    <Sheet
-      open
-      onClose={onClose}
-      label="The shop’s categories"
-      header={
-        <View style={{ flexDirection: 'row', gap: theme.space.sm }}>
-          <View style={{ flex: 1, gap: theme.space.xs }}>
-            <Label>Bookstore</Label>
-            <Heading>Categories</Heading>
-          </View>
-          <Close onPress={onClose} what="the categories" />
-        </View>
-      }
-    >
+    <PanelBody>
 
       <Micro color={theme.color.inkFaint}>
         These are the pills under the search box, and they are Square’s categories inside
-        “Bookstore”, so the register sees the same ones. A book can be in several, or in none.
-        Choosing a category in the shop opens a row of its subcategories.
+        “Bookstore”, so the register sees the same ones. An item can be in several, or in
+        none — choose an item’s categories on its Details tab.
       </Micro>
 
       {failed ? (
@@ -242,7 +226,7 @@ export function CategoryEditor({
                     >
                       <Small color={theme.color.ink}>{section.label}</Small>
                       <Micro color={theme.color.inkFaint}>
-                        {total} {total === 1 ? 'book' : 'books'}
+                        {total} {total === 1 ? 'item' : 'items'}
                         {children > 0 ? ` · ${children} inside` : ''} · tap to rename
                       </Micro>
                     </Pressable>
@@ -282,7 +266,7 @@ export function CategoryEditor({
                     {children > 0
                       ? `“${section.label}” has categories inside it. Remove or move those first.`
                       : inside > 0
-                        ? `${inside} ${inside === 1 ? 'book is' : 'books are'} still in “${section.label}”. Untick it on ${inside === 1 ? 'that book' : 'those books'} first.`
+                        ? `${inside} ${inside === 1 ? 'item is' : 'items are'} still in “${section.label}”. Untick it on ${inside === 1 ? 'that item' : 'those items'} first.`
                         : `Remove “${section.label}” from Square? Nothing is filed in it.`}
                   </Micro>
                   <View style={{ flexDirection: 'row', gap: theme.space.sm }}>
@@ -359,7 +343,7 @@ export function CategoryEditor({
             about what it is. It is absent entirely once everything is filed. */}
         {unfiled > 0 && sections.length > 0 ? (
           <Micro color={theme.color.inkFaint}>
-            {unfiled} {unfiled === 1 ? 'book is' : 'books are'} in no category, and the shop
+            {unfiled} {unfiled === 1 ? 'item is' : 'items are'} in no category, and the shop
             shows them under “{UNSORTED_LABEL}”.
           </Micro>
         ) : null}
@@ -387,7 +371,7 @@ export function CategoryEditor({
           {MAX_SECTIONS} is as many as the shop takes. Remove one to add another.
         </Micro>
       )}
-    </Sheet>
+    </PanelBody>
   );
 }
 

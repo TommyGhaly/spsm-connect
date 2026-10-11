@@ -25,21 +25,23 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import type { BookstoreSection } from '@spsm/shared';
 
-import { Close, Field, Problem, Sheet } from '@/components/Fields';
+import { Field, Problem } from '@/components/Fields';
 import { Button } from '@/components/Surface';
-import { Body, Heading, Label, Micro } from '@/components/Type';
+import { Body, Label, Micro } from '@/components/Type';
 import { useTheme } from '@/theme/ThemeProvider';
 
+import { PanelBody } from './EditPanel';
 import { PictureRow, PictureSource, PictureTile } from './Pictures';
 import { CategoryChecklist, ShippingFields, TaxableField } from './ProductFields';
 import { parsePrice } from './ProductSettings';
 import type { PickedPicture } from './picture';
 
 /**
- * Mounted only while it is open — `ShopScreen` renders it conditionally — which
- * is what makes it empty every time. A sheet held open with `null` would come
- * back carrying the title, price and photographs of the book somebody backed
- * out of adding, and the most likely thing to do with that form is press Add.
+ * The editor's "Add a product" view, reached from the top of the Items tab.
+ * Mounted only while it is open, which is what makes it empty every time: a
+ * form held open would come back carrying the title, price and photographs of
+ * the item somebody backed out of adding, and the most likely thing to do with
+ * that form is press Add.
  */
 export function AddProduct({
   sections,
@@ -47,7 +49,7 @@ export function AddProduct({
 }: {
   sections: BookstoreSection[];
   /**
-   * Closed, one way or another.
+   * Done, one way or another — back to the items.
    *
    * There is no `onAdded` beside it: the shelf is a live subscription, so the
    * new book arrives on its own the moment the Function mirrors it back. A
@@ -107,11 +109,11 @@ export function AddProduct({
           setFailed(
             `“${title}” was added, but a picture did not upload` +
               `${cause instanceof Error ? `: ${cause.message}` : '.'} ` +
-              'Add it from the book’s own settings.',
+              'Add it from the item’s own settings.',
           );
           setBusy(false);
-          // The book exists, so the form has nothing left to send — but the
-          // sheet stays open carrying the sentence above, which is the only
+          // The item exists, so the form has nothing left to send — but the
+          // form stays open carrying the sentence above, which is the only
           // place it can be read.
           return;
         }
@@ -120,26 +122,13 @@ export function AddProduct({
       setBusy(false);
       onClose();
     } catch (cause) {
-      setFailed(cause instanceof Error ? cause.message : 'The book could not be added.');
+      setFailed(cause instanceof Error ? cause.message : 'The item could not be added.');
       setBusy(false);
     }
   };
 
   return (
-    <Sheet
-      open
-      onClose={onClose}
-      label="Add a book to the shop"
-      header={
-        <View style={{ flexDirection: 'row', gap: theme.space.sm }}>
-          <View style={{ flex: 1, gap: theme.space.xs }}>
-            <Label>Bookstore</Label>
-            <Heading>Add a book</Heading>
-          </View>
-          <Close onPress={onClose} what="the add form" />
-        </View>
-      }
-    >
+    <PanelBody>
 
       {failed ? (
         <Problem>
@@ -217,7 +206,7 @@ export function AddProduct({
                 cover={index === 0}
                 busy={busy}
                 action="drop"
-                what={name.trim() || 'this book'}
+                what={name.trim() || 'this item'}
                 onPress={() =>
                   setPictures((was) => was.filter((one) => one.id !== picture.id))
                 }
@@ -236,8 +225,8 @@ export function AddProduct({
         />
 
         <Micro color={theme.color.inkFaint}>
-          The first one becomes the cover on the shelf. The book is created first, then its
-          pictures — so a photograph that fails does not lose the book.
+          The first one becomes the cover on the shelf. The item is created first, then its
+          pictures — so a photograph that fails does not lose the item.
         </Micro>
       </View>
 
@@ -247,6 +236,6 @@ export function AddProduct({
         disabled={!ready}
         busy={busy}
       />
-    </Sheet>
+    </PanelBody>
   );
 }

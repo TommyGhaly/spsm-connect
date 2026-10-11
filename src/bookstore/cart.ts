@@ -16,18 +16,47 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MAX_QUANTITY } from '@spsm/shared';
 
-import type { ShopProduct } from './data';
+import { unitOf, type ShopProduct } from './data';
 import { trackProduct } from './track';
 
-/** slug → quantity. Kept flat so it survives `JSON.stringify` unchanged. */
+/**
+ * Basket key → quantity. Kept flat so it survives `JSON.stringify` unchanged.
+ *
+ * The key is the slug, or for clothing the slug and the size — `tee|M` — so two
+ * sizes of one shirt are two lines. The website's key, character for character.
+ * A basket saved before sizes existed is all plain slugs and reads as it did.
+ */
 export type Cart = Record<string, number>;
 
 const CART_KEY = 'spsm.bookstore.cart';
 
+export function cartKey(slug: string, size: string | null): string {
+  return size ? `${slug}|${size}` : slug;
+}
+
+export function splitKey(key: string): { slug: string; size: string | null } {
+  const at = key.indexOf('|');
+  return at < 0 ? { slug: key, size: null } : { slug: key.slice(0, at), size: key.slice(at + 1) };
+}
+
+/** Every size of it in the basket, added up — what "in basket" on a card means. */
+export function inCartOf(cart: Cart, slug: string): number {
+  return Object.entries(cart).reduce(
+    (sum, [key, quantity]) => (splitKey(key).slug === slug ? sum + quantity : sum),
+    0,
+  );
+}
+
 /** One basket row, resolved against the catalog. */
 export interface CartLine {
+  /** The basket key — what `bump` and `setQuantity` take. */
+  key: string;
   product: ShopProduct;
+  /** The size, for clothing; null for everything else. */
+  size: string | null;
   quantity: number;
+  /** One of it in this size: the price plus whatever the size adds. */
+  unit: number;
 }
 
 export interface Basket {
@@ -43,16 +72,20 @@ export interface Basket {
    * slug anyway (`buildSquareOrder` rejects `unknown` and `unpublished`), so
    * the money is never at risk either way; this is only about which of two
    * imperfect messages a shopper meets.
+   *
+   * A size the shirt no longer comes in — or a size on something that is not
+   * clothing any more, or clothing with no size — is dropped for the same
+   * reason: checkout would refuse it (`no-size`).
    */
   lines: CartLine[];
-  /** Books, not rows: three copies of one title is three. */
+  /** Items, not rows: three copies of one title is three. */
   count: number;
-  /** The books only. Delivery is added at checkout, where it is chosen. */
+  /** The items only. Delivery is added at checkout, where it is chosen. */
   subtotal: number;
-  /** Add to, or take from, what is in the basket now. */
-  bump: (slug: string, by: number) => void;
-  /** Set an exact quantity. Zero removes the row. */
-  setQuantity: (slug: string, quantity: number) => void;
+  /** Add to, or take from, what is in the basket now, by basket key. */
+  bump: (key: string, by: number) => void;
+  /** Set an exact quantity, by basket key. Zero removes the row. */
+  setQuantity: (key: string, quantity: number) => void;
   clear: () => void;
   /** False until storage has been read, so the first write cannot clobber it. */
   ready: boolean;
@@ -127,8 +160,8 @@ export function useCart(products: ShopProduct[]): Basket {
     void AsyncStorage.setItem(CART_KEY, JSON.stringify(cart)).catch(() => {});
   }, [cart, ready]);
 
-  const apply = useCallback((slug: string, next: (before: number) => number) => {
-    const before = cartRef.current[slug] ?? 0;
+  const apply = useCallback((key: string, next: (before: number) => number) => {
+    const before = cartRef.current[key] ?? 0;
     /*
      * Capped at `MAX_QUANTITY`, which is the shared constant the checkout
      * Function bounds against — not a number repeated here. An unbounded
@@ -140,10 +173,12 @@ export function useCart(products: ShopProduct[]): Basket {
     if (bounded === before) return;
 
     const updated = { ...cartRef.current };
-    if (bounded === 0) delete updated[slug];
-    else updated[slug] = bounded;
+    if (bounded === 0) delete updated[key];
+    else updated[key] = bounded;
     cartRef.current = updated;
 
+    // Counted against the product, whichever size it was.
+    const { slug } = splitKey(key);
     const delta = bounded - before;
     if (delta > 0) trackProduct('cartAdd', slug, delta);
     else trackProduct('cartRemove', slug, -delta);
@@ -152,12 +187,12 @@ export function useCart(products: ShopProduct[]): Basket {
   }, []);
 
   const bump = useCallback(
-    (slug: string, by: number) => apply(slug, (before) => before + by),
+    (key: string, by: number) => apply(key, (before) => before + by),
     [apply],
   );
 
   const setQuantity = useCallback(
-    (slug: string, quantity: number) => apply(slug, () => quantity),
+    (key: string, quantity: number) => apply(key, () => quantity),
     [apply],
   );
 
@@ -168,16 +203,23 @@ export function useCart(products: ShopProduct[]): Basket {
 
   const lines = useMemo(
     () =>
-      products
-        .filter((product) => (cart[product.slug] ?? 0) > 0)
-        .map((product) => ({ product, quantity: cart[product.slug] ?? 0 })),
+      products.flatMap((product) =>
+        Object.entries(cart).flatMap(([key, quantity]): CartLine[] => {
+          const { slug, size } = splitKey(key);
+          if (slug !== product.slug || quantity <= 0) return [];
+          if (product.sizes ? !product.sizes.some((one) => one.label === size) : size !== null) {
+            return [];
+          }
+          return [{ key, product, size, quantity, unit: unitOf(product, size) }];
+        }),
+      ),
     [cart, products],
   );
 
   const count = useMemo(() => lines.reduce((sum, line) => sum + line.quantity, 0), [lines]);
 
   const subtotal = useMemo(
-    () => lines.reduce((sum, line) => sum + line.product.amount * line.quantity, 0),
+    () => lines.reduce((sum, line) => sum + line.unit * line.quantity, 0),
     [lines],
   );
 
@@ -195,11 +237,11 @@ export function useCart(products: ShopProduct[]): Basket {
  */
 function sanitise(raw: Record<string, unknown>): Cart {
   const cart: Cart = {};
-  for (const [slug, value] of Object.entries(raw)) {
-    if (typeof slug !== 'string' || slug === '') continue;
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof key !== 'string' || splitKey(key).slug === '') continue;
     const quantity = Math.trunc(Number(value));
     if (!Number.isFinite(quantity) || quantity < 1) continue;
-    cart[slug] = Math.min(MAX_QUANTITY, quantity);
+    cart[key] = Math.min(MAX_QUANTITY, quantity);
   }
   return cart;
 }

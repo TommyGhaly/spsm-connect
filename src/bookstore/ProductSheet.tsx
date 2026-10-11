@@ -14,57 +14,94 @@
  * the zoom was for.
  */
 import { useState } from 'react';
-import { Pressable, View, useWindowDimensions } from 'react-native';
-import { MAX_QUANTITY, type BookstoreSection } from '@spsm/shared';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { MAX_QUANTITY, clearanceOf } from '@spsm/shared';
 
 import { Button } from '@/components/Surface';
 import { Close, Sheet } from '@/components/Fields';
 import { Body, Heading, Label, Micro, Small } from '@/components/Type';
 import { Icon } from '@/components/Icon';
-import { money } from '@/payments/money';
 import { useTheme } from '@/theme/ThemeProvider';
 
 import { Cover } from './Cover';
-import { ProductSettings } from './admin/ProductSettings';
-import type { ShopProduct } from './data';
+import { PriceTag } from './PriceTag';
+import { cartKey, type Cart } from './cart';
+import { soldOutOf, type ShopProduct } from './data';
 
 export function ProductSheet({
   product,
-  inCart,
-  editing,
-  sections,
+  cart,
+  canEdit,
+  onEdit,
   onBump,
   onClose,
 }: {
   /** Null when nothing is open. */
   product: ShopProduct | null;
-  inCart: number;
+  /** The whole basket, so a size already in it counts against what is left. */
+  cart: Cart;
   /**
-   * The shop is being stocked, so this sheet is also the book's settings.
-   *
-   * The same dialog either way, deliberately. It already shows this book at
-   * full size and nothing else, it is opened on purpose, and closing it puts
-   * you back on the shelf exactly where you were — which is the whole of what
-   * the website's rejected properties column could not do. What edit mode adds
-   * is a block below the shopper's half, not a different screen.
+   * Whoever may edit the shop gets a way from the item to its settings — the
+   * phone's version of the website's "an item opens from the list or the
+   * shelf", since the editor is a sheet over the shelf rather than a column
+   * beside it.
    */
-  editing: boolean;
-  sections: BookstoreSection[];
-  onBump: (by: number) => void;
+  canEdit: boolean;
+  onEdit: (product: ShopProduct) => void;
+  /** Add to, or take from, a basket line, by its key. */
+  onBump: (key: string, by: number) => void;
   onClose: () => void;
 }) {
-  const theme = useTheme();
-
   /*
    * Unmounted rather than held open-but-empty, as `EventSheet` does it: a
    * `Modal` carries its own visibility, and a sheet with nothing in it is a
-   * sheet that can be opened by a bug. It also resets the gallery's page, which
-   * is what stops a second book opening on the first one's third photograph.
+   * sheet that can be opened by a bug. It also resets the gallery's page and the
+   * chosen size, which is what stops a second item opening on the first one's
+   * third photograph, or in the first one's size.
    */
   if (product === null) return null;
 
-  const soldOut = product.stockCount === 0;
-  const atCeiling = inCart >= MAX_QUANTITY;
+  return (
+    <Opened
+      key={product.slug}
+      product={product}
+      cart={cart}
+      canEdit={canEdit}
+      onEdit={onEdit}
+      onBump={onBump}
+      onClose={onClose}
+    />
+  );
+}
+
+function Opened({
+  product,
+  cart,
+  canEdit,
+  onEdit,
+  onBump,
+  onClose,
+}: {
+  product: ShopProduct;
+  cart: Cart;
+  canEdit: boolean;
+  onEdit: (product: ShopProduct) => void;
+  onBump: (key: string, by: number) => void;
+  onClose: () => void;
+}) {
+  const theme = useTheme();
+  const [size, setSize] = useState<string | null>(null);
+
+  const soldOut = soldOutOf(product);
+  const sale = clearanceOf({ wasPriceCents: product.wasPriceCents, amountCents: product.amount });
+  const clothing = product.sizes !== null;
+  const chosen = size ? product.sizes?.find((one) => one.label === size) : undefined;
+  const key = cartKey(product.slug, chosen?.label ?? null);
+  const inCart = clothing && !chosen ? 0 : (cart[key] ?? 0);
+  /* No more of a size than there are on hand; twenty is the basket's own
+     ceiling for anything. */
+  const ceiling = Math.min(MAX_QUANTITY, chosen ? chosen.count : MAX_QUANTITY);
+  const atCeiling = inCart >= ceiling;
 
   return (
     <Sheet
@@ -82,11 +119,22 @@ export function ProductSheet({
       }
     >
 
-      <Gallery product={product} live={editing} />
+      <Gallery product={product} />
 
       <View style={{ gap: theme.space.xs }}>
-        <Body color={theme.color.ink}>{money(product.amount, product.currency)}</Body>
-        <Stock count={product.stockCount} />
+        <Body color={theme.color.ink}>
+          <PriceTag product={product} size={size} />
+        </Body>
+        {sale ? <Label color={theme.color.accent}>{`Clearance — ${sale.percentOff}% off`}</Label> : null}
+        {clothing ? (
+          <SizeStock
+            soldOut={soldOut}
+            chosen={chosen ?? null}
+            room={chosen ? Math.max(0, chosen.count - inCart) : null}
+          />
+        ) : (
+          <Stock count={product.stockCount} />
+        )}
         {/* Under the stock line, small: the number somebody reads out when
             they ring the office about a book, and the one on the till. Absent
             until the catalog sync has numbered it. */}
@@ -103,30 +151,52 @@ export function ProductSheet({
       ) : null}
 
       {/*
-        The basket controls are hidden while editing, and that is not tidiness.
-        Adding a book to a basket you are not going to buy, on the screen where
-        you are deciding whether that book should exist, is a press with no
-        meaning — and `Add to basket` sitting directly above `Remove from the
-        shop` is two buttons that must never be adjacent.
+        Sizes, as a row of buttons. One with none left stays on the row, struck
+        through, so somebody looking for their size learns it is gone rather
+        than wondering whether it was ever made.
       */}
-      {editing ? null : soldOut ? (
+      {clothing && !soldOut ? (
+        <View
+          accessibilityRole="radiogroup"
+          accessibilityLabel="Size"
+          style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.xs }}
+        >
+          {product.sizes?.map((one) => (
+            <SizePick
+              key={one.label}
+              label={one.label}
+              on={size === one.label}
+              gone={one.count <= 0}
+              onPress={() => setSize(one.label)}
+            />
+          ))}
+        </View>
+      ) : null}
+
+      {soldOut ? (
         <View style={{ gap: theme.space.xs }}>
           <Small color={theme.color.inkSoft}>
             This one has sold out. The bookstore table after Liturgy sometimes has copies the
             shop does not.
           </Small>
         </View>
+      ) : clothing && !chosen ? (
+        <Button label="Choose a size" onPress={() => {}} disabled />
       ) : inCart === 0 ? (
-        <Button label="Add to basket" onPress={() => onBump(1)} />
+        <Button
+          label="Add to basket"
+          onPress={() => onBump(key, 1)}
+          disabled={ceiling === 0}
+        />
       ) : (
         <View style={{ gap: theme.space.xs }}>
           <Stepper
             quantity={inCart}
-            onBump={onBump}
+            onBump={(by) => onBump(key, by)}
             atCeiling={atCeiling}
-            what={product.name}
+            what={chosen ? `${product.name}, size ${chosen.label}` : product.name}
           />
-          {atCeiling ? (
+          {atCeiling && ceiling === MAX_QUANTITY ? (
             <Micro color={theme.color.inkFaint}>
               {MAX_QUANTITY} is the most the shop takes in one order. For more than that, ask
               the bookstore.
@@ -135,10 +205,80 @@ export function ProductSheet({
         </View>
       )}
 
-      {editing ? (
-        <ProductSettings product={product} sections={sections} onRemoved={onClose} />
+      {canEdit ? (
+        <Button label="Edit this item" tone="quiet" onPress={() => onEdit(product)} />
       ) : null}
     </Sheet>
+  );
+}
+
+/**
+ * The stock line for clothing, which is about the chosen size — the website's
+ * five sentences, in its order.
+ */
+function SizeStock({
+  soldOut,
+  chosen,
+  room,
+}: {
+  soldOut: boolean;
+  chosen: { label: string; count: number } | null;
+  /** How many more of the chosen size can go in the basket. */
+  room: number | null;
+}) {
+  const theme = useTheme();
+
+  if (soldOut) return <Small color={theme.color.accent}>Out of stock</Small>;
+  if (!chosen) return <Small color={theme.color.inkSoft}>Choose a size</Small>;
+  if (room === 0) {
+    return <Small color={theme.color.accent}>{`Every ${chosen.label} left is in your basket`}</Small>;
+  }
+  if (chosen.count <= 5) {
+    return (
+      <Small color={theme.color.accentStrong}>{`Only ${chosen.count} left in ${chosen.label}`}</Small>
+    );
+  }
+  return <Small color={theme.color.inkSoft}>{`${chosen.label} in stock`}</Small>;
+}
+
+/** One size: outlined, filled when chosen, struck through when none are left. */
+function SizePick({
+  label,
+  on,
+  gone,
+  onPress,
+}: {
+  label: string;
+  on: boolean;
+  gone: boolean;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={gone}
+      accessibilityRole="radio"
+      accessibilityState={{ checked: on, disabled: gone }}
+      accessibilityLabel={gone ? `${label}, sold out` : label}
+      style={({ pressed }) => ({
+        minWidth: 48,
+        minHeight: 44,
+        paddingHorizontal: theme.space.sm,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: theme.radius.sm,
+        borderWidth: 1,
+        borderColor: on ? theme.color.accent : pressed ? theme.color.accent : theme.color.rule,
+        backgroundColor: on ? theme.color.accent : theme.color.paper,
+        opacity: gone ? 0.6 : 1,
+      })}
+    >
+      <Small color={on ? theme.color.inkInverse : gone ? theme.color.inkFaint : theme.color.ink}>
+        <Text style={gone ? { textDecorationLine: 'line-through' } : undefined}>{label}</Text>
+      </Small>
+    </Pressable>
   );
 }
 
@@ -254,7 +394,7 @@ function Step({
  * a control that says the shop is broken. Adding a photo in Square lights the
  * rest up with no change here.
  */
-function Gallery({ product, live }: { product: ShopProduct; live: boolean }) {
+function Gallery({ product }: { product: ShopProduct }) {
   const theme = useTheme();
   const { width } = useWindowDimensions();
   const [page, setPage] = useState(0);
@@ -288,9 +428,6 @@ function Gallery({ product, live }: { product: ShopProduct; live: boolean }) {
       /* Square, because it runs into the corners of the sheet now, and the
          sheet has its own radius and clips to it. */
       radius={0}
-      /* The photograph on this plate is the one being judged while editing, so
-         it has to be Square's own rather than the website's baked copy. */
-      live={live}
     />
   );
 

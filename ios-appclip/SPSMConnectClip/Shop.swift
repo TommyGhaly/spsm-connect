@@ -27,10 +27,20 @@ import Foundation
 /// to apply it — but because Apple Pay shows a total before the thumbprint, and
 /// the tax is part of what gets charged. See `salesTaxCents` below.
 
-/// One thing the church sells.
+/// One thing the church sells — or, for clothing, one size of it.
+///
+/// Clothing is laid out as one row per size ("Parish tee — size M"), each with
+/// its own count and its own price, because the clip's basket is a quantity per
+/// row and a size picker would be a second screen inside a sheet the system
+/// sizes. The checkout is told the size; the add-on is charged from Firestore by
+/// `buildSquareOrder`, never from what the clip sends.
 struct ShopProduct: Identifiable, Equatable {
+    /// The basket key: the slug, or `slug|size` for one size of clothing — the
+    /// app's and the website's `cartKey`.
     let id: String
     let slug: String
+    /// The size this row is, for clothing; `nil` for everything else.
+    let size: String?
     let name: String
     /// Cents. `Money.amount` in `@spsm/shared`'s `commerce.ts` is an integer of
     /// the smallest unit, and this carries it as one all the way to Apple Pay —
@@ -44,12 +54,28 @@ struct ShopProduct: Identifiable, Equatable {
     /// product, `Product.taxable`. Absent is false, as it is server-side:
     /// nothing is taxed until somebody says so.
     let taxable: Bool
+    /// The price before clearance, shown crossed out — `Product.wasPriceCents`
+    /// plus whatever this size adds. `nil` unless it is the higher of the two,
+    /// which is `clearanceOf`'s rule.
+    let wasCents: Int?
 
     var soldOut: Bool { stockCount == 0 }
 
-    static func decode(_ fields: [String: FirestoreValue], id: String) -> ShopProduct? {
+    /// The saving as a whole percent, as the shop's "% off" badge says it.
+    var percentOff: Int? {
+        guard let was = wasCents, was > amount, amount > 0 else { return nil }
+        return Int((Double(was - amount) / Double(was) * 100).rounded())
+    }
+
+    /// `SIZE_PRESETS` in `@spsm/shared`'s `clothing.ts`, in its order.
+    static let sizePresets = [
+        "Youth XS", "Youth S", "Youth M", "Youth L", "Youth XL",
+        "XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL",
+    ]
+
+    static func decode(_ fields: [String: FirestoreValue], id: String) -> [ShopProduct] {
         let name = fields["name"]?.stringValue ?? ""
-        guard !name.isEmpty else { return nil }
+        guard !name.isEmpty else { return [] }
 
         // `slug` is the document id by construction, but the checkout is keyed
         // by slug and a hand-edited document could disagree. Prefer the field,
@@ -57,16 +83,65 @@ struct ShopProduct: Identifiable, Equatable {
         let slug = fields["slug"]?.stringValue.flatMap { $0.isEmpty ? nil : $0 } ?? id
 
         let first = fields["imagePaths"]?.arrayValue?.compactMap(\.stringValue).first
+        let amount = fields["price"]?.mapValue?["amount"]?.intValue ?? 0
+        let was = fields["wasPriceCents"]?.intValue.flatMap { $0 > amount ? $0 : nil }
+        let taxable = fields["taxable"]?.boolValue == true
 
-        return ShopProduct(
-            id: id,
+        /*
+         * Clothing: `cleanSizes`, cut down — known labels only, once each, in
+         * preset order, whole counts and add-ons within the shared bounds.
+         * Anything it cannot read is dropped rather than guessed at, since the
+         * Function charges by the same rules.
+         */
+        if let raw = fields["sizes"]?.arrayValue {
+            var byLabel: [String: (count: Int, extra: Int)] = [:]
+            for entry in raw {
+                guard let map = entry.mapValue, let label = map["label"]?.stringValue,
+                      sizePresets.contains(label), byLabel[label] == nil else { continue }
+                let count = min(99_999, max(0, map["count"]?.intValue ?? 0))
+                let extra = min(10_000, max(0, map["extraCents"]?.intValue ?? 0))
+                byLabel[label] = (count, extra)
+            }
+            let rows: [ShopProduct] = sizePresets.compactMap { label in
+                guard let size = byLabel[label] else { return nil }
+                return ShopProduct(
+                    id: "\(slug)|\(label)",
+                    slug: slug,
+                    size: label,
+                    name: "\(name) — size \(label)",
+                    amount: amount + size.extra,
+                    imageURL: first.flatMap(URL.init(string:)),
+                    stockCount: size.count,
+                    taxable: taxable,
+                    wasCents: was.map { $0 + size.extra }
+                )
+            }
+            /*
+             * Clothing with no size ticked yet cannot be bought, but it is still
+             * on the shelf: the website shows it sold out (`sizesSoldOut` of an
+             * empty list), so one sold-out row here rather than none.
+             */
+            if rows.isEmpty {
+                return [ShopProduct(
+                    id: slug, slug: slug, size: nil, name: name, amount: amount,
+                    imageURL: first.flatMap(URL.init(string:)), stockCount: 0,
+                    taxable: taxable, wasCents: was
+                )]
+            }
+            return rows
+        }
+
+        return [ShopProduct(
+            id: slug,
             slug: slug,
+            size: nil,
             name: name,
-            amount: fields["price"]?.mapValue?["amount"]?.intValue ?? 0,
+            amount: amount,
             imageURL: first.flatMap(URL.init(string:)),
             stockCount: fields["stockCount"]?.intValue,
-            taxable: fields["taxable"]?.boolValue == true
-        )
+            taxable: taxable,
+            wasCents: was
+        )]
     }
 }
 
@@ -200,7 +275,7 @@ final class ShopModel: ObservableObject {
     @Published private(set) var state: State = .loading
     @Published private(set) var settings = ShopSettings()
 
-    /// Quantities by slug. A dictionary rather than a list of lines because
+    /// Quantities by basket key — `ShopProduct.id`. A dictionary rather than a list of lines because
     /// every operation on this screen is "how many of that one", and a list
     /// would need a search for each.
     @Published var quantities: [String: Int] = [:]
@@ -261,7 +336,7 @@ final class ShopModel: ObservableObject {
             do {
                 let rows = try await FirestoreREST.query("products", where: "published", equals: true)
                 products = rows
-                    .compactMap { ShopProduct.decode($0.fields, id: $0.id) }
+                    .flatMap { ShopProduct.decode($0.fields, id: $0.id) }
                     // Alphabetical, matching `getProducts` on the website.
                     // Square's own order is the order things were created in,
                     // which is nobody's idea of a shelf.
@@ -277,7 +352,7 @@ final class ShopModel: ObservableObject {
 
     /* ── The basket ──────────────────────────────────────────────────────── */
 
-    func quantity(of product: ShopProduct) -> Int { quantities[product.slug] ?? 0 }
+    func quantity(of product: ShopProduct) -> Int { quantities[product.id] ?? 0 }
 
     func adjust(_ product: ShopProduct, by delta: Int) {
         let next = quantity(of: product) + delta
@@ -287,13 +362,13 @@ final class ShopModel: ObservableObject {
          * refund and an apology, and the server would price all twelve.
          */
         let ceiling = product.stockCount ?? 99
-        quantities[product.slug] = max(0, min(next, ceiling))
-        if quantities[product.slug] == 0 { quantities.removeValue(forKey: product.slug) }
+        quantities[product.id] = max(0, min(next, ceiling))
+        if quantities[product.id] == 0 { quantities.removeValue(forKey: product.id) }
     }
 
     var lines: [(product: ShopProduct, quantity: Int)] {
         products.compactMap { product in
-            guard let quantity = quantities[product.slug], quantity > 0 else { return nil }
+            guard let quantity = quantities[product.id], quantity > 0 else { return nil }
             return (product, quantity)
         }
     }
@@ -326,9 +401,14 @@ final class ShopModel: ObservableObject {
     /// started adding it, and a sheet that did not would be that bug again.
     var total: Int { subtotal + taxCents + deliveryCents }
 
-    /// What the checkout posts. Slugs and quantities, never prices — there is
-    /// deliberately nowhere in the request to put one.
+    /// What the checkout posts. Slugs, quantities and — for clothing — the
+    /// size, never prices: there is deliberately nowhere in the request to put
+    /// one.
     var cart: [[String: Any]] {
-        lines.map { ["slug": $0.product.slug, "quantity": $0.quantity] }
+        lines.map { line in
+            var entry: [String: Any] = ["slug": line.product.slug, "quantity": line.quantity]
+            if let size = line.product.size { entry["size"] = size }
+            return entry
+        }
     }
 }

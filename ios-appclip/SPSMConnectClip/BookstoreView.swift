@@ -46,6 +46,9 @@ struct BookstoreView: View {
     /// cannot change while a clip is open: a wallet is not configured from
     /// inside a payment sheet.
     @State private var selling = false
+    /// The website's Clearance toggle: the shelf narrowed to what is marked
+    /// down, deepest discount first. Only offered while something is.
+    @State private var clearanceOnly = false
 
     init() {
         let model = ShopModel()
@@ -100,11 +103,23 @@ struct BookstoreView: View {
                     }
                 }
 
+                let onSale = products
+                    .filter { $0.percentOff != nil && !$0.soldOut }
+                    .sorted { ($0.percentOff ?? 0) > ($1.percentOff ?? 0) }
+                let shown = clearanceOnly && !onSale.isEmpty ? onSale : products
+
                 ClipCard(spacing: 14) {
                     ClipEyebrow(text: "The parish bookstore")
-                    ForEach(products) { product in
+                    if !onSale.isEmpty {
+                        ClearanceToggle(
+                            on: clearanceOnly,
+                            deepest: onSale.first?.percentOff ?? 0,
+                            count: onSale.count
+                        ) { clearanceOnly.toggle() }
+                    }
+                    ForEach(shown) { product in
                         Shelf(product: product, model: model, selling: selling)
-                        if product.id != products.last?.id {
+                        if product.id != shown.last?.id {
                             Divider().overlay(Ink.rule)
                         }
                     }
@@ -123,6 +138,34 @@ struct BookstoreView: View {
             destination: .bookstore,
             readMore: "The church's shop has every title, with its full description and more pictures."
         )
+    }
+}
+
+/* ── Clearance ────────────────────────────────────────────────────────────── */
+
+/// "Clearance · up to N% off", outlined in the accent while off so it reads as
+/// an offer and filled when on — the website's `.shop-filter--sale`.
+private struct ClearanceToggle: View {
+    let on: Bool
+    let deepest: Int
+    let count: Int
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Text("Clearance").font(Face.small.weight(.semibold))
+                if deepest > 0 { Text("up to \(deepest)% off").font(Face.small) }
+                Text("\(count)").font(Face.small).opacity(0.7)
+            }
+            .foregroundStyle(on ? Color.white : Ink.accent)
+            .padding(.horizontal, 14)
+            .frame(minHeight: 36)
+            .background(Capsule().fill(on ? Ink.accent : Color.clear))
+            .overlay(Capsule().strokeBorder(Ink.accent, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 }
 
@@ -145,9 +188,26 @@ private struct Shelf: View {
                     .foregroundStyle(Ink.ink)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Text(money(product.amount))
-                    .font(Face.small.weight(.semibold))
-                    .foregroundStyle(Ink.accent)
+                // On clearance: the old price struck through beside the new
+                // one, and the saving — the shop's crossed-out price and badge.
+                HStack(spacing: 6) {
+                    if let was = product.wasCents, let off = product.percentOff {
+                        Text(money(was))
+                            .font(Face.small)
+                            .strikethrough()
+                            .foregroundStyle(Ink.inkFaint)
+                        Text(money(product.amount))
+                            .font(Face.small.weight(.semibold))
+                            .foregroundStyle(Ink.accent)
+                        Text("\(off)% off")
+                            .font(Face.small.weight(.semibold))
+                            .foregroundStyle(Ink.accent)
+                    } else {
+                        Text(money(product.amount))
+                            .font(Face.small.weight(.semibold))
+                            .foregroundStyle(Ink.accent)
+                    }
+                }
 
                 if product.soldOut {
                     Text("Sold out")

@@ -39,11 +39,14 @@ import {
 } from '@react-native-firebase/firestore';
 import {
   COLLECTIONS,
+  sizesSoldOut,
   CONFIG_DOC_BOOKSTORE,
   DEFAULT_BOOKSTORE_CONFIG,
+  cleanSizes,
   parseBookstoreConfig,
   type BookstoreConfig,
   type Product,
+  type ProductSize,
 } from '@spsm/shared';
 
 /**
@@ -95,6 +98,18 @@ export interface ShopProduct {
    * Absent on the document means false: nothing is taxed until somebody says so.
    */
   taxable: boolean;
+  /**
+   * The price before clearance, shown crossed out beside `amount`, or null.
+   * The parish's field — Square holds only the price charged now. Read through
+   * `clearanceOf`, which ignores it unless it is the higher of the two.
+   */
+  wasPriceCents: number | null;
+  /**
+   * Clothing sizes, cleaned by the same `cleanSizes` the checkout Function
+   * charges from; null for anything that is not clothing. Counted on the
+   * website's side, not in Square, so `stockCount` means nothing for these.
+   */
+  sizes: ProductSize[] | null;
 }
 
 function toShopProduct(id: string, raw: Product): ShopProduct {
@@ -118,6 +133,8 @@ function toShopProduct(id: string, raw: Product): ShopProduct {
     // `=== true`, the website's rule: anything but an explicit yes is a no.
     mediaMail: raw.mediaMail === true,
     taxable: raw.taxable === true,
+    wasPriceCents: typeof raw.wasPriceCents === 'number' ? raw.wasPriceCents : null,
+    sizes: cleanSizes(raw.sizes),
   };
 }
 
@@ -229,4 +246,19 @@ export function matches(product: ShopProduct, term: string): boolean {
     product.description.toLowerCase().includes(needle) ||
     (product.sku?.toLowerCase().includes(needle) ?? false)
   );
+}
+
+/** Nothing left to sell: no stock, or for clothing, no size with any. */
+export function soldOutOf(product: ShopProduct): boolean {
+  return product.sizes ? sizesSoldOut(product.sizes) : product.stockCount === 0;
+}
+
+/** One of it, in this size — the price plus whatever the size adds. */
+export function unitOf(product: ShopProduct, size: string | null): number {
+  return product.amount + (product.sizes?.find((one) => one.label === size)?.extraCents ?? 0);
+}
+
+/** A basket line's name, with its size when it has one. The website's wording. */
+export function lineName(name: string, size: string | null): string {
+  return size ? `${name} — size ${size}` : name;
 }

@@ -61,6 +61,7 @@ import {
   DEFAULT_BOOKSTORE_CONFIG,
   UNSORTED_LABEL,
   childSections,
+  clearanceOf,
   groupProducts,
   type BookstoreConfig,
 } from '@spsm/shared';
@@ -75,15 +76,12 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { BasketSheet } from './BasketSheet';
 import { Book } from './Book';
 import { ProductSheet } from './ProductSheet';
-import { AddProduct } from './admin/AddProduct';
-import { CategoryEditor } from './admin/CategoryEditor';
-import { ShopSettings } from './admin/ShopSettings';
 import { AdminFab } from '@/components/AdminFab';
-import { ShopEditingNote } from './admin/ShopControls';
-import { PendingEditsProvider, SaveBar, usePendingEdits } from './admin/pendingEdits';
+import { ShopEditor } from './admin/ShopEditor';
+import { PendingEditsProvider } from './admin/pendingEdits';
 import { useBookstoreAdmin } from './admin/session';
-import { useCart } from './cart';
-import { matches, watchCatalog, type Catalog, type ShopProduct } from './data';
+import { inCartOf, useCart } from './cart';
+import { matches, soldOutOf, watchCatalog, type Catalog, type ShopProduct } from './data';
 import { trackProduct, trackSearch } from './track';
 
 /** The pill row's own shape: a section, or the catch-all, or "All". */
@@ -115,14 +113,6 @@ const VIEWABILITY = { itemVisiblePercentThreshold: 50 } as const;
 const BASKET_BAR_SPACE = 72;
 
 /**
- * The same reservation for the save bar, which is taller.
- *
- * Two lines of text over two buttons, plus the gap it sits in. Written here
- * rather than measured, for the reason `BASKET_BAR_SPACE` gives.
- */
-const SAVE_BAR_SPACE = 158;
-
-/**
  * How tall one plate of the loading shelf is.
  *
  * A real card, measured: `COVER_HEIGHT` is 190, and the title's three possible
@@ -134,49 +124,30 @@ const SAVE_BAR_SPACE = 158;
 const SKELETON_CARD = 290;
 
 /**
- * The shop, and the held edits it may be carrying.
+ * The shop, and the held edits the editor may be carrying.
  *
- * The provider is mounted for everybody rather than only while editing, and
- * that is not laziness: unmounting it is what would *discard* held edits, so a
- * volunteer who pressed Done with three books waiting would lose them silently.
- * Mounted, the Save bar outlives edit mode and keeps asking to be pressed,
- * which is the truthful thing for it to do. Outside edit mode nothing can add
- * to it — every control that holds an edit is behind the switch.
+ * The provider sits above the editor rather than inside it so that the item's
+ * held edits and the refusal a Save comes back with outlive whichever view of
+ * the editor is open. Leaving the editor with something held is refused, so it
+ * never carries anything while the editor is shut.
  *
  * It costs one context with an empty object in it for a parishioner who will
  * never touch it.
  */
 export function ShopScreen() {
-  const { canEdit } = useBookstoreAdmin();
-  const [editing, setEditing] = useState(false);
   const [refused, setRefused] = useState<string | null>(null);
 
-  /*
-   * Editing is `canEdit` *and* the switch, evaluated here rather than trusted
-   * from state. A grant read that lands late, or one revoked while somebody has
-   * the tab open, must take the controls away rather than leave a screenful of
-   * writes that Firestore will refuse.
-   */
   return (
     <PendingEditsProvider onError={setRefused}>
-      <Shelf
-        editing={editing && canEdit}
-        onEditing={setEditing}
-        refused={refused}
-        onDismissRefusal={() => setRefused(null)}
-      />
+      <Shelf refused={refused} onDismissRefusal={() => setRefused(null)} />
     </PendingEditsProvider>
   );
 }
 
 function Shelf({
-  editing,
-  onEditing,
   refused,
   onDismissRefusal,
 }: {
-  editing: boolean;
-  onEditing: (next: boolean) => void;
   /** What the last Save came back with, if it came back badly. */
   refused: string | null;
   onDismissRefusal: () => void;
@@ -185,7 +156,16 @@ function Shelf({
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { canReview, canEdit } = useBookstoreAdmin();
-  const held = usePendingEdits();
+  /**
+   * The editor, and which item it opens on. Null is shut.
+   *
+   * Shown only while `canEdit`, evaluated here rather than trusted from state:
+   * a grant read that lands late, or one revoked while somebody has the tab
+   * open, must take the editor away rather than leave a sheet of writes that
+   * Firestore will refuse.
+   */
+  const [editor, setEditor] = useState<{ start: string | null } | null>(null);
+  const editing = editor !== null && canEdit;
 
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
@@ -222,9 +202,12 @@ function Shelf({
   const [pill, setPill] = useState<string | null | undefined>(undefined);
   const [open, setOpen] = useState<ShopProduct | null>(null);
   const [basketOpen, setBasketOpen] = useState(false);
-  const [adding, setAdding] = useState(false);
-  const [categories, setCategories] = useState(false);
-  const [shopMoney, setShopMoney] = useState(false);
+  /*
+   * The Clearance toggle: on top of whichever category is chosen, not instead
+   * of one, so "Clearance" with "Books" lit is the books on sale — the
+   * website's rule.
+   */
+  const [clearanceOnly, setClearanceOnly] = useState(false);
 
   /*
    * Matched on the title, the description and the SKU on every keystroke. Eleven books
@@ -373,13 +356,45 @@ function Shelf({
     [subParent, sections, countOf],
   );
 
+  /*
+   * Everything marked down that can still be bought, deepest discount first —
+   * what the Clearance toggle shows. The toggle exists only while there is
+   * something in it, and says how deep the discounts go.
+   */
+  const onSale = useMemo(
+    () =>
+      products
+        .map((product) => ({
+          product,
+          sale: clearanceOf({ wasPriceCents: product.wasPriceCents, amountCents: product.amount }),
+        }))
+        .filter((one) => one.sale && !soldOutOf(one.product))
+        .sort((a, b) => (b.sale?.percentOff ?? 0) - (a.sale?.percentOff ?? 0))
+        .map((one) => one.product),
+    [products],
+  );
+  const deepest = onSale.reduce(
+    (most, product) =>
+      Math.max(
+        most,
+        clearanceOf({ wasPriceCents: product.wasPriceCents, amountCents: product.amount })
+          ?.percentOff ?? 0,
+      ),
+    0,
+  );
+  // Nothing left on sale: the toggle goes, and must not leave the shelf empty.
+  // Derived rather than reset in an effect, for the reason `shelfPill` gives.
+  const clearanceOn = clearanceOnly && onSale.length > 0;
+
   const shelf = useMemo(() => {
-    if (shelfPill === undefined) return shown;
+    // In the toggle's own order, deepest discount first.
+    const base = clearanceOn ? onSale.filter((product) => shown.includes(product)) : shown;
+    if (shelfPill === undefined) return base;
     const inPill = new Set(
       (groups.find((group) => group.id === shelfPill)?.items ?? []).map((item) => item.slug),
     );
-    return shown.filter((product) => inPill.has(product.slug));
-  }, [shown, groups, shelfPill]);
+    return base.filter((product) => inPill.has(product.slug));
+  }, [shown, groups, shelfPill, clearanceOn, onSale]);
 
   /*
    * Covers counted once per session, not once per scroll past.
@@ -427,17 +442,9 @@ function Shelf({
   const shelfPadding = useMemo(
     () => ({
       paddingTop: theme.space.gutter,
-      /*
-       * The save bar is taller than the basket bar — two lines of text and two
-       * buttons — so edit mode reserves more. This *is* a padding change that
-       * re-measures the list, which the note above says to avoid; it is
-       * acceptable here and nowhere else because entering edit mode already
-       * changes the header's height in the same frame. The rule it keeps is the
-       * one that matters: nothing moves while you are working inside a mode.
-       */
-      paddingBottom: insets.bottom + theme.space.xl + (editing ? SAVE_BAR_SPACE : BASKET_BAR_SPACE),
+      paddingBottom: insets.bottom + theme.space.xl + BASKET_BAR_SPACE,
     }),
-    [theme.space.gutter, theme.space.xl, insets.bottom, editing],
+    [theme.space.gutter, theme.space.xl, insets.bottom],
   );
 
   /*
@@ -510,11 +517,17 @@ function Shelf({
     trackProduct('detail', product.slug);
   }, []);
 
-  /*
-   * Whether the basket is along the bottom. The save bar takes that line when
-   * it is up — see the note where they are drawn.
-   */
-  const showBasketBar = held.count === 0 && basket.count > 0;
+  /** Whether the basket is along the bottom. */
+  const showBasketBar = basket.count > 0;
+
+  /** A card's Add: straight into the basket, or for clothing, to the size picker. */
+  const addFromCard = useCallback(
+    (product: ShopProduct) => {
+      if (product.sizes) openDetail(product);
+      else basket.bump(product.slug, 1);
+    },
+    [openDetail, basket],
+  );
 
   /**
    * What the Manage pill says and offers, decided once and drawn in one of two
@@ -529,27 +542,18 @@ function Shelf({
    */
   const manage: Pick<ComponentProps<typeof AdminFab>, 'label' | 'actions'> | null = canReview
     ? {
-        label: editing ? 'Editing' : 'Manage',
-        actions: editing
-          ? [
-              { label: 'Add a book', onPress: () => setAdding(true) },
-              { label: 'Categories', onPress: () => setCategories(true) },
-              { label: 'Shipping & tax', onPress: () => setShopMoney(true) },
-              { label: 'Orders', onPress: () => router.push('/bookstore/orders' as never) },
-              { label: 'Figures', onPress: () => router.push('/bookstore/metrics' as never) },
-              { label: 'Stop editing', onPress: () => onEditing(false) },
-            ]
-          : [
-              /*
-               * Orders first, because it is what somebody opens this tab for
-               * on a Monday morning and it has nothing to do with editing the
-               * shop.
-               */
-              { label: 'Orders', onPress: () => router.push('/bookstore/orders' as never) },
-              { label: 'Figures', onPress: () => router.push('/bookstore/metrics' as never) },
-              // Only the people the rules will let write see the way in.
-              ...(canEdit ? [{ label: 'Edit the shop', onPress: () => onEditing(true) }] : []),
-            ],
+        label: 'Manage',
+        actions: [
+          /*
+           * Orders first, because it is what somebody opens this tab for on a
+           * Monday morning and it has nothing to do with editing the shop.
+           */
+          { label: 'Orders', onPress: () => router.push('/bookstore/orders' as never) },
+          { label: 'Figures', onPress: () => router.push('/bookstore/metrics' as never) },
+          // Only the people the rules will let write see the way in. Items,
+          // categories and settings are all inside it, as on the website.
+          ...(canEdit ? [{ label: 'Edit the shop', onPress: () => setEditor({ start: null }) }] : []),
+        ],
       }
     : null;
 
@@ -565,15 +569,9 @@ function Shelf({
         paddingBottom: theme.space.md,
       }}
     >
-      {/* The controls moved to the pill in the bottom-right corner; what is
-          left on the page is the sentence about which of them wait for Save,
-          and only while somebody is editing. See `AdminFab` below. */}
-      {canReview && editing ? <ShopEditingNote /> : null}
-
-      {/* What the last Save came back with. One notice above the shelf rather
-          than an error slot on every card — eleven cards with eleven slots is
-          eleven things that are usually empty. */}
-      {refused ? (
+      {/* What the last Save came back with, once the editor that sent it is
+          shut — while it is open, the editor says it. */}
+      {refused && !editing ? (
         <Pressable
           onPress={onDismissRefusal}
           accessibilityRole="button"
@@ -593,12 +591,23 @@ function Shelf({
         }
       />
 
-      {rowPills.length > 0 ? (
+      {rowPills.length > 0 || onSale.length > 0 ? (
         <PillRow
           pills={rowPills}
           chosen={shelfPill}
           lit={typeof shelfPill === 'string' ? topOf(shelfPill) : shelfPill}
           onChoose={setPill}
+          lead={
+            /* First, and in the accent: it is the row's one advertisement. */
+            onSale.length > 0 ? (
+              <ClearancePill
+                on={clearanceOn}
+                deepest={deepest}
+                count={onSale.length}
+                onPress={() => setClearanceOnly(!clearanceOn)}
+              />
+            ) : null
+          }
         />
       ) : null}
 
@@ -642,39 +651,26 @@ function Shelf({
             loading={catalog === null && failed === null}
             searching={needle !== ''}
             filtered={shelfPill !== undefined}
+            clearance={clearanceOn}
             onClear={() => {
               setTerm('');
               setPill(undefined);
+              setClearanceOnly(false);
             }}
           />
         }
         renderItem={({ item, index }) => (
           <Book
             product={item}
-            inCart={basket.cart[item.slug] ?? 0}
-            editing={editing}
+            inCart={inCartOf(basket.cart, item.slug)}
             /* Which side of the seam this card is on. The column count lives
                here, so the answer is worked out here too. */
             atRightEdge={index % 2 === 1}
             onOpen={() => openDetail(item)}
-            onAdd={() => basket.bump(item.slug, 1)}
+            onAdd={() => addFromCard(item)}
           />
         )}
       />
-
-      {/*
-        One bar at a time, and the save bar wins.
-
-        They occupy the same place and cannot both be read. A volunteer editing
-        the shop is not shopping, so a basket left from earlier waits — and
-        unsaved work is the thing that must not be hidden behind something that
-        can be reopened with one press.
-
-        The save bar still positions itself, because it is two lines of text
-        over two buttons and takes the whole width; the pill goes above it, as
-        it always did. The basket shares its line — see `BottomBar`.
-      */}
-      {held.count > 0 ? <SaveBar /> : null}
 
       {/*
         The office's controls, in the corner rather than across the top of the
@@ -682,16 +678,9 @@ function Shelf({
         gallery page made. A visitor used to scroll past "Orders · Figures ·
         Edit shop" to reach the books.
 
-        Where it sits depends on what else is along the bottom, and there are
-        only two answers now rather than three:
-
-        - **With the basket**, on its line, at the right end of it — which is
-          what Tommy asked for and what `BottomBar` exists to lay out. The
-          basket narrows to make room; nothing is stacked over anything.
-        - **Otherwise**, its own corner, lifted clear of the save bar when that
-          is up. `SAVE_BAR_SPACE` is the same constant the shelf's bottom
-          padding is worked out from, so the pill clears it by the bar's own
-          height rather than by a number chosen by eye.
+        With the basket, on its line, at the right end of it — which is what
+        Tommy asked for and what `BottomBar` exists to lay out. Otherwise, its
+        own corner.
       */}
       {showBasketBar ? (
         <BottomBar>
@@ -705,15 +694,18 @@ function Shelf({
           {manage ? <AdminFab {...manage} placement="inline" /> : null}
         </BottomBar>
       ) : manage ? (
-        <AdminFab {...manage} raisedBy={held.count > 0 ? SAVE_BAR_SPACE : 0} />
+        <AdminFab {...manage} />
       ) : null}
 
       <ProductSheet
         product={opened}
-        inCart={opened ? (basket.cart[opened.slug] ?? 0) : 0}
-        editing={editing}
-        sections={settings.sections}
-        onBump={(by) => opened && basket.bump(opened.slug, by)}
+        cart={basket.cart}
+        canEdit={canEdit}
+        onEdit={(product) => {
+          setOpen(null);
+          setEditor({ start: product.slug });
+        }}
+        onBump={basket.bump}
         onClose={() => setOpen(null)}
       />
 
@@ -729,23 +721,14 @@ function Shelf({
         }}
       />
 
-      {/* Both mounted only while open, so each one opens empty rather than
-          carrying whatever was half-typed into it last time. */}
-      {adding ? <AddProduct sections={settings.sections} onClose={() => setAdding(false)} /> : null}
-
-      {categories ? (
-        <CategoryEditor
-          sections={settings.sections}
+      {editing ? (
+        <ShopEditor
           products={products}
-          onClose={() => setCategories(false)}
-        />
-      ) : null}
-
-      {shopMoney ? (
-        <ShopSettings
           settings={settings}
-          taxedCount={products.filter((one) => one.taxable).length}
-          onClose={() => setShopMoney(false)}
+          start={editor.start}
+          refused={refused}
+          onDismissRefusal={onDismissRefusal}
+          onClose={() => setEditor(null)}
         />
       ) : null}
     </View>
@@ -782,6 +765,7 @@ function PillRow({
   lit,
   all,
   onChoose,
+  lead,
 }: {
   pills: Pill[];
   chosen: string | null | undefined;
@@ -797,6 +781,8 @@ function PillRow({
    */
   all?: { id: string; count: number };
   onChoose: (id: string | null | undefined) => void;
+  /** Drawn before "All" — the Clearance toggle, on the top row. */
+  lead?: ReactNode;
 }) {
   const theme = useTheme();
 
@@ -822,6 +808,7 @@ function PillRow({
         paddingVertical: 2,
       }}
     >
+      {lead}
       <PillButton
         label="All"
         count={all ? all.count : null}
@@ -895,6 +882,60 @@ function PillButton({
       {count !== null ? (
         <Micro color={on ? theme.color.inkInverse : theme.color.inkFaint}>{count}</Micro>
       ) : null}
+    </Pressable>
+  );
+}
+
+/**
+ * The Clearance toggle — "up to N% off" and a count — leading the category row.
+ *
+ * Outlined in the accent while off so it reads as an offer, filled when on like
+ * any chosen pill: the website's `.shop-filter--sale`. It narrows the shelf to
+ * what is marked down, deepest discount first, on top of whichever category is
+ * chosen, and it exists only while something is on sale.
+ */
+function ClearancePill({
+  on,
+  deepest,
+  count,
+  onPress,
+}: {
+  on: boolean;
+  deepest: number;
+  count: number;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  const ink = on ? theme.color.inkInverse : theme.color.accent;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: on }}
+      accessibilityLabel={`Clearance${deepest > 0 ? `, up to ${deepest}% off` : ''}, ${count}`}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: theme.space.xs,
+        paddingVertical: theme.space.xs,
+        paddingHorizontal: theme.space.md,
+        borderRadius: theme.radius.full,
+        borderWidth: 1,
+        borderColor: theme.color.accent,
+        backgroundColor: on
+          ? pressed
+            ? theme.color.accentStrong
+            : theme.color.accent
+          : pressed
+            ? theme.color.accentSoft
+            : theme.color.paperRaised,
+        minHeight: 36,
+      })}
+    >
+      <Small color={ink}>Clearance</Small>
+      {deepest > 0 ? <Micro color={ink}>{`up to ${deepest}% off`}</Micro> : null}
+      <Micro color={on ? theme.color.inkInverse : theme.color.inkFaint}>{count}</Micro>
     </Pressable>
   );
 }
@@ -1008,7 +1049,7 @@ function BasketBar({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Basket, ${count} ${count === 1 ? 'book' : 'books'}, ${money(subtotal)}`}
+      accessibilityLabel={`Basket, ${count} ${count === 1 ? 'item' : 'items'}, ${money(subtotal)}`}
       style={({ pressed }) => ({
         flexDirection: 'row',
         alignItems: 'center',
@@ -1023,7 +1064,7 @@ function BasketBar({
       <Icon name="bag" color={theme.color.inkInverse} size={20} />
       <View style={{ flex: 1 }}>
         <Small color={theme.color.inkInverse}>
-          {count} {count === 1 ? 'book' : 'books'}
+          {count} {count === 1 ? 'item' : 'items'}
         </Small>
       </View>
       <Small color={theme.color.inkInverse}>{money(subtotal)}</Small>
@@ -1098,14 +1139,18 @@ function BottomBar({ children }: { children: ReactNode }) {
 function Empty({
   loading,
   searching,
-  filtered,
+  filtered: inCategory,
+  clearance,
   onClear,
 }: {
   loading: boolean;
   searching: boolean;
   filtered: boolean;
+  /** The Clearance toggle is on. */
+  clearance: boolean;
   onClear: () => void;
 }) {
+  const filtered = inCategory || clearance;
   const theme = useTheme();
 
   /*
@@ -1166,9 +1211,11 @@ function Empty({
         <Heading>
           {searching
             ? 'No book here by that name'
-            : filtered
-              ? 'Nothing in this category'
-              : 'The shelves are empty'}
+            : clearance
+              ? 'Nothing here is on clearance'
+              : filtered
+                ? 'Nothing in this category'
+                : 'The shelves are empty'}
         </Heading>
         <Body color={theme.color.inkSoft}>
           {searching || filtered
