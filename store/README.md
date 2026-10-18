@@ -34,12 +34,15 @@ They are not part of either store listing: each is uploaded in App Store
 Connect under **Advanced App Clip Experiences**, against the experience whose
 invocation URL is `https://www.spsmwayland.org/c/<slug>` — so `give.png` goes on
 the `/c/give` experience and so on down.
+`register-vehicle.png` is Taksis's: it goes on **Taksis's** App Clip experience
+for `/c/register-vehicle`, in Taksis's App Store Connect record, and is drawn
+here so it matches its sticker and the other eight.
 
 The card is what somebody sees when they hold a phone over a tag by a door, and
-for most people it is the only part of this app they will ever look at. The
-composition is deliberately Taksis's, in this church's colours, so that the
-parish's two apps look related to the people holding both — see the header of
-`scripts/make-clip-cards.mjs`.
+for most people it is the only part of this app they will ever look at. Each
+card shows the same illustrated scene as the sticker on that tag, with the name
+beside it, so the card visibly matches the thing just tapped — see the header
+of `scripts/make-clip-cards.mjs`.
 
 ```bash
 npm run clip-cards
@@ -52,12 +55,17 @@ from.
 ## The NFC stickers
 
 `nfc-stickers/` holds the stickers that go over the NFC tags: one per
-experience plus Taksis's `/c/register-vehicle`, all nine in the same maroon
-and gold so they read as one set. Each is a 3-inch circle, as SVG and as a 1200px
-PNG (400 dpi at that size): the church's name on the rim, an illustrated scene
-in a gold-framed window, the name, TAP YOUR PHONE, and the URL for a phone that
-cannot read NFC. The scenes are hand-drawn SVGs in `scripts/nfc-scenes/`, one
-per slug, and `sheet.png` is all nine together, for a proof.
+experience plus Taksis's `/c/register-vehicle`, all nine in the same maroon so
+they read as one set. Each is a 3-inch circle: the church's name on the rim, the
+illustrated scene filling the sticker, and the name, TAP YOUR PHONE and the URL
+on a maroon shade over its foot. There is no border, because the printer cuts to
+about 1mm and a ring near the edge would show it. The scenes are hand-drawn SVGs
+in `scripts/nfc-scenes/`, one per slug.
+
+- `<slug>.svg` / `.png` — the circle, 1200px (400 dpi), for looking at.
+- `sheet.png` — all nine together, for a proof.
+- `bleed/` — **what goes to the printer**: the same art carried 2mm past the cut
+  on every side, 1263px square.
 
 ```bash
 npm run nfc-stickers
