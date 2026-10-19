@@ -44,7 +44,7 @@ export const FRAMING = {
   bookstore: { top: 70, focus: 300 },
   forms: { top: 48, focus: 330 },
   photos: { top: 40, focus: 318 },
-  'register-vehicle': { top: 90, focus: 362 },
+  'register-vehicle': { top: 62, focus: 345 },
 };
 
 /** The scene's markup, without its `<svg>` wrapper — or null if it is not drawn yet. */
