@@ -58,7 +58,7 @@ import { Image } from 'expo-image';
 import * as MediaLibrary from 'expo-media-library';
 import { useFocusEffect, useIsFocused, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Platform, Pressable, View } from 'react-native';
+import { AppState, Linking, Platform, Pressable, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -133,6 +133,8 @@ const VIDEO_BIT_RATE = 8_000_000;
  * photograph it would have been had the finger come up.
  */
 const CONFIGURE_TIMEOUT_MS = 5000;
+/** The least time between two restarts of a session that died. */
+const RESTART_SPACING_MS = 2000;
 /** Tries at starting the recorder, each after the session reconfigures. */
 const RECORD_ATTEMPTS = 3;
 /** A recording that fails sooner than this was a tap. See `startVideo`. */
@@ -187,6 +189,8 @@ export function CameraScreen() {
   const [flash, setFlash] = useState<FlashMode>('off');
   /** True while a hold wants the movie output in the session. See the header. */
   const [wantVideo, setWantVideo] = useState(false);
+  /** Bumped to replace a session that stopped by itself. See `handleStopped`. */
+  const [sessionKey, setSessionKey] = useState(0);
 
   const device = useCameraDevice(position, position === 'back' ? BACK_LENSES : undefined);
   const lens = useMemo(() => (device ? lensModel(device) : null), [device]);
@@ -263,6 +267,9 @@ export function CameraScreen() {
    * outputs belonged to the new session, and AVFoundation asserted on being
    * detached from one session while attached to another. An output that only
    * ever belongs to one session cannot be taken from under the next.
+   *
+   * The same holds for a session restarted after it died (`sessionKey`, see
+   * `handleStopped`): a new `Camera`, so new outputs.
    */
   const photoOutput = useMemo(
     () =>
@@ -272,9 +279,9 @@ export function CameraScreen() {
         quality: 1,
         qualityPrioritization: 'quality',
       }),
-    // `focused` is not read; it is when a new session needs new outputs.
+    // Neither is read; they are when a new session needs new outputs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [focused],
+    [focused, sessionKey],
   );
   const videoOutput = useMemo(
     () =>
@@ -285,7 +292,7 @@ export function CameraScreen() {
         enableAudio: microphone.hasPermission,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [focused, microphone.hasPermission],
+    [focused, sessionKey, microphone.hasPermission],
   );
   const outputs = useMemo(
     () => (wantVideo ? [photoOutput, videoOutput] : [photoOutput]),
@@ -419,6 +426,31 @@ export function CameraScreen() {
     const current = lensRef.current;
     if (!current) return undefined;
     return zoomRef.current?.device === current.device ? zoomRef.current.value : current.model.neutral;
+  }, []);
+
+  /*
+   * A session that stops while the tab is still in front has died, and
+   * VisionCamera will not start it again: it starts a session when `isActive`
+   * changes, and here `isActive` never does. A failed recording does this —
+   * the runtime error that ends the recording stops the session with it — and
+   * left the viewfinder frozen on its last frame until the tab was left. The
+   * one seen: a hold during a FaceTime call, where the call outranks the
+   * microphone and iOS refuses it ('!pri', "Cannot Record").
+   *
+   * So the `Camera` is replaced. Not more than once every couple of seconds,
+   * so a session that cannot start at all is not remounted in a loop. A stop
+   * that comes from leaving the tab arrives after `Camera` is gone, and a key
+   * bumped then only means the next visit's session is a new one anyway.
+   * Nor in the background, where iOS stops the session itself and resumes it
+   * on the way back.
+   */
+  const lastRestartRef = useRef(0);
+  const handleStopped = useCallback(() => {
+    if (AppState.currentState !== 'active') return;
+    const now = Date.now();
+    if (now - lastRestartRef.current < RESTART_SPACING_MS) return;
+    lastRestartRef.current = now;
+    setSessionKey((key) => key + 1);
   }, []);
 
   const handleCameraError = useCallback((error: Error) => {
@@ -909,6 +941,7 @@ export function CameraScreen() {
       */}
       {focused && device ? (
         <Camera
+          key={sessionKey}
           ref={cameraRef}
           style={{ flex: 1 }}
           device={device}
@@ -944,6 +977,7 @@ export function CameraScreen() {
           torchMode={device.hasTorch && device.hasFlash ? (recording && flash === 'on' ? 'on' : 'off') : undefined}
           enableDistortionCorrection={device.supportsDistortionCorrection}
           onConfigured={handleConfigured}
+          onStopped={handleStopped}
           onError={handleCameraError}
         />
       ) : (
