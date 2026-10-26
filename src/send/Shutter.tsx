@@ -416,6 +416,24 @@ function LockBadge({
     );
   }
 
+  /*
+   * At rest the row says what a hold does. A white disc reads as "photograph"
+   * to everybody, and nothing about it says it records too — Tommy: *"there
+   * is no ability to take video."* Hidden from VoiceOver, which already hears
+   * it in the shutter's own label.
+   */
+  if (!recording && !locked) {
+    return (
+      <View
+        style={{ height: 44, justifyContent: 'center' }}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      >
+        <Micro color={theme.color.inkInverse}>Hold for video</Micro>
+      </View>
+    );
+  }
+
   // The row keeps its height whether or not anything is in it, so arriving at
   // it does not shove the shutter down the screen mid-recording.
   if (!visible) return <View style={{ height: 44 }} />;
