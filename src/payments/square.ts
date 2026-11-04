@@ -191,6 +191,8 @@ export interface CheckoutDetails {
   email: string;
   firstName: string;
   lastName: string;
+  /** A number to ring about the order, as typed. Checked by `cleanPhone`. */
+  phone: string;
   fulfillment: 'ship' | 'collect';
   address?: Record<string, string>;
   /**
@@ -232,6 +234,7 @@ function charge(nonce: string, details: CheckoutDetails): Promise<CheckoutResult
     email: details.email,
     firstName: details.firstName,
     lastName: details.lastName,
+    phone: details.phone,
     fulfillment: details.fulfillment,
     address: details.address,
     idempotencyKey: details.idempotencyKey,
