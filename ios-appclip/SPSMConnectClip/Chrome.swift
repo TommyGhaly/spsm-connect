@@ -113,7 +113,7 @@ struct ClipButton: View {
                         .scaleEffect(0.8)
                 }
                 Text(label)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(Face.body.weight(.semibold))
             }
             .frame(maxWidth: .infinity)
             // 44pt, which is the tap target every one of these has to clear.

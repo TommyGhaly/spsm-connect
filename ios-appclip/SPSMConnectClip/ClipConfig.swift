@@ -44,6 +44,12 @@ enum ClipConfig {
         string: "https://give.tithe.ly/?formId=44f1af1b-7edf-4005-af05-0c7a7f7249ac"
     )!
 
+    /// SPSM Connect's App Store page, for the badge on `/c/apps`.
+    ///
+    /// Id 6812929115, for bundle `org.spsm.connect` — the App Store's own
+    /// lookup answers it. The `README`'s `ascAppId` is the same number.
+    static let appStore = URL(string: "https://apps.apple.com/us/app/spsm-connect/id6812929115")!
+
     /// The shared container with the full app.
     ///
     /// A photograph taken in the clip is written here so that installing the app

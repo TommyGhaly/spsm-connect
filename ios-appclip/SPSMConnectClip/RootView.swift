@@ -46,7 +46,7 @@ struct ClipFooter: View {
             }
             ClipButton(label: "Get SPSM Connect") { AppOffer.present() }
 
-            Text("What you are holding is a sample. iPhone removes it on its own after a while.")
+            Text("This is a quick preview of the app. Your iPhone removes it on its own after a while.")
                 .font(Face.small)
                 .foregroundStyle(Ink.inkFaint)
                 .fixedSize(horizontal: false, vertical: true)

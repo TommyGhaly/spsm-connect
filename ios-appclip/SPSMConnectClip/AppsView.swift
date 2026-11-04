@@ -112,21 +112,24 @@ struct AppsView: View {
                 ClipBody(
                     text: """
                     The church’s app for everyone: the calendar, the galleries, forms, \
-                    the bookstore and the offering. This is a sample of it, and iPhone \
-                    removes the sample on its own.
+                    the bookstore and the offering. This is a quick preview of it, and \
+                    your iPhone removes the preview on its own.
                     """
                 )
+                Rectangle().fill(Ink.rule).frame(height: 1)
+
                 /*
-                 * A button and not the badge above, and the difference is not
-                 * an oversight to be tidied up. Apple's badge links to an App
-                 * Store product page; this presents `SKOverlay`, which is the
-                 * mechanism Apple provides for a clip offering its own full
-                 * app, and which needs no App Store id — see `Handoff.swift`
-                 * for why that matters while the app is unreleased. Putting
-                 * Apple's artwork on a control that does not go to the store
-                 * would be using the badge for something it is not for.
+                 * The badge, like the other two, now that the app has a product
+                 * page. It was a `ClipButton` presenting `SKOverlay` while the
+                 * app was unreleased, because Apple's artwork must link to a
+                 * real listing — see `Handoff.swift`. The other "Get SPSM
+                 * Connect" buttons in the clip keep the overlay: it is Apple's
+                 * mechanism for a clip offering its own app, and it needs no
+                 * card to say which.
                  */
-                ClipButton(label: "Get SPSM Connect") { AppOffer.present() }
+                AppStoreBadge(appName: "SPSM Connect") {
+                    sheet = IdentifiableURL(url: ClipConfig.appStore)
+                }
                 Text("Free, and from the church’s own developer account.")
                     .font(Face.small)
                     .foregroundStyle(Ink.inkFaint)

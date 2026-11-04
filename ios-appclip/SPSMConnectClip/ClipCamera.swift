@@ -33,6 +33,9 @@ import UIKit
 /// It is `lensModel` in `CameraScreen.tsx`, line for line; change them together.
 /// ---------------------------------------------------------------------------
 struct ClipCamera: View {
+    /// Where the photograph will be filed, said at the top of the viewfinder so
+    /// nobody has to remember it from the screen before.
+    var goingTo: String?
     /// A photograph, or nil for "closed without taking one".
     let finished: (UIImage?) -> Void
 
@@ -61,10 +64,39 @@ struct ClipCamera: View {
                 .ignoresSafeArea()
 
             case .denied:
-                notice("Camera access is turned off for SPSM Connect. You can turn it on in Settings, under SPSM Connect.")
+                /*
+                 * A way out of the dead end, not only a description of it.
+                 * The settings URL opens this app's own page in Settings,
+                 * where the Camera switch is the first thing on it.
+                 */
+                VStack(spacing: 18) {
+                    notice("The camera is turned off for SPSM Connect. To take a photo, open Settings and turn on Camera.")
+                    Button {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    } label: {
+                        Text("Open Settings")
+                            .font(Face.body.weight(.semibold))
+                            .foregroundStyle(Ink.deep)
+                            .padding(.horizontal, 28)
+                            .frame(minHeight: 48)
+                            .background(Capsule().fill(Ink.inkInverse))
+                    }
+                    Button("Go back") { finished(nil) }
+                        .font(Face.body)
+                        .foregroundStyle(Ink.inkInverse)
+                        .frame(minHeight: 44)
+                }
 
             case .unavailable:
-                notice("This device has no camera that the sample can use.")
+                VStack(spacing: 18) {
+                    notice("This iPhone has no camera the preview can use.")
+                    Button("Go back") { finished(nil) }
+                        .font(Face.body)
+                        .foregroundStyle(Ink.inkInverse)
+                        .frame(minHeight: 44)
+                }
             }
 
             if let focus {
@@ -73,12 +105,24 @@ struct ClipCamera: View {
             }
 
             VStack(spacing: 14) {
-                HStack(spacing: 10) {
-                    Round(systemName: "xmark", label: "Close the camera") { finished(nil) }
+                HStack(alignment: .top, spacing: 10) {
+                    Round(systemName: "xmark", caption: "Close", label: "Close the camera") { finished(nil) }
                     Spacer()
+                    if let goingTo, camera.state == .running {
+                        Text("Going to \(goingTo)")
+                            .font(Face.small.weight(.semibold))
+                            .foregroundColor(Ink.inkInverse)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Capsule().fill(Ink.deep.opacity(0.85)))
+                        Spacer()
+                    }
                     if camera.hasFlash {
                         Round(
                             systemName: camera.flash == .off ? "bolt.slash.fill" : "bolt.fill",
+                            caption: "Flash",
                             label: "Flash \(flashWord(camera.flash)). Press to change.",
                             badge: camera.flash == .auto ? "A" : nil
                         ) { camera.cycleFlash() }
@@ -86,6 +130,7 @@ struct ClipCamera: View {
                     if camera.state == .running {
                         Round(
                             systemName: "arrow.triangle.2.circlepath",
+                            caption: "Flip",
                             label: "Switch between the front and back cameras"
                         ) { camera.flip() }
                     }
@@ -99,6 +144,16 @@ struct ClipCamera: View {
                     neutral: camera.neutral,
                     zoom: camera.zoom
                 ) { target in camera.setZoom(target, ramp: true) }
+
+                if camera.state == .running {
+                    Text("Press the white circle to take the photo")
+                        .font(Face.small.weight(.semibold))
+                        .foregroundColor(Ink.inkInverse)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(Ink.deep.opacity(0.7)))
+                        .accessibilityHidden(true)
+                }
 
                 Button {
                     camera.capture { image in
@@ -548,12 +603,22 @@ private struct ZoomRow: View {
 
 private struct Round: View {
     let systemName: String
+    /// One word under the circle. An icon alone was a guess for anybody who
+    /// does not already know what a lightning bolt and two arrows mean here.
+    let caption: String
     let label: String
     var badge: String?
     let action: () -> Void
 
-    init(systemName: String, label: String, badge: String? = nil, action: @escaping () -> Void) {
+    init(
+        systemName: String,
+        caption: String,
+        label: String,
+        badge: String? = nil,
+        action: @escaping () -> Void
+    ) {
         self.systemName = systemName
+        self.caption = caption
         self.label = label
         self.badge = badge
         self.action = action
@@ -561,19 +626,25 @@ private struct Round: View {
 
     var body: some View {
         Button(action: action) {
-            ZStack(alignment: .bottomTrailing) {
-                Image(systemName: systemName)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(Ink.inkInverse)
-                    .frame(width: 44, height: 44)
-                    .background(Circle().fill(Ink.deep.opacity(0.85)))
-                if let badge {
-                    Text(badge)
-                        .font(.system(size: 9, weight: .bold))
+            VStack(spacing: 4) {
+                ZStack(alignment: .bottomTrailing) {
+                    Image(systemName: systemName)
+                        .font(.system(size: 18, weight: .semibold))
                         .foregroundColor(Ink.inkInverse)
-                        .padding(.trailing, 8)
-                        .padding(.bottom, 7)
+                        .frame(width: 44, height: 44)
+                        .background(Circle().fill(Ink.deep.opacity(0.85)))
+                    if let badge {
+                        Text(badge)
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(Ink.inkInverse)
+                            .padding(.trailing, 8)
+                            .padding(.bottom, 7)
+                    }
                 }
+                Text(caption)
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(Ink.inkInverse)
+                    .shadow(color: .black.opacity(0.6), radius: 2)
             }
         }
         .accessibilityLabel(label)

@@ -47,13 +47,13 @@ struct IdentifiableURL: Identifiable {
 
 /// Offers the full app, through Apple's own overlay.
 ///
-/// `SKOverlay` rather than a link to the App Store, and this is the one place
-/// the difference is load-bearing: the app has **no App Store id yet**, and the
-/// overlay needs none. The system already knows which app this clip belongs to —
-/// that is what `parent-application-identifiers` in the entitlements says — so
-/// it can present the right card before the listing exists. A hardcoded
-/// `id0000000000` link would have to be edited on release day, which is exactly
-/// the kind of thing nobody remembers.
+/// `SKOverlay` rather than a link to the App Store: the overlay needs no App
+/// Store id, because the system already knows which app this clip belongs to —
+/// that is what `parent-application-identifiers` in the entitlements says. It
+/// was chosen while the app had no listing. It has one now
+/// (`ClipConfig.appStore`), which `/c/apps` links with Apple's badge; every
+/// other offer of the app stays this overlay, which is Apple's own control for
+/// it.
 enum AppOffer {
     static func present() {
         guard

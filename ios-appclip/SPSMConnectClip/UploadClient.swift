@@ -19,10 +19,32 @@ import UIKit
 /// to explain it. `upload/uploader.ts` in the app carries the long-form version
 /// of this note; keep the two in step.
 enum UploadClient {
-    struct Section {
-        let programId: String
-        let programEventId: String
+    /// One place a photograph can be filed: the ministry itself, or a level
+    /// under it. `submissionTargets` in `@spsm/shared`'s `gallery/tree.ts`.
+    struct Target: Identifiable, Equatable {
+        let id: String
         let title: String
+        /// Zero for the ministry, one for its direct levels, and so on.
+        let depth: Int
+        /// The titles from the ministry down, so "Week 1" says which year.
+        let trail: [String]
+
+        /// "Summer Camp 2026, Week 1" — the trail without the ministry, which
+        /// the screen already names, or the ministry alone for its own row.
+        var label: String {
+            trail.count > 1 ? trail.dropFirst().joined(separator: ", ") : title
+        }
+    }
+
+    /// Where photographs go today — `config/events.mainSection`, resolved —
+    /// and every other place in that ministry somebody may choose instead.
+    struct Destination {
+        let programId: String
+        let programName: String
+        /// The ministry first, then its levels in reading order.
+        let targets: [Target]
+        /// The one the parish chose, or the best fallback. Always in `targets`.
+        let suggested: Target
     }
 
     enum Failure: LocalizedError {
@@ -34,37 +56,115 @@ enum UploadClient {
             switch self {
             case .unattested(let why): return why
             case .noSection:
-                return "The church is not collecting photographs for anything just now."
+                return "The church is not collecting photos for anything just now."
             case .refused(let why): return why
             }
         }
     }
 
-    /// Where photographs go today — `config/events.mainSection`, resolved.
+    /// The app's `gallery/mainSection.ts`, in Swift.
     ///
-    /// The clip reads the setting and the program's own default node over REST.
-    /// The app's `gallery/mainSection.ts` does considerably more than this, with
-    /// four documented fallbacks for a tree of sub-events; the clip takes the
-    /// simple case and refuses honestly when there is not one, because a
-    /// photograph filed against a guess is worse than one not taken.
-    static func mainSection() async throws -> Section {
+    /// It used to read `program.defaultSubmissionNode`, which no document has
+    /// ever carried — the administrators' choice is `prioritySubmissionNodeId`
+    /// — so every clip photograph was filed on the ministry rather than on the
+    /// week the parish had picked. This walks the same tree the app does and
+    /// lands where the app lands.
+    static func destination() async throws -> Destination {
         let config = try await FirestoreREST.document("config/events")
         guard let programId = config["mainSection"]?.stringValue, !programId.isEmpty else {
             throw Failure.noSection
         }
 
-        let program = try await FirestoreREST.document("programs/\(programId)")
-        let title = program["name"]?.stringValue ?? "the church's galleries"
+        async let programRead = FirestoreREST.document("programs/\(programId)")
+        async let eventsRead = FirestoreREST.query(
+            "programEvents",
+            matching: [("programId", .string(programId)), ("published", .bool(true))]
+        )
+        let program = try await programRead
+        let events = try await eventsRead
+
+        let name = program["name"]?.stringValue ?? "The church’s galleries"
+        let nodes = events.map { event in
+            Node(
+                id: event.id,
+                parentId: event.fields["parentId"]?.stringValue,
+                title: event.fields["title"]?.stringValue ?? "",
+                order: event.fields["order"]?.numberValue ?? 0,
+                startAt: event.fields["startAt"]?.timestampValue
+            )
+        }
+
+        let rows = flatten(nodes)
+        var targets = [Target(id: programId, title: name, depth: 0, trail: [name])]
+        var trails: [String: [String]] = [:]
+        for row in rows {
+            let parentTrail = row.node.parentId.flatMap { trails[$0] } ?? [name]
+            let trail = parentTrail + [row.node.title]
+            trails[row.node.id] = trail
+            targets.append(Target(id: row.node.id, title: row.node.title, depth: row.depth + 1, trail: trail))
+        }
 
         /*
-         * `defaultSubmissionNode` in the app walks the program's event tree. The
-         * clip uses the documented fourth fallback — the program's own id — which
-         * is what the app lands on when nothing more specific is set, and is
-         * always a valid submission node.
+         * `defaultSubmissionNode(tree, priority, null) ?? programId`: the
+         * parish's priority if it still resolves, else the first level, else
+         * the ministry. A deleted priority costs a preselection, never a form.
          */
-        let node = program["defaultSubmissionNode"]?.stringValue ?? programId
+        let priority = program["prioritySubmissionNodeId"]?.stringValue
+        let suggestedId = priority.flatMap { id in rows.contains { $0.node.id == id } ? id : nil }
+            ?? rows.first?.node.id
+            ?? programId
+        let suggested = targets.first { $0.id == suggestedId } ?? targets[0]
 
-        return Section(programId: programId, programEventId: node, title: title)
+        return Destination(programId: programId, programName: name, targets: targets, suggested: suggested)
+    }
+
+    private struct Node {
+        let id: String
+        let parentId: String?
+        let title: String
+        let order: Double
+        let startAt: String?
+    }
+
+    /// `buildGalleryTree` then `flattenGalleryTree`: children under parents in
+    /// sibling order, depth first, with the shared package's two guards — an
+    /// orphan (its parent unpublished) is lifted to the top rather than
+    /// dropped, and a cycle stops at `GALLERY_MAX_DEPTH`.
+    private static func flatten(_ nodes: [Node]) -> [(node: Node, depth: Int)] {
+        let ids = Set(nodes.map(\.id))
+        var byParent: [String: [Node]] = [:]
+        for node in nodes {
+            let key = node.parentId.flatMap { ids.contains($0) ? $0 : nil } ?? ""
+            byParent[key, default: []].append(node)
+        }
+        for key in byParent.keys { byParent[key]?.sort(by: precedes) }
+
+        var rows: [(node: Node, depth: Int)] = []
+        var seen = Set<String>()
+        func walk(_ parent: String, _ depth: Int) {
+            guard depth <= 16 else { return }
+            for child in byParent[parent] ?? [] where !seen.contains(child.id) {
+                seen.insert(child.id)
+                rows.append((child, depth))
+                walk(child.id, depth + 1)
+            }
+        }
+        walk("", 0)
+        return rows
+    }
+
+    /// `compareNodes`: the order an administrator set, then newest first, then
+    /// undated last, then the title, then the id — byte order, not locale.
+    private static func precedes(_ a: Node, _ b: Node) -> Bool {
+        if a.order != b.order { return a.order < b.order }
+        switch (a.startAt, b.startAt) {
+        case let (x?, y?) where x != y: return x > y
+        case (_?, nil): return true
+        case (nil, _?): return false
+        default: break
+        }
+        if a.title != b.title { return Array(a.title.utf16).lexicographicallyPrecedes(b.title.utf16) }
+        return Array(a.id.utf16).lexicographicallyPrecedes(b.id.utf16)
     }
 
     /// Anonymous sign-in, over the Auth REST API.
@@ -100,8 +200,9 @@ enum UploadClient {
     /// Condense, reserve, send.
     static func send(
         image: UIImage,
-        to section: Section,
-        onProgress: @escaping (Double) -> Void
+        to target: Target,
+        in programId: String,
+        onProgress: @escaping @Sendable (Double) -> Void
     ) async throws -> String {
         /*
          * Re-encoded rather than sent as captured, and this is not an
@@ -112,10 +213,10 @@ enum UploadClient {
          * exactly as `upload/condense.ts` frames it.
          */
         guard let data = condense(image) else {
-            throw Failure.refused("That photograph could not be prepared for sending.")
+            throw Failure.refused("That photo could not be got ready to send. Please take it again.")
         }
 
-        onProgress(0.1)
+        onProgress(0.05)
 
         let attestation: String
         do {
@@ -124,18 +225,18 @@ enum UploadClient {
             switch failure {
             case .unsupported:
                 throw Failure.unattested(
-                    "This sample cannot prove it is genuine, which the church requires before accepting a photograph. The full app can."
+                    "This iPhone can’t send photos from the preview. The free SPSM Connect app can."
                 )
             case .notConfigured:
                 throw Failure.unattested(
-                    "Sending photographs from this sample is not switched on yet. The full app can send them."
+                    "Sending photos from the preview isn’t switched on yet. The free SPSM Connect app can send them."
                 )
             case .refused(let why):
-                throw Failure.unattested("The church could not verify this sample. \(why)")
+                throw Failure.unattested("The church couldn’t check this iPhone just now. \(why)")
             }
         }
 
-        onProgress(0.2)
+        onProgress(0.08)
         let token = try await idToken()
 
         var reserve = URLRequest(url: ClipConfig.api("/api/gallery/upload-url"))
@@ -144,27 +245,30 @@ enum UploadClient {
         reserve.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         reserve.setValue(attestation, forHTTPHeaderField: "X-Firebase-AppCheck")
         reserve.httpBody = try JSONSerialization.data(withJSONObject: [
-            "programId": section.programId,
-            "programEventId": section.programEventId,
+            "programId": programId,
+            "programEventId": target.id,
             "contentType": "image/jpeg",
             "byteSize": data.count,
         ])
 
         let (body, response) = try await URLSession.shared.data(for: reserve)
         guard let http = response as? HTTPURLResponse else {
-            throw Failure.refused("The church could not be reached.")
+            throw Failure.refused("The church couldn’t be reached. Check you have signal or Wi-Fi, then try again.")
         }
         guard (200..<300).contains(http.statusCode) else {
             if http.statusCode == 401 {
                 throw Failure.unattested(
-                    "The church would not accept a photograph from this sample. The full app can send it."
+                    "The church wouldn’t accept a photo from the preview. The free SPSM Connect app can send it."
                 )
             }
-            throw Failure.refused("The church could not take a photograph just now.")
+            if http.statusCode == 429 {
+                throw Failure.refused("A lot of photos have come from here today. Please try again tomorrow.")
+            }
+            throw Failure.refused("The church couldn’t take a photo just now. Please try again in a minute.")
         }
 
         let reservation = try JSONDecoder().decode(Reservation.self, from: body)
-        onProgress(0.35)
+        onProgress(0.1)
 
         var put = URLRequest(url: URL(string: reservation.uploadUrl)!)
         put.httpMethod = "PUT"
@@ -173,11 +277,18 @@ enum UploadClient {
         put.setValue("\(data.count),\(data.count)", forHTTPHeaderField: "x-goog-content-length-range")
         put.timeoutInterval = 120
 
-        let (_, putResponse) = try await URLSession.shared.upload(for: put, from: data)
+        /*
+         * The bytes are nearly all of the wait, so they get nearly all of the
+         * bar: 0.1 to 1 follows what has actually left the phone. The steps
+         * before it are quick and only nudge it, so the bar never sits still
+         * through the one part that takes seconds.
+         */
+        let watcher = UploadProgress { sent in onProgress(0.1 + 0.9 * sent) }
+        let (_, putResponse) = try await URLSession.shared.upload(for: put, from: data, delegate: watcher)
         guard let putHTTP = putResponse as? HTTPURLResponse,
               (200..<300).contains(putHTTP.statusCode)
         else {
-            throw Failure.refused("That photograph could not be sent. Please try it again.")
+            throw Failure.refused("That photo didn’t finish sending. Please try again.")
         }
 
         onProgress(1)
@@ -235,5 +346,25 @@ enum UploadClient {
         return UIGraphicsImageRenderer(size: size, format: format).image { _ in
             image.draw(in: CGRect(origin: .zero, size: size))
         }
+    }
+}
+
+/// How much of the PUT has left the phone, for the progress bar.
+private final class UploadProgress: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    let report: @Sendable (Double) -> Void
+
+    init(report: @escaping @Sendable (Double) -> Void) {
+        self.report = report
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        didSendBodyData bytesSent: Int64,
+        totalBytesSent: Int64,
+        totalBytesExpectedToSend: Int64
+    ) {
+        guard totalBytesExpectedToSend > 0 else { return }
+        report(Double(totalBytesSent) / Double(totalBytesExpectedToSend))
     }
 }

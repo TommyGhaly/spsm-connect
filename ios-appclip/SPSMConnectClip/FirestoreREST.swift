@@ -83,21 +83,56 @@ enum FirestoreREST {
         where field: String,
         equals value: Bool
     ) async throws -> [(id: String, fields: [String: FirestoreValue])] {
+        try await query(collectionId, matching: [(field, .bool(value))])
+    }
+
+    /// A value an equality filter can compare against.
+    enum Match {
+        case string(String)
+        case bool(Bool)
+
+        var encoded: [String: Any] {
+            switch self {
+            case .string(let value): return ["stringValue": value]
+            case .bool(let value): return ["booleanValue": value]
+            }
+        }
+    }
+
+    /// Several equality filters, all of which must hold.
+    ///
+    /// `programEvents` needs two — the program, and `published == true` — and
+    /// the second is the same non-optional filter as above: the rule is
+    /// `isPublished`, and a list that does not state it is refused. Equality
+    /// filters alone need no composite index, which is why there is no
+    /// `orderBy` here and callers sort on the phone.
+    static func query(
+        _ collectionId: String,
+        matching filters: [(field: String, value: Match)]
+    ) async throws -> [(id: String, fields: [String: FirestoreValue])] {
         let url = URL(string: "\(base):runQuery?key=\(ClipConfig.firebaseApiKey)")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.timeoutInterval = 12
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let clauses: [[String: Any]] = filters.map { filter in
+            [
+                "fieldFilter": [
+                    "field": ["fieldPath": filter.field],
+                    "op": "EQUAL",
+                    "value": filter.value.encoded,
+                ],
+            ]
+        }
+        let condition: [String: Any] = clauses.count == 1
+            ? clauses[0]
+            : ["compositeFilter": ["op": "AND", "filters": clauses]]
+
         request.httpBody = try JSONSerialization.data(withJSONObject: [
             "structuredQuery": [
                 "from": [["collectionId": collectionId]],
-                "where": [
-                    "fieldFilter": [
-                        "field": ["fieldPath": field],
-                        "op": "EQUAL",
-                        "value": ["booleanValue": value],
-                    ],
-                ],
+                "where": condition,
                 "limit": 200,
             ],
         ])
@@ -145,7 +180,7 @@ private struct FirestoreList: Decodable {
 /// Firestore's REST encoding, which wraps every value in a type tag:
 /// `{"stringValue": "…"}`, `{"booleanValue": true}`, and so on.
 ///
-/// Only the four kinds the clip actually reads are decoded. An unrecognised one
+/// Only the kinds the clip actually reads are decoded. An unrecognised one
 /// becomes `.unknown` rather than a thrown error, because a new field added to a
 /// document by the website must never stop the clip reading the fields it does
 /// understand.
@@ -153,12 +188,16 @@ indirect enum FirestoreValue: Decodable {
     case string(String)
     case bool(Bool)
     case integer(Int)
+    case double(Double)
+    /// RFC 3339, as Firestore sends it. Kept as the string: the clip only ever
+    /// compares two of them, and ISO timestamps in UTC sort as text.
+    case timestamp(String)
     case map([String: FirestoreValue])
     case array([FirestoreValue])
     case unknown
 
     private enum CodingKeys: String, CodingKey {
-        case stringValue, booleanValue, integerValue, mapValue, arrayValue
+        case stringValue, booleanValue, integerValue, doubleValue, timestampValue, mapValue, arrayValue
     }
 
     /// The two container shapes, which Firestore nests one level deeper than
@@ -177,6 +216,10 @@ indirect enum FirestoreValue: Decodable {
             // Firestore sends integers as strings in JSON, which is easy to
             // miss and produces a silent decode failure rather than a loud one.
             self = .integer(Int(raw) ?? 0)
+        } else if let value = try? container.decode(Double.self, forKey: .doubleValue) {
+            self = .double(value)
+        } else if let value = try? container.decode(String.self, forKey: .timestampValue) {
+            self = .timestamp(value)
         } else if let box = try? container.decode(MapBox.self, forKey: .mapValue) {
             self = .map(box.fields ?? [:])
         } else if let box = try? container.decode(ArrayBox.self, forKey: .arrayValue) {
@@ -189,6 +232,16 @@ indirect enum FirestoreValue: Decodable {
     var stringValue: String? { if case .string(let v) = self { return v } else { return nil } }
     var boolValue: Bool? { if case .bool(let v) = self { return v } else { return nil } }
     var intValue: Int? { if case .integer(let v) = self { return v } else { return nil } }
+    /// Either numeric kind, because a number typed into a form builder is an
+    /// integer or a double depending on whether somebody typed a point.
+    var numberValue: Double? {
+        switch self {
+        case .integer(let v): return Double(v)
+        case .double(let v): return v
+        default: return nil
+        }
+    }
+    var timestampValue: String? { if case .timestamp(let v) = self { return v } else { return nil } }
     var mapValue: [String: FirestoreValue]? { if case .map(let v) = self { return v } else { return nil } }
     var arrayValue: [FirestoreValue]? { if case .array(let v) = self { return v } else { return nil } }
 }

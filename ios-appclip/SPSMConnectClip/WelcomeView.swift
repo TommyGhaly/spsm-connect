@@ -7,11 +7,11 @@ import SwiftUI
 /// answers the questions that cannot wait — may I come in, what is happening,
 /// what am I expected to do — and the whole guide is one tap away in Safari.
 ///
-/// The full text is **not** copied here, and that is deliberate.
-/// `src/about/tour.ts` is 842 lines, the church edits it from the website
-/// through `aboutOverrides` without a release, and a Swift copy would be a
-/// second original that goes stale the first time anybody improves a sentence.
-/// See the header of `plugins/withNativeClip.js`.
+/// Under those, the whole six-station tour — the same words as the app's
+/// Welcome screen, generated from `src/about/tour.ts` rather than copied, with
+/// the church's website edits laid over them. See `AboutPage.swift`. Each
+/// station is folded shut under its heading, so the short answers stay the
+/// first thing on the screen.
 struct WelcomeView: View {
     @State private var sheet: IdentifiableURL?
 
@@ -64,9 +64,11 @@ struct WelcomeView: View {
                 }
             }
 
+            AboutPage(slug: "welcome-newcomers")
+
             ClipFooter(
                 destination: .welcome,
-                readMore: "The full guide walks through the Liturgy from beginning to end, and explains the Coptic words you will hear."
+                readMore: "The church’s website has the same tour with its pictures, the hymn to listen to, and your name in Coptic letters."
             )
         }
         .safari(url: $sheet)

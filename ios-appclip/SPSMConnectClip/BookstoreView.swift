@@ -357,12 +357,14 @@ private struct Basket: View {
 /// `PKPaymentButton` rather than SwiftUI's `PayWithApplePayButton`: that one
 /// owns the `PKPaymentRequest` and presents the sheet itself, and this screen
 /// needs the delegate — the shipping-method callback is where the total is
-/// recomputed. See `Checkout.swift`.
-private struct ApplePayButton: UIViewRepresentable {
+/// recomputed. See `Checkout.swift`. Shared with the paid forms in
+/// `FormsView`, which say "Continue with" rather than "Buy with".
+struct ApplePayButton: UIViewRepresentable {
+    var type: PKPaymentButtonType = .buy
     let action: () -> Void
 
     func makeUIView(context: Context) -> PKPaymentButton {
-        let button = PKPaymentButton(paymentButtonType: .buy, paymentButtonStyle: .black)
+        let button = PKPaymentButton(paymentButtonType: type, paymentButtonStyle: .black)
         button.cornerRadius = 12
         button.addTarget(context.coordinator, action: #selector(Coordinator.fire), for: .touchUpInside)
         return button

@@ -418,9 +418,9 @@ in a log nobody reads and a store binary that could not take a payment.
 `google-services.json` and `GoogleService-Info.plist` are gitignored too, and
 are EAS *file* environment variables for the same reason.
 
-Two things are still outstanding before a first submission: the project has no
-EAS project id yet (`eas init` writes `extra.eas.projectId`), and `submit`'s
-`ascAppId` is unknown until the app exists in App Store Connect.
+The App Store Connect app id — `submit`'s `ascAppId` — is `6812929115`
+(`https://apps.apple.com/us/app/spsm-connect/id6812929115`). The project still
+has no EAS project id (`eas init` writes `extra.eas.projectId`).
 
 **`production-simulator`** exists to feed `npm run screenshots` a Release build
 without a device.

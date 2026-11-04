@@ -33,16 +33,27 @@ enum Ink {
 /// `scripts/brand.mjs` bakes into the icon and the splash. A clip that set its
 /// headings in San Francisco would be the only part of the church's software
 /// that did.
+///
+/// Every size follows the phone's text-size setting. They were fixed points
+/// once, which looked tidy and left exactly the readers who had turned their
+/// text up — a good share of a parish — reading 12pt labels. `relativeTo:`
+/// keeps Georgia and scales it alongside the system style it names; the
+/// system faces are the text styles themselves, whose default sizes are close
+/// to the numbers they replace.
 enum Face {
-    static func display(_ size: CGFloat) -> Font { .custom("Georgia", size: size) }
-    static func displayBold(_ size: CGFloat) -> Font { .custom("Georgia-Bold", size: size) }
+    static func display(_ size: CGFloat, relativeTo style: Font.TextStyle = .body) -> Font {
+        .custom("Georgia", size: size, relativeTo: style)
+    }
+    static func displayBold(_ size: CGFloat, relativeTo style: Font.TextStyle = .body) -> Font {
+        .custom("Georgia-Bold", size: size, relativeTo: style)
+    }
 
-    static let title = displayBold(28)
-    static let heading = displayBold(21)
-    static let lede = display(17)
-    static let body = Font.system(size: 16)
-    static let small = Font.system(size: 14)
-    static let label = Font.system(size: 12, weight: .semibold)
+    static let title = displayBold(28, relativeTo: .title)
+    static let heading = displayBold(21, relativeTo: .title2)
+    static let lede = display(17, relativeTo: .body)
+    static let body = Font.callout
+    static let small = Font.subheadline
+    static let label = Font.caption.weight(.semibold)
 }
 
 extension Color {

@@ -31,15 +31,13 @@
  *
  * The React Native clip shared screens with the app — `/c/welcome` rendered the
  * very same `TourScreen` the app does, so the words could never drift. This
- * cannot. `about/tour.ts` is 842 lines of prose and `about/future.ts` is 497,
- * and a Swift copy of either would be a second original that goes stale the
- * first time the church edits the page.
- *
- * So the long-form experiences do not copy it. They draw a native card and hand
- * the reading to the church's own page in `SFSafariViewController`, which is
- * always current, is what `aboutOverrides` already edits, and costs the clip
- * nothing. What stays native is everything a person came to a tag to *do*: see
- * this week, send a photograph, open a form, give.
+ * cannot share the screens, so it shares the words instead:
+ * `scripts/make-clip-text.mjs` turns `about/tour.ts` and `about/future.ts` into
+ * `AboutText.swift` on every prebuild (below), and `AboutPage.swift` lays the
+ * church's `aboutOverrides` edits over them when the page opens. A Swift copy
+ * written by hand would be a second original that goes stale; a generated one
+ * cannot be. The pictures, the flythrough and the tour's widgets stay on the
+ * church's page in `SFSafariViewController`.
  *
  * ## `ios/` is generated, which is why this is a plugin
  *
@@ -50,6 +48,7 @@
  */
 const { withXcodeProject, withDangerousMod, withPodfile } = require('@expo/config-plugins');
 const plist = require('@expo/plist').default;
+const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -112,8 +111,13 @@ const SWIFT_FILES = [
   'BookstoreView.swift',
   'PlansView.swift',
   'WelcomeView.swift',
+  'AboutPage.swift',
+  // Generated, from src/about — see scripts/make-clip-text.mjs.
+  'AboutText.swift',
   'ScheduleView.swift',
   'FormsView.swift',
+  'FormModel.swift',
+  'FormFields.swift',
   'PhotosView.swift',
   'ClipCamera.swift',
   'AppAttest.swift',
@@ -192,6 +196,18 @@ const withClipSources = (config) =>
           `[withNativeClip] Expected the clip's Swift sources at ${SOURCE_DIR}, which does not exist.`,
         );
       }
+
+      /*
+       * The About pages' words, regenerated from src/about before the copy, so
+       * a sentence corrected in the app is the same sentence in the clip on
+       * the next build — nobody has to remember a second step. It writes into
+       * the checked-in folder, so the change shows in the diff as well.
+       */
+      execFileSync(
+        process.execPath,
+        ['--experimental-strip-types', '--no-warnings', path.join(cfg.modRequest.projectRoot, 'scripts/make-clip-text.mjs')],
+        { stdio: 'inherit' },
+      );
 
       fs.rmSync(dest, { recursive: true, force: true });
       fs.cpSync(src, dest, { recursive: true });
