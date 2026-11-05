@@ -89,16 +89,15 @@
 
 <!-- the lot -->
 <path d="M0 216L400 212L400 400L0 400Z" fill="url(#register-vehicle-lot)"/>
-<!-- painted bays, receding -->
-<g stroke="#dcbb84" stroke-width="1.3" opacity="0.55" stroke-linecap="round">
-  <path d="M206 236L232 222"/><path d="M246 236L268 222"/><path d="M286 236L304 222"/><path d="M326 236L340 222"/><path d="M366 236L376 222"/>
-  <path d="M190 236L400 233"/>
+<!-- the far row of bays: its kerb line, side-on -->
+<g stroke="#dcbb84" stroke-width="1.3" opacity="0.5" stroke-linecap="round">
+  <path d="M190 236L560 236"/>
 </g>
-<!-- a distant parked car -->
+<!-- a distant parked car, in profile like the near one -->
 <g>
-  <path d="M338 232L344 222L366 221L374 230L378 232L378 238L336 239Z" fill="#2b0d0d"/>
-  <path d="M346 223L364 222L370 229L343 230Z" fill="#8a2219" opacity="0.7"/>
-  <circle cx="345" cy="239" r="3" fill="#1a0504"/><circle cx="370" cy="238.5" r="3" fill="#1a0504"/>
+  <path d="M340 237L340 232C340 230 343 229 347 228.5L353 223.5C357 222.5 364 222.5 368 223.5L374 228.5C378 229 381 230.5 381 233L381 237Z" fill="#2b0d0d"/>
+  <path d="M355 224.5L366 224.5L371 228.5L351 228.5Z" fill="#8a2219" opacity="0.7"/>
+  <circle cx="348" cy="237" r="3" fill="#1a0504"/><circle cx="373" cy="237" r="3" fill="#1a0504"/>
 </g>
 
 <!-- lamp light on the ground -->
@@ -107,11 +106,10 @@
 <path d="M286 124L250 270L334 270Z" fill="url(#register-vehicle-cone)"/>
 <path d="M54 186L36 240L76 240Z" fill="url(#register-vehicle-cone)" opacity="0.8"/>
 
-<!-- the bay this car is in: lines on either side, and the stop line -->
-<g fill="#fff1d6" opacity="0.85">
-  <path d="M24 356L344 334L348 338L28 361Z"/>
-  <path d="M110 250L330 238L332 241L112 253Z" opacity="0.5"/>
-  <path d="M344 334L372 250L376 251L349 337Z" opacity="0.8"/>
+<!-- the bay this car is in, seen from the side: its far line behind the car, its near line in front -->
+<g fill="#fff1d6">
+  <path d="M-160 257L560 257L560 259.5L-160 259.5Z" opacity="0.45"/>
+  <path d="M-160 345L560 345L560 349L-160 349Z" opacity="0.8"/>
 </g>
 
 <!-- lamps -->
@@ -120,16 +118,70 @@
 <rect x="296.4" y="124" width="3.2" height="138" fill="url(#register-vehicle-pole)"/><rect x="294" y="256" width="8" height="6" rx="1" fill="#3a110d"/><path d="M298 126Q296 118 286 118" stroke="#8a6a3a" stroke-width="1.8" fill="none"/><path d="M280 120L292 120L290 116L282 116Z" fill="#5a3a22"/><ellipse cx="286" cy="121" rx="6" ry="2.2" fill="#fff4d6"/>
 <circle cx="286" cy="121" r="30" fill="url(#register-vehicle-lampGlow)"/>
 
-<!-- headlight beams -->
-<path d="M100 283L127 286L20 336L10 302Z" fill="url(#register-vehicle-beam)" opacity="0.7"/>
-<path d="M66 277L82 279L10 298L6 278Z" fill="url(#register-vehicle-beam)" opacity="0.5"/>
+<!-- headlight beams, thrown forward and down onto the lot -->
+<path d="M64 283L64 292L-40 326L-40 262Z" fill="url(#register-vehicle-beam)" opacity="0.75"/>
 
-<!-- the car -->
-<ellipse cx="206" cy="332" rx="146" ry="16" fill="#000" opacity="0.6" filter="url(#register-vehicle-blur)" transform="rotate(-4 206 332)"/><path d="M128 277C142 266 162 260 184 258L320 251C328 251 336 257 336 267L336 298C336 304 332 306 326 306L315 306C314 290 306 284 296 284C284 284 276 292 275 306L186 315C185 299 176 292 162 292C148 292 140 300 139 317L128 318Z" fill="url(#register-vehicle-body)"/><path d="M132 279C146 269 164 264 186 262L324 255C330 256 334 260 335 266L335 274L132 282Z" fill="url(#register-vehicle-sideSky)"/><path d="M138 296L336 284L336 288L138 300Z" fill="#1a0504" opacity="0.35"/><path d="M136 280C162 270 220 265 334 260" stroke="#fff1d6" stroke-width="1.4" fill="none" opacity="0.85"/><path d="M190 286L330 279" stroke="#f6cdbd" stroke-width="0.8" fill="none" opacity="0.5"/><path d="M186 315L275 306L275 309L186 318Z" fill="#1a0504" opacity="0.6"/><path d="M190 257L192 314" stroke="#1a0504" stroke-width="0.9" opacity="0.7"/><path d="M256 254L258 308" stroke="#1a0504" stroke-width="0.9" opacity="0.7"/><rect x="232" y="264" width="11" height="2.6" rx="1.3" fill="#dcbb84"/><rect x="292" y="261" width="10" height="2.4" rx="1.2" fill="#dcbb84"/><path d="M184 258L214 220C240 214 280 214 306 221L322 251Z" fill="#6e1a14"/><path d="M192 252L218 226L254 224L253 251Z" fill="url(#register-vehicle-glassSide)"/><path d="M260 224L298 226L313 249L259 250Z" fill="url(#register-vehicle-glassSide)"/><path d="M200 248L222 228L232 228L208 248Z" fill="#fff1d6" opacity="0.28"/><path d="M268 249L284 226L290 226L276 249Z" fill="#fff1d6" opacity="0.22"/><path d="M186 258L322 252" stroke="#fff1d6" stroke-width="1.1" opacity="0.85"/><path d="M160 212Q186 205 232 205L290 207Q304 211 306 221C280 214 240 214 214 220Z" fill="url(#register-vehicle-roof)"/><path d="M168 210Q200 206 288 208" stroke="#fff1d6" stroke-width="1" fill="none" opacity="0.7"/><path d="M122 249L184 258L214 220L160 212Z" fill="url(#register-vehicle-glassFront)"/><path d="M150 246L176 251L204 223L188 220Z" fill="#fff1d6" opacity="0.18"/><path d="M122 249L160 212" stroke="#6e1a14" stroke-width="2.4"/><path d="M184 258L214 220" stroke="#b8281c" stroke-width="2.6"/><path d="M186 254L196 250L200 255L190 258Z" fill="#6e1a14"/><path d="M188 253L196 250L197 252L189 255Z" fill="#f6cdbd" opacity="0.7"/><path d="M66 272L128 277C150 266 166 260 184 258L122 249C100 252 80 260 66 272Z" fill="url(#register-vehicle-hood)"/><path d="M84 264C100 256 118 252 150 254" stroke="#fff1d6" stroke-width="1.1" fill="none" opacity="0.6"/><path d="M128 277C150 266 166 260 184 258" stroke="#f6cdbd" stroke-width="1.2" fill="none" opacity="0.8"/><path d="M66 272L128 277L128 318L74 314C68 312 64 306 64 300L64 278C64 275 64 273 66 272Z" fill="url(#register-vehicle-front)"/><path d="M98 280L127 283L127 290L101 287Z" fill="#fff1d6"/><path d="M103 282L124 284.2L124 287.6L104 285.6Z" fill="#fff"/><path d="M66 275L82 277L82 283L66 281Z" fill="#fff1d6"/><path d="M84 290L118 293.4L118 301L86 298Z" fill="#1a0504"/><path d="M86 292.4L117 295.6" stroke="#dcbb84" stroke-width="0.7"/><path d="M86.6 295L117 298.2" stroke="#dcbb84" stroke-width="0.7"/><path d="M87.2 297.6L117 300.8" stroke="#dcbb84" stroke-width="0.7"/><path d="M84 290L118 293.4L118 301L86 298Z" fill="none" stroke="#dcbb84" stroke-width="0.9"/><path d="M90 302L112 304.3L112 313L90 310.7Z" fill="#fff1d6" stroke="#8a6a3a" stroke-width="0.7"/><path d="M90 302L112 304.3L112 305.8L90 303.5Z" fill="#b8281c"/><path d="M92.5 306.86l3.6 0.37l0 4.2l-3.6 -0.37Z" fill="#3a110d"/><path d="M97 307.33l3.6 0.37l0 4.2l-3.6 -0.37Z" fill="#3a110d"/><path d="M102.5 307.9l3.2 0.33l0 4.2l-3.2 -0.33Z" fill="#3a110d"/><path d="M106.6 308.33l2.6 0.27l0 4.2l-2.6 -0.27Z" fill="#3a110d"/><path d="M68 312L128 315L128 318L74 315Z" fill="#1a0504" opacity="0.7"/><ellipse cx="122" cy="308" rx="2.6" ry="1.8" fill="#f6cdbd"/><ellipse cx="72" cy="304" rx="2" ry="1.6" fill="#f6cdbd" opacity="0.8"/><path d="M128 277L128 318" stroke="#d8705c" stroke-width="1.2" opacity="0.8"/><g transform="translate(162 320) scale(0.77 1)"><circle r="22" fill="#1a0504"/><circle r="20.5" fill="none" stroke="#3b2316" stroke-width="2"/><circle r="14.52" fill="url(#register-vehicle-rim)"/><circle r="13.2" fill="#3b2316"/><path d="M-1.31 -2.79L-1.45 -13.12L1.45 -13.12L1.31 -2.79Z" fill="url(#register-vehicle-rim)"/><path d="M2.24 -2.11L12.03 -5.43L12.93 -2.68L3.06 0.39Z" fill="url(#register-vehicle-rim)"/><path d="M2.7 1.48L8.88 9.76L6.54 11.47L0.58 3.03Z" fill="url(#register-vehicle-rim)"/><path d="M-0.58 3.03L-6.54 11.47L-8.88 9.76L-2.7 1.48Z" fill="url(#register-vehicle-rim)"/><path d="M-3.06 0.39L-12.93 -2.68L-12.03 -5.43L-2.24 -2.11Z" fill="url(#register-vehicle-rim)"/><circle r="3.52" fill="#fff1d6"/><circle r="1.54" fill="#8a6a3a"/><path d="M-11 -9.24A14.52 14.52 0 0 1 6.6 -13.2" stroke="#fff1d6" stroke-width="1.2" fill="none" opacity="0.9"/></g><g transform="translate(296 307) scale(0.68 1)"><circle r="19" fill="#1a0504"/><circle r="17.5" fill="none" stroke="#3b2316" stroke-width="2"/><circle r="12.54" fill="url(#register-vehicle-rim)"/><circle r="11.4" fill="#3b2316"/><path d="M-1.13 -2.41L-1.25 -11.33L1.25 -11.33L1.13 -2.41Z" fill="url(#register-vehicle-rim)"/><path d="M1.94 -1.82L10.39 -4.69L11.16 -2.31L2.64 0.33Z" fill="url(#register-vehicle-rim)"/><path d="M2.33 1.28L7.67 8.43L5.65 9.9L0.5 2.61Z" fill="url(#register-vehicle-rim)"/><path d="M-0.5 2.61L-5.65 9.9L-7.67 8.43L-2.33 1.28Z" fill="url(#register-vehicle-rim)"/><path d="M-2.64 0.33L-11.16 -2.31L-10.39 -4.69L-1.94 -1.82Z" fill="url(#register-vehicle-rim)"/><circle r="3.04" fill="#fff1d6"/><circle r="1.33" fill="#8a6a3a"/><path d="M-9.5 -7.98A12.54 12.54 0 0 1 5.7 -11.4" stroke="#fff1d6" stroke-width="1.2" fill="none" opacity="0.9"/></g><path d="M139 317C140 300 148 292 162 292C176 292 185 299 186 315" stroke="#1a0504" stroke-width="2.4" fill="none"/><path d="M275 306C276 292 284 284 296 284C306 284 314 290 315 306" stroke="#1a0504" stroke-width="2.2" fill="none"/>
+<!-- the car: a saloon in profile, nose to the left, parked in its bay -->
+<ellipse cx="204" cy="333" rx="150" ry="8" fill="#000" opacity="0.7" filter="url(#register-vehicle-blur)"/>
+
+<!-- body -->
+<path d="M68 314C62 312 60 306 60.5 298L62.5 288C63.5 283 66.5 281 72 280C100 275 128 271 150 268C166 256 182 245 200 238C224 230 252 229 272 233C292 240 310 252 322 262L338 265.5C342 266.5 344 270.5 344 275.5L344 300C344 308 340 313 334 314L306.5 314A27 27 0 0 0 253.5 314L151.5 314A27 27 0 0 0 98.5 314Z" fill="url(#register-vehicle-body)"/>
+<!-- sky caught along the shoulder -->
+<path d="M72 280C100 275 128 271 150 268L322 262L338 265.5C342 266.5 344 270.5 344 275.5L344 280L62 290L62.5 288C63.5 283 66.5 281 72 280Z" fill="url(#register-vehicle-sideSky)"/>
+<!-- the sill, in shadow -->
+<path d="M98.5 314L151.5 314L253.5 314L306.5 314L334 314C330 316 326 316 320 316L80 316C74 316 70 315 68 314Z" fill="#140403" opacity="0.6"/>
+<path d="M152 305L253 303L253 314L152 314Z" fill="#1a0504" opacity="0.35"/>
+
+<!-- glass: two side windows and the pillar between them -->
+<path d="M160 265C174 255 188 247 203 242C214 239 225 238 236 238L236 263Z" fill="url(#register-vehicle-glassSide)"/>
+<path d="M242 238C252 238 261 238.5 268 240C283 246 296 253 306 261L242 263Z" fill="url(#register-vehicle-glassSide)"/>
+<path d="M174 262L214 241L222 240L184 262Z" fill="#fff1d6" opacity="0.22"/>
+<path d="M256 262L270 241L276 242L263 262Z" fill="#fff1d6" opacity="0.16"/>
+<path d="M150 268C166 256 182 245 200 238C224 230 252 229 272 233C292 240 310 252 322 262" stroke="#fff1d6" stroke-width="1.2" fill="none" opacity="0.75"/>
+
+<!-- shut lines, handles, mirror -->
+<path d="M239 238L239 312" stroke="#1a0504" stroke-width="1" opacity="0.75"/>
+<path d="M158 266C156 282 155 298 156 311" stroke="#1a0504" stroke-width="1" fill="none" opacity="0.6"/>
+<path d="M310 262C312 278 312 294 310 310" stroke="#1a0504" stroke-width="1" fill="none" opacity="0.6"/>
+<rect x="212" y="272" width="14" height="3" rx="1.5" fill="#dcbb84"/>
+<rect x="284" y="270" width="14" height="3" rx="1.5" fill="#dcbb84"/>
+<path d="M164 262C164 256 170 253 178 254L180 262Z" fill="#6e1a14"/>
+<path d="M166 260C167 256.5 171 255.5 176 256" stroke="#f6cdbd" stroke-width="0.8" fill="none" opacity="0.8"/>
+
+<!-- the character line, catching the lamp -->
+<path d="M66 288C120 284 230 280 342 278" stroke="#fff1d6" stroke-width="1.1" fill="none" opacity="0.55"/>
+<path d="M70 298C130 295 230 292 343 290" stroke="#1a0504" stroke-width="0.9" fill="none" opacity="0.45"/>
+
+<!-- lamps: headlight forward, tail-light back, and the grille between bumper and wheel -->
+<path d="M62.5 286L90 282.5C92 282.5 92.5 284 91 285.5L86 289L61.5 291.5Z" fill="#fff1d6"/>
+<path d="M65 286.5L86 284L84 286.8L64.5 289Z" fill="#fff"/>
+<path d="M61.5 300L84 298.5L84 304L62 305.5Z" fill="#1a0504" opacity="0.8"/>
+<path d="M339 268.5L344 270L344 283L336 281.5C335 277 336 272 339 268.5Z" fill="#ff3b2a"/>
+<path d="M340 271L343 272L343 279L338.5 278Z" fill="#ffb3a0" opacity="0.8"/>
+
+<!-- wheels -->
+<g transform="translate(125 309)">
+  <circle r="23" fill="#140403"/>
+  <circle r="21" fill="none" stroke="#2a0d0a" stroke-width="2.5"/>
+  <circle r="15.5" fill="url(#register-vehicle-rim)"/>
+  <circle r="14" fill="#2a120c"/>
+  <path d="M-2 -4L-2.6 -14.5L2.6 -14.5L2 -4Z" transform="rotate(0)" fill="url(#register-vehicle-rim)"/><path d="M-2 -4L-2.6 -14.5L2.6 -14.5L2 -4Z" transform="rotate(72)" fill="url(#register-vehicle-rim)"/><path d="M-2 -4L-2.6 -14.5L2.6 -14.5L2 -4Z" transform="rotate(144)" fill="url(#register-vehicle-rim)"/><path d="M-2 -4L-2.6 -14.5L2.6 -14.5L2 -4Z" transform="rotate(216)" fill="url(#register-vehicle-rim)"/><path d="M-2 -4L-2.6 -14.5L2.6 -14.5L2 -4Z" transform="rotate(288)" fill="url(#register-vehicle-rim)"/>
+  <circle r="4.2" fill="url(#register-vehicle-rim)"/><circle r="1.6" fill="#5a3a22"/>
+  <path d="M-12 -9A15 15 0 0 1 7 -13.3" stroke="#fff1d6" stroke-width="1.2" fill="none" opacity="0.8"/>
+</g>
+<g transform="translate(280 309)">
+  <circle r="23" fill="#140403"/>
+  <circle r="21" fill="none" stroke="#2a0d0a" stroke-width="2.5"/>
+  <circle r="15.5" fill="url(#register-vehicle-rim)"/>
+  <circle r="14" fill="#2a120c"/>
+  <path d="M-2 -4L-2.6 -14.5L2.6 -14.5L2 -4Z" transform="rotate(0)" fill="url(#register-vehicle-rim)"/><path d="M-2 -4L-2.6 -14.5L2.6 -14.5L2 -4Z" transform="rotate(72)" fill="url(#register-vehicle-rim)"/><path d="M-2 -4L-2.6 -14.5L2.6 -14.5L2 -4Z" transform="rotate(144)" fill="url(#register-vehicle-rim)"/><path d="M-2 -4L-2.6 -14.5L2.6 -14.5L2 -4Z" transform="rotate(216)" fill="url(#register-vehicle-rim)"/><path d="M-2 -4L-2.6 -14.5L2.6 -14.5L2 -4Z" transform="rotate(288)" fill="url(#register-vehicle-rim)"/>
+  <circle r="4.2" fill="url(#register-vehicle-rim)"/><circle r="1.6" fill="#5a3a22"/>
+  <path d="M-12 -9A15 15 0 0 1 7 -13.3" stroke="#fff1d6" stroke-width="1.2" fill="none" opacity="0.8"/>
+</g>
+
 <!-- warm lamp kiss on the roof and rear -->
-<path d="M262 208Q290 208 304 220" stroke="#ffd88a" stroke-width="1.4" fill="none" opacity="0.8"/>
-<path d="M334 262L336 296" stroke="#ffd88a" stroke-width="1.2" fill="none" opacity="0.6"/>
+<path d="M246 231Q276 233 300 246" stroke="#ffd88a" stroke-width="1.5" fill="none" opacity="0.8"/>
+<path d="M343.5 284L343.5 300" stroke="#ffd88a" stroke-width="1.2" fill="none" opacity="0.6"/>
 <!-- headlight bloom -->
-<circle cx="114" cy="285" r="9" fill="#fff1d6" opacity="0.35" filter="url(#register-vehicle-soft)"/>
-<circle cx="74" cy="279" r="6" fill="#fff1d6" opacity="0.3" filter="url(#register-vehicle-soft)"/>
+<circle cx="76" cy="286" r="10" fill="#fff1d6" opacity="0.45" filter="url(#register-vehicle-soft)"/>
 </svg>

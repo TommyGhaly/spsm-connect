@@ -54,6 +54,7 @@ import { Pressable, View } from 'react-native';
 import {
   MAX_QUANTITY,
   cleanName,
+  cleanPhone,
   isUsableAddress,
   looksLikeEmail,
   salesTaxCents,
@@ -515,6 +516,7 @@ function Checkout({
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [shipping, setShipping] = useState(false);
   const [address, setAddress] = useState({
     line1: '',
@@ -650,6 +652,7 @@ function Checkout({
     cleanName(firstName) !== null &&
     cleanName(lastName) !== null &&
     looksLikeEmail(email) &&
+    cleanPhone(phone) !== null &&
     !addressIncomplete &&
     /* The website blocks only while a quote is in flight; here a live-postage
        delivery with no usable ZIP is blocked too, because the Pay button
@@ -668,12 +671,13 @@ function Checkout({
       email: email.trim(),
       firstName: firstName.trim(),
       lastName: lastName.trim(),
+      phone: phone.trim(),
       fulfillment: (shipping ? 'ship' : 'collect') as 'ship' | 'collect',
       address: shipping ? address : undefined,
       idempotencyKey,
       ...(shipping && chosen ? { shippingOptionId: chosen.id } : {}),
     }),
-    [basket.lines, email, firstName, lastName, shipping, address, idempotencyKey, chosen],
+    [basket.lines, email, firstName, lastName, phone, shipping, address, idempotencyKey, chosen],
   );
 
   /*
@@ -813,6 +817,22 @@ function Checkout({
         required
         hint="Square sends the receipt here."
         error={email !== '' && !looksLikeEmail(email) ? 'That does not look like an email address.' : null}
+      />
+
+      <Field
+        label="Phone"
+        value={phone}
+        onChange={setPhone}
+        placeholder="(508) 555-0134"
+        keyboard="phone-pad"
+        autoComplete="tel"
+        required
+        hint="In case there is a question about the order — a size, a delivery."
+        error={
+          phone.trim() !== '' && cleanPhone(phone) === null
+            ? 'That does not look like a phone number — ten digits, with the area code.'
+            : null
+        }
       />
 
       <Choice
@@ -980,7 +1000,7 @@ function Checkout({
                 ? 'Pricing postage for your ZIP code…'
                 : awaitingPostage
                   ? 'A five-digit ZIP code is needed to price the postage.'
-                  : 'A first name, a last name and an email address are needed.'}
+                  : 'A first name, a last name, an email address and a phone number are needed.'}
         </Micro>
       ) : null}
     </>

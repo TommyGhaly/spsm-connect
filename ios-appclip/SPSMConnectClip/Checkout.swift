@@ -173,7 +173,10 @@ final class Checkout: NSObject, ObservableObject {
          * cost — a person who chooses to post and has no address would
          * otherwise reach the end and be refused by the Function.
          */
-        request.requiredShippingContactFields = [.name, .emailAddress, .postalAddress]
+        // `.phoneNumber` too: a number to ring about the order — a size that
+        // has run out, a parcel returned — which the shop and the app ask for
+        // as well. Wallets nearly always hold one, so it costs no typing.
+        request.requiredShippingContactFields = [.name, .emailAddress, .phoneNumber, .postalAddress]
         request.shippingMethods = shippingMethods()
         request.paymentSummaryItems = summaryItems()
 
@@ -397,12 +400,21 @@ final class Checkout: NSObject, ObservableObject {
     /// reach the till and be refused for something the buyer cannot fix from
     /// inside Apple's sheet. So a name with no family part is split on its last
     /// space, and a single word is sent as both rather than as half a record.
+    ///
+    /// Whitespace is tidied first — newlines included, and runs of spaces
+    /// collapsed — because a wallet name typed as "Mary  Ann " otherwise split
+    /// into an empty surname, which the Function refuses.
     private func names(from components: PersonNameComponents?) -> (String, String) {
-        let given = components?.givenName?.trimmingCharacters(in: .whitespaces) ?? ""
-        let family = components?.familyName?.trimmingCharacters(in: .whitespaces) ?? ""
+        func tidy(_ value: String?) -> String {
+            (value ?? "")
+                .split(whereSeparator: { $0.isWhitespace })
+                .joined(separator: " ")
+        }
+        let given = tidy(components?.givenName)
+        let family = tidy(components?.familyName)
         if !given.isEmpty, !family.isEmpty { return (given, family) }
 
-        let whole = [given, family, components?.nickname ?? ""]
+        let whole = [given, family, tidy(components?.nickname)]
             .first { !$0.isEmpty } ?? ""
         guard let space = whole.lastIndex(of: " ") else {
             return whole.isEmpty ? ("", "") : (whole, whole)
@@ -421,6 +433,8 @@ final class Checkout: NSObject, ObservableObject {
             "email": contact?.emailAddress ?? "",
             "firstName": firstName,
             "lastName": lastName,
+            // As the wallet holds it; the Function checks it the way the shop does.
+            "phone": contact?.phoneNumber?.stringValue ?? "",
             "fulfillment": model.shipping ? "ship" : "collect",
             "idempotencyKey": idempotencyKey,
         ]
@@ -585,6 +599,27 @@ extension Checkout {
          * charged: the figure authorised must be the figure taken.
          */
         if let method = payment.shippingMethod { apply(method) }
+
+        /*
+         * The phone checked here, before any money moves, the way `cleanPhone`
+         * counts it: ten to fifteen digits. Refused by the Function instead, it
+         * would come back as a failed payment with the reason under the sheet;
+         * refused here, Apple's sheet marks the phone row itself and the buyer
+         * corrects it without leaving.
+         */
+        let digits = (payment.shippingContact?.phoneNumber?.stringValue ?? "")
+            .unicodeScalars.filter { ("0"..."9").contains($0) }.count
+        guard (10...15).contains(digits) else {
+            let message = "A phone number with its area code is needed, in case there is a question about the order."
+            return PKPaymentAuthorizationResult(
+                status: .failure,
+                errors: [PKPaymentRequest.paymentContactInvalidError(
+                    withContactField: .phoneNumber,
+                    localizedDescription: message
+                )]
+            )
+        }
+
         guard model.total == shownTotal else {
             let message = "The total changed while Apple Pay was open, so nothing was charged. Please try again."
             outcome = .failed(message)

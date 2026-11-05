@@ -58,7 +58,7 @@ import { Image } from 'expo-image';
 import * as MediaLibrary from 'expo-media-library';
 import { useFocusEffect, useIsFocused, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Platform, Pressable, View } from 'react-native';
+import { AppState, Linking, Platform, Pressable, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -67,8 +67,7 @@ import {
   useCameraDevice,
   useCameraPermission,
   useMicrophonePermission,
-  usePhotoOutput,
-  useVideoOutput,
+  VisionCamera,
   type CameraDevice,
   type CameraRef,
   type DeviceFilter,
@@ -134,6 +133,8 @@ const VIDEO_BIT_RATE = 8_000_000;
  * photograph it would have been had the finger come up.
  */
 const CONFIGURE_TIMEOUT_MS = 5000;
+/** The least time between two restarts of a session that died. */
+const RESTART_SPACING_MS = 2000;
 /** Tries at starting the recorder, each after the session reconfigures. */
 const RECORD_ATTEMPTS = 3;
 /** A recording that fails sooner than this was a tap. See `startVideo`. */
@@ -188,6 +189,8 @@ export function CameraScreen() {
   const [flash, setFlash] = useState<FlashMode>('off');
   /** True while a hold wants the movie output in the session. See the header. */
   const [wantVideo, setWantVideo] = useState(false);
+  /** Bumped to replace a session that stopped by itself. See `handleStopped`. */
+  const [sessionKey, setSessionKey] = useState(0);
 
   const device = useCameraDevice(position, position === 'back' ? BACK_LENSES : undefined);
   const lens = useMemo(() => (device ? lensModel(device) : null), [device]);
@@ -239,8 +242,8 @@ export function CameraScreen() {
   const destination = useDestination();
 
   /*
-   * The two outputs, made once each. The photograph's is the reason for the
-   * whole screen and is configured for it:
+   * The two outputs, made afresh each time the tab is focused. The
+   * photograph's is the reason for the whole screen and is configured for it:
    *
    *  - 4032 × 3024, the main camera's own 12 MP. `condense` brings everything
    *    to 3840 on the long edge, so a 48 MP original would be four times the
@@ -252,19 +255,45 @@ export function CameraScreen() {
    *  - JPEG rather than the platform's own HEIC, because the content type is
    *    carried with the capture and the re-encode in `condense` is the same
    *    either way.
+   *
+   * **Afresh per focus, not once for the screen** — which is what
+   * `usePhotoOutput` and `useVideoOutput` would do, and what TestFlight build
+   * 13 crashed on (SIGABRT in `-[AVCaptureOutput detachFromFigCaptureSession:]`).
+   * `Camera` is unmounted on blur and each mount opens its own
+   * `AVCaptureSession`. VisionCamera's teardown stops the old session and only
+   * then removes its outputs, and a stopped session holds that removal back
+   * until it next goes live — which for a session nobody will start again is
+   * its dealloc, whenever Hermes's background GC gets to it. By then the same
+   * outputs belonged to the new session, and AVFoundation asserted on being
+   * detached from one session while attached to another. An output that only
+   * ever belongs to one session cannot be taken from under the next.
+   *
+   * The same holds for a session restarted after it died (`sessionKey`, see
+   * `handleStopped`): a new `Camera`, so new outputs.
    */
-  const photoOutput = usePhotoOutput({
-    targetResolution: CommonResolutions.UHD_4_3,
-    containerFormat: 'jpeg',
-    quality: 1,
-    qualityPrioritization: 'quality',
-  });
-  const videoOutput = useVideoOutput({
-    targetResolution: CommonResolutions.HD_16_9,
-    targetBitRate: VIDEO_BIT_RATE,
-    // A denied microphone is a silent clip, not a failed one.
-    enableAudio: microphone.hasPermission,
-  });
+  const photoOutput = useMemo(
+    () =>
+      VisionCamera.createPhotoOutput({
+        targetResolution: CommonResolutions.UHD_4_3,
+        containerFormat: 'jpeg',
+        quality: 1,
+        qualityPrioritization: 'quality',
+      }),
+    // Neither is read; they are when a new session needs new outputs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [focused, sessionKey],
+  );
+  const videoOutput = useMemo(
+    () =>
+      VisionCamera.createVideoOutput({
+        targetResolution: CommonResolutions.HD_16_9,
+        targetBitRate: VIDEO_BIT_RATE,
+        // A denied microphone is a silent clip, not a failed one.
+        enableAudio: microphone.hasPermission,
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [focused, sessionKey, microphone.hasPermission],
+  );
   const outputs = useMemo(
     () => (wantVideo ? [photoOutput, videoOutput] : [photoOutput]),
     [wantVideo, photoOutput, videoOutput],
@@ -399,6 +428,31 @@ export function CameraScreen() {
     return zoomRef.current?.device === current.device ? zoomRef.current.value : current.model.neutral;
   }, []);
 
+  /*
+   * A session that stops while the tab is still in front has died, and
+   * VisionCamera will not start it again: it starts a session when `isActive`
+   * changes, and here `isActive` never does. A failed recording does this —
+   * the runtime error that ends the recording stops the session with it — and
+   * left the viewfinder frozen on its last frame until the tab was left. The
+   * one seen: a hold during a FaceTime call, where the call outranks the
+   * microphone and iOS refuses it ('!pri', "Cannot Record").
+   *
+   * So the `Camera` is replaced. Not more than once every couple of seconds,
+   * so a session that cannot start at all is not remounted in a loop. A stop
+   * that comes from leaving the tab arrives after `Camera` is gone, and a key
+   * bumped then only means the next visit's session is a new one anyway.
+   * Nor in the background, where iOS stops the session itself and resumes it
+   * on the way back.
+   */
+  const lastRestartRef = useRef(0);
+  const handleStopped = useCallback(() => {
+    if (AppState.currentState !== 'active') return;
+    const now = Date.now();
+    if (now - lastRestartRef.current < RESTART_SPACING_MS) return;
+    lastRestartRef.current = now;
+    setSessionKey((key) => key + 1);
+  }, []);
+
   const handleCameraError = useCallback((error: Error) => {
     /*
      * Interruptions, a device another app has just taken, a capture during a
@@ -425,9 +479,16 @@ export function CameraScreen() {
           // The front camera has no flash unit; asking for one is ignored
           // natively, but saying so here is clearer than relying on that.
           flashMode: device?.hasFlash ? flash : 'off',
-          // The ultra wide's stretched corners, corrected the way the Camera
-          // app corrects them. Ignored by lenses that do not need it.
-          enableDistortionCorrection: true,
+          /*
+           * No `enableDistortionCorrection`, which crashed every photograph
+           * in TestFlight build 14 on a phone with an ultra wide. On iOS it
+           * sets `autoContentAwareDistortionCorrectionEnabled`, which
+           * AVFoundation throws on unless the output's own
+           * `contentAwareDistortionCorrectionEnabled` was switched on first —
+           * and VisionCamera 5.2.3 never switches it on. The exception
+           * escapes Swift and aborts the app. The lens's ordinary geometric
+           * correction is still on, from the `Camera`'s own prop below.
+           */
           // Lets a virtual device fuse frames from two lenses at an
           // in-between zoom, which is most of what makes 2× look like glass.
           enableVirtualDeviceFusion: true,
@@ -880,6 +941,7 @@ export function CameraScreen() {
       */}
       {focused && device ? (
         <Camera
+          key={sessionKey}
           ref={cameraRef}
           style={{ flex: 1 }}
           device={device}
@@ -915,6 +977,7 @@ export function CameraScreen() {
           torchMode={device.hasTorch && device.hasFlash ? (recording && flash === 'on' ? 'on' : 'off') : undefined}
           enableDistortionCorrection={device.supportsDistortionCorrection}
           onConfigured={handleConfigured}
+          onStopped={handleStopped}
           onError={handleCameraError}
         />
       ) : (

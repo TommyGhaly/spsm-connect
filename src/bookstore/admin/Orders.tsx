@@ -35,7 +35,7 @@ import {
   type FulfillmentStatus,
 } from '@spsm/shared';
 
-import { Close, Field, Problem, Sheet } from '@/components/Fields';
+import { Choice, Close, Field, Problem, Sheet } from '@/components/Fields';
 import { Button, Card } from '@/components/Surface';
 import { Body, Heading, Label, Micro, Small } from '@/components/Type';
 import { money } from '@/payments/money';
@@ -414,7 +414,8 @@ function OrderCard({
         ) : null}
 
         <Micro color={theme.color.inkFaint}>
-          {order.contactEmail} · {order.id}
+          {order.contactEmail}
+          {order.buyerPhone ? ` · ${order.buyerPhone}` : ''} · {order.id}
         </Micro>
 
         {order.refund?.reason ? (
@@ -533,6 +534,10 @@ function RefundSheet({
 }) {
   const theme = useTheme();
   const [reason, setReason] = useState('');
+  /* Asked only when there is clothing on the order. Restocking first, because
+     the usual refund is for something never handed over. */
+  const sized = (order.lineItems ?? []).some((line) => line.size);
+  const [restock, setRestock] = useState(true);
   const [sending, setSending] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
 
@@ -542,7 +547,7 @@ function RefundSheet({
     setFailed(null);
     try {
       const { refundOrder } = await import('./adminData');
-      await refundOrder(order.id, reason.trim());
+      await refundOrder(order.id, reason.trim(), sized && restock);
       onDone();
     } catch (cause) {
       setFailed(cause instanceof Error ? cause.message : 'The refund could not be sent.');
@@ -580,6 +585,19 @@ function RefundSheet({
         required
         readOnly={sending}
       />
+
+      {sized ? (
+        <Choice
+          label="The sizes on this order"
+          options={[
+            { value: 'restock', label: 'Put them back in stock' },
+            { value: 'keep', label: 'Keep them counted as sold' },
+          ]}
+          chosen={[restock ? 'restock' : 'keep']}
+          onChange={(next) => setRestock(next[0] === 'restock')}
+          hint="Back in stock once Square says the refund went through."
+        />
+      ) : null}
 
       {failed ? (
         <Problem>

@@ -1,92 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1000" height="1000" viewBox="0 0 1000 1000">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1200" height="1200" viewBox="0 0 1000 1000">
   <defs>
-    <radialGradient id="band" cx="50%" cy="50%" r="50%">
-      <stop offset="80%" stop-color="#a8231a"/>
-      <stop offset="100%" stop-color="#6a120b"/>
-    </radialGradient>
-    <radialGradient id="ground" cx="50%" cy="36%" r="60%">
-      <stop offset="0%" stop-color="#6a1811"/>
-      <stop offset="100%" stop-color="#330906"/>
-    </radialGradient>
-    <linearGradient id="trim" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#fff0b8"/>
-      <stop offset="50%" stop-color="#dcae45"/>
-      <stop offset="100%" stop-color="#a07824"/>
+    <!-- Behind the church's name, so it reads over a bright sky. -->
+    <linearGradient id="topShade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a0503" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#1a0503" stop-opacity="0"/>
     </linearGradient>
-    <!-- The scenes were drawn dim and candlelit; this lifts them to match the frame. -->
-    <filter id="vivid" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
-      <feColorMatrix type="saturate" values="1.3"/>
-      <feComponentTransfer>
-        <feFuncR type="linear" slope="1.12" intercept="0.02"/>
-        <feFuncG type="linear" slope="1.12" intercept="0.02"/>
-        <feFuncB type="linear" slope="1.12" intercept="0.02"/>
-      </feComponentTransfer>
-    </filter>
-    <clipPath id="viewClip"><circle cx="500" cy="322" r="214"/></clipPath>
+    <!-- The shade the words sit on: clear over the picture, nearly solid by the URL. -->
+    <linearGradient id="lowShade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4f0e09" stop-opacity="0"/>
+      <stop offset="0.25" stop-color="#4f0e09" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#4f0e09" stop-opacity="0.97"/>
+    </linearGradient>
+    <clipPath id="disc"><circle cx="500" cy="500" r="500"/></clipPath>
   </defs>
 
-  <circle cx="500" cy="500" r="500" fill="url(#band)"/>
-  <circle cx="500" cy="500" r="488" fill="none" stroke="url(#trim)" stroke-width="7"/>
-  <circle cx="500" cy="500" r="477" fill="none" stroke="#dcae45" stroke-width="1.5" opacity="0.7"/>
-  <text transform="translate(242.9 147.9) rotate(-36.13)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">S</text><text transform="translate(263.0 134.1) rotate(-32.93)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">T</text><text transform="translate(279.6 123.8) rotate(-30.36)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">.</text><text transform="translate(308.5 108.3) rotate(-26.05)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">P</text><text transform="translate(334.1 96.8) rotate(-22.36)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">H</text><text transform="translate(356.8 88.2) rotate(-19.18)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">I</text><text transform="translate(376.9 81.7) rotate(-16.39)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">L</text><text transform="translate(402.7 75.0) rotate(-12.90)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">O</text><text transform="translate(429.1 69.8) rotate(-9.36)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">P</text><text transform="translate(455.0 66.3) rotate(-5.93)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">A</text><text transform="translate(480.9 64.4) rotate(-2.51)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">T</text><text transform="translate(506.4 64.0) rotate(0.85)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">E</text><text transform="translate(533.3 65.3) rotate(4.38)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">R</text><text transform="translate(574.8 70.5) rotate(9.88)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">&amp;</text><text transform="translate(613.5 79.0) rotate(15.09)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">S</text><text transform="translate(636.8 86.0) rotate(18.29)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">T</text><text transform="translate(655.3 92.6) rotate(20.86)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">.</text><text transform="translate(689.5 107.3) rotate(25.76)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">M</text><text transform="translate(712.6 119.3) rotate(29.18)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">I</text><text transform="translate(732.6 131.2) rotate(32.24)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">N</text><text transform="translate(755.8 146.9) rotate(35.91)" text-anchor="middle" font-family="Georgia" font-size="30" font-weight="bold" fill="#ffeab0">A</text>
-  <g transform="translate(49 500)"><g fill="url(#trim)"><g transform="rotate(0)">
-    <rect x="-3.4000000000000004" y="-12.24" width="6.800000000000001" height="12.24" rx="1.02"/>
-    <circle cx="0" cy="-14.28" r="2.72"/>
-    <circle cx="-4.08" cy="-11.56" r="2.21"/>
-    <circle cx="4.08" cy="-11.56" r="2.21"/></g><g transform="rotate(90)">
-    <rect x="-3.4000000000000004" y="-12.24" width="6.800000000000001" height="12.24" rx="1.02"/>
-    <circle cx="0" cy="-14.28" r="2.72"/>
-    <circle cx="-4.08" cy="-11.56" r="2.21"/>
-    <circle cx="4.08" cy="-11.56" r="2.21"/></g><g transform="rotate(180)">
-    <rect x="-3.4000000000000004" y="-12.24" width="6.800000000000001" height="12.24" rx="1.02"/>
-    <circle cx="0" cy="-14.28" r="2.72"/>
-    <circle cx="-4.08" cy="-11.56" r="2.21"/>
-    <circle cx="4.08" cy="-11.56" r="2.21"/></g><g transform="rotate(270)">
-    <rect x="-3.4000000000000004" y="-12.24" width="6.800000000000001" height="12.24" rx="1.02"/>
-    <circle cx="0" cy="-14.28" r="2.72"/>
-    <circle cx="-4.08" cy="-11.56" r="2.21"/>
-    <circle cx="4.08" cy="-11.56" r="2.21"/></g><circle r="4.760000000000001"/></g></g>
-  <g transform="translate(951 500)"><g fill="url(#trim)"><g transform="rotate(0)">
-    <rect x="-3.4000000000000004" y="-12.24" width="6.800000000000001" height="12.24" rx="1.02"/>
-    <circle cx="0" cy="-14.28" r="2.72"/>
-    <circle cx="-4.08" cy="-11.56" r="2.21"/>
-    <circle cx="4.08" cy="-11.56" r="2.21"/></g><g transform="rotate(90)">
-    <rect x="-3.4000000000000004" y="-12.24" width="6.800000000000001" height="12.24" rx="1.02"/>
-    <circle cx="0" cy="-14.28" r="2.72"/>
-    <circle cx="-4.08" cy="-11.56" r="2.21"/>
-    <circle cx="4.08" cy="-11.56" r="2.21"/></g><g transform="rotate(180)">
-    <rect x="-3.4000000000000004" y="-12.24" width="6.800000000000001" height="12.24" rx="1.02"/>
-    <circle cx="0" cy="-14.28" r="2.72"/>
-    <circle cx="-4.08" cy="-11.56" r="2.21"/>
-    <circle cx="4.08" cy="-11.56" r="2.21"/></g><g transform="rotate(270)">
-    <rect x="-3.4000000000000004" y="-12.24" width="6.800000000000001" height="12.24" rx="1.02"/>
-    <circle cx="0" cy="-14.28" r="2.72"/>
-    <circle cx="-4.08" cy="-11.56" r="2.21"/>
-    <circle cx="4.08" cy="-11.56" r="2.21"/></g><circle r="4.760000000000001"/></g></g>
-  <g transform="translate(500 951)"><g fill="url(#trim)"><g transform="rotate(0)">
-    <rect x="-3" y="-10.799999999999999" width="6" height="10.799999999999999" rx="0.8999999999999999"/>
-    <circle cx="0" cy="-12.6" r="2.4"/>
-    <circle cx="-3.5999999999999996" cy="-10.200000000000001" r="1.9500000000000002"/>
-    <circle cx="3.5999999999999996" cy="-10.200000000000001" r="1.9500000000000002"/></g><g transform="rotate(90)">
-    <rect x="-3" y="-10.799999999999999" width="6" height="10.799999999999999" rx="0.8999999999999999"/>
-    <circle cx="0" cy="-12.6" r="2.4"/>
-    <circle cx="-3.5999999999999996" cy="-10.200000000000001" r="1.9500000000000002"/>
-    <circle cx="3.5999999999999996" cy="-10.200000000000001" r="1.9500000000000002"/></g><g transform="rotate(180)">
-    <rect x="-3" y="-10.799999999999999" width="6" height="10.799999999999999" rx="0.8999999999999999"/>
-    <circle cx="0" cy="-12.6" r="2.4"/>
-    <circle cx="-3.5999999999999996" cy="-10.200000000000001" r="1.9500000000000002"/>
-    <circle cx="3.5999999999999996" cy="-10.200000000000001" r="1.9500000000000002"/></g><g transform="rotate(270)">
-    <rect x="-3" y="-10.799999999999999" width="6" height="10.799999999999999" rx="0.8999999999999999"/>
-    <circle cx="0" cy="-12.6" r="2.4"/>
-    <circle cx="-3.5999999999999996" cy="-10.200000000000001" r="1.9500000000000002"/>
-    <circle cx="3.5999999999999996" cy="-10.200000000000001" r="1.9500000000000002"/></g><circle r="4.2"/></g></g>
-
-  <circle cx="500" cy="500" r="418" fill="url(#ground)"/>
-  <circle cx="500" cy="500" r="418" fill="none" stroke="url(#trim)" stroke-width="5"/>
-  <g fill="#dcae45" opacity="0.75"><circle cx="500.0" cy="94.0" r="2.6"/><circle cx="526.6" cy="94.9" r="2.6"/><circle cx="553.0" cy="97.5" r="2.6"/><circle cx="579.2" cy="101.8" r="2.6"/><circle cx="605.1" cy="107.8" r="2.6"/><circle cx="630.5" cy="115.5" r="2.6"/><circle cx="655.4" cy="124.9" r="2.6"/><circle cx="679.6" cy="135.9" r="2.6"/><circle cx="703.0" cy="148.4" r="2.6"/><circle cx="725.6" cy="162.4" r="2.6"/><circle cx="747.2" cy="177.9" r="2.6"/><circle cx="767.7" cy="194.8" r="2.6"/><circle cx="787.1" cy="212.9" r="2.6"/><circle cx="805.2" cy="232.3" r="2.6"/><circle cx="822.1" cy="252.8" r="2.6"/><circle cx="837.6" cy="274.4" r="2.6"/><circle cx="851.6" cy="297.0" r="2.6"/><circle cx="864.1" cy="320.4" r="2.6"/><circle cx="875.1" cy="344.6" r="2.6"/><circle cx="884.5" cy="369.5" r="2.6"/><circle cx="892.2" cy="394.9" r="2.6"/><circle cx="898.2" cy="420.8" r="2.6"/><circle cx="902.5" cy="447.0" r="2.6"/><circle cx="905.1" cy="473.4" r="2.6"/><circle cx="906.0" cy="500.0" r="2.6"/><circle cx="905.1" cy="526.6" r="2.6"/><circle cx="902.5" cy="553.0" r="2.6"/><circle cx="898.2" cy="579.2" r="2.6"/><circle cx="892.2" cy="605.1" r="2.6"/><circle cx="884.5" cy="630.5" r="2.6"/><circle cx="875.1" cy="655.4" r="2.6"/><circle cx="864.1" cy="679.6" r="2.6"/><circle cx="851.6" cy="703.0" r="2.6"/><circle cx="837.6" cy="725.6" r="2.6"/><circle cx="822.1" cy="747.2" r="2.6"/><circle cx="805.2" cy="767.7" r="2.6"/><circle cx="787.1" cy="787.1" r="2.6"/><circle cx="767.7" cy="805.2" r="2.6"/><circle cx="747.2" cy="822.1" r="2.6"/><circle cx="725.6" cy="837.6" r="2.6"/><circle cx="703.0" cy="851.6" r="2.6"/><circle cx="679.6" cy="864.1" r="2.6"/><circle cx="655.4" cy="875.1" r="2.6"/><circle cx="630.5" cy="884.5" r="2.6"/><circle cx="605.1" cy="892.2" r="2.6"/><circle cx="579.2" cy="898.2" r="2.6"/><circle cx="553.0" cy="902.5" r="2.6"/><circle cx="526.6" cy="905.1" r="2.6"/><circle cx="500.0" cy="906.0" r="2.6"/><circle cx="473.4" cy="905.1" r="2.6"/><circle cx="447.0" cy="902.5" r="2.6"/><circle cx="420.8" cy="898.2" r="2.6"/><circle cx="394.9" cy="892.2" r="2.6"/><circle cx="369.5" cy="884.5" r="2.6"/><circle cx="344.6" cy="875.1" r="2.6"/><circle cx="320.4" cy="864.1" r="2.6"/><circle cx="297.0" cy="851.6" r="2.6"/><circle cx="274.4" cy="837.6" r="2.6"/><circle cx="252.8" cy="822.1" r="2.6"/><circle cx="232.3" cy="805.2" r="2.6"/><circle cx="212.9" cy="787.1" r="2.6"/><circle cx="194.8" cy="767.7" r="2.6"/><circle cx="177.9" cy="747.2" r="2.6"/><circle cx="162.4" cy="725.6" r="2.6"/><circle cx="148.4" cy="703.0" r="2.6"/><circle cx="135.9" cy="679.6" r="2.6"/><circle cx="124.9" cy="655.4" r="2.6"/><circle cx="115.5" cy="630.5" r="2.6"/><circle cx="107.8" cy="605.1" r="2.6"/><circle cx="101.8" cy="579.2" r="2.6"/><circle cx="97.5" cy="553.0" r="2.6"/><circle cx="94.9" cy="526.6" r="2.6"/><circle cx="94.0" cy="500.0" r="2.6"/><circle cx="94.9" cy="473.4" r="2.6"/><circle cx="97.5" cy="447.0" r="2.6"/><circle cx="101.8" cy="420.8" r="2.6"/><circle cx="107.8" cy="394.9" r="2.6"/><circle cx="115.5" cy="369.5" r="2.6"/><circle cx="124.9" cy="344.6" r="2.6"/><circle cx="135.9" cy="320.4" r="2.6"/><circle cx="148.4" cy="297.0" r="2.6"/><circle cx="162.4" cy="274.4" r="2.6"/><circle cx="177.9" cy="252.8" r="2.6"/><circle cx="194.8" cy="232.3" r="2.6"/><circle cx="212.9" cy="212.9" r="2.6"/><circle cx="232.3" cy="194.8" r="2.6"/><circle cx="252.8" cy="177.9" r="2.6"/><circle cx="274.4" cy="162.4" r="2.6"/><circle cx="297.0" cy="148.4" r="2.6"/><circle cx="320.4" cy="135.9" r="2.6"/><circle cx="344.6" cy="124.9" r="2.6"/><circle cx="369.5" cy="115.5" r="2.6"/><circle cx="394.9" cy="107.8" r="2.6"/><circle cx="420.8" cy="101.8" r="2.6"/><circle cx="447.0" cy="97.5" r="2.6"/><circle cx="473.4" cy="94.9" r="2.6"/></g>
-
-  <circle cx="500" cy="322" r="214" fill="#330906"/>
-  <g clip-path="url(#viewClip)"><g filter="url(#vivid)"><svg x="286" y="108" width="428" height="428" viewBox="0 0 400 400">
+  <g clip-path="url(#disc)">
+    <rect x="0" y="0" width="1000" height="1000" fill="#4f0e09"/>
+    <g transform="translate(86.4 28.3) scale(2.0678)">
   <defs>
     <linearGradient id="welcome-facade" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#2b0d0d"/>
@@ -199,15 +129,15 @@
   </defs>
 
   <!-- facade -->
-  <rect width="400" height="400" fill="url(#welcome-facade)"/>
+  <rect x="-160" y="-160" width="720" height="720" fill="url(#welcome-facade)"/>
   <g stroke="#1a0807" stroke-width="1.3" fill="none" opacity="0.7">
-    <path d="M0 40 H400 M0 82 H400 M0 124 H400 M0 166 H400 M0 208 H400 M0 250 H400"/>
+    <path d="M-160 40 H560 M0 82 H560 M0 124 H560 M0 166 H560 M0 208 H560 M0 250 H560"/>
     <path d="M30 0 V40 M110 0 V40 M290 0 V40 M370 0 V40 M70 40 V82 M330 40 V82 M30 82 V124 M370 82 V124 M60 124 V166 M340 124 V166 M20 166 V208 M380 166 V208 M64 208 V250 M336 208 V250 M28 250 V286 M372 250 V286"/>
   </g>
   <g stroke="#6e1a14" stroke-width="0.8" fill="none" opacity="0.5">
-    <path d="M0 41.5 H400 M0 83.5 H400 M0 125.5 H400 M0 167.5 H400 M0 209.5 H400 M0 251.5 H400"/>
+    <path d="M-160 41.5 H560 M0 83.5 H560 M0 125.5 H560 M0 167.5 H560 M0 209.5 H560 M0 251.5 H560"/>
   </g>
-  <rect width="400" height="400" fill="url(#welcome-facadeGlow)"/>
+  <rect x="-160" y="-160" width="720" height="720" fill="url(#welcome-facadeGlow)"/>
 
   <!-- archivolt -->
   <path d="M96 290 V130 A104 104 0 0 1 304 130 V290 Z" fill="#2b120c"/>
@@ -392,8 +322,8 @@
     <path d="M40 312 H360 V326 H40 Z" fill="url(#welcome-stepTop)"/>
     <path d="M24 326 H376 V340 H24 Z" fill="url(#welcome-riser)"/>
     <path d="M20 340 H380 V356 H20 Z" fill="url(#welcome-stepTop)"/>
-    <path d="M0 356 H400 V372 H0 Z" fill="url(#welcome-riser)"/>
-    <path d="M0 372 H400 V400 H0 Z" fill="url(#welcome-stepTop)"/>
+    <path d="M-160 356 H560 V372 H-160 Z" fill="url(#welcome-riser)"/>
+    <path d="M-160 372 H560 V560 H-160 Z" fill="url(#welcome-stepTop)"/>
     <g stroke="#b07a4a" stroke-width="1" opacity="0.55">
       <path d="M60 284.5 H340 M44 300.5 H356 M40 312.5 H360 M24 326.5 H376 M20 340.5 H380 M0 356.5 H400 M0 372.5 H400"/>
     </g>
@@ -410,24 +340,27 @@
     <path d="M112 300 H288 M106 312 H294 M96 326 H304 M88 340 H312 M78 356 H322 M68 372 H332"/>
   </g>
   <!-- the steps' shadow on the sides -->
-  <path d="M0 284 H60 L40 400 H0 Z M400 284 H340 L360 400 H400 Z" fill="#1a0807" opacity="0.35"/>
+  <path d="M-160 284 H60 L40 560 H-160 Z M400 284 H340 L360 560 H560 Z" fill="#1a0807" opacity="0.35"/>
 
   <radialGradient id="welcome-vig" cx="200" cy="200" r="205" gradientUnits="userSpaceOnUse">
     <stop offset="0.62" stop-color="#1a0807" stop-opacity="0"/>
     <stop offset="1" stop-color="#1a0807" stop-opacity="0.7"/>
   </radialGradient>
-  <rect width="400" height="400" fill="url(#welcome-vig)"/>
-</svg></g></g>
-  <circle cx="500" cy="322" r="214" fill="none" stroke="url(#trim)" stroke-width="8"/>
-  <circle cx="500" cy="322" r="224" fill="none" stroke="#dcae45" stroke-width="1.5" opacity="0.7"/>
+  <rect x="-160" y="-160" width="720" height="720" fill="url(#welcome-vig)"/>
+</g>
+    <rect x="0" y="0" width="1000" height="230" fill="url(#topShade)"/>
+    <rect x="0" y="610" width="1000" height="390" fill="url(#lowShade)"/>
+  </g>
 
-  <text x="500" y="628" text-anchor="middle" font-family="Georgia" font-size="50"
+  <text transform="translate(260.6 135.6) rotate(-33.31)" text-anchor="middle" font-family="Georgia" font-size="27" font-weight="bold" fill="#f9efec">S</text><text transform="translate(279.6 123.8) rotate(-30.36)" text-anchor="middle" font-family="Georgia" font-size="27" font-weight="bold" fill="#f9efec">T</text><text transform="translate(295.4 115.0) rotate(-27.98)" text-anchor="middle" font-family="Georgia" font-size="27" font-weight="bold" fill="#f9efec">.</text><text transform="translate(322.9 101.6) rotate(-23.97)" text-anchor="middle" font-family="Georgia" font-size="27" font-weight="bold" fill="#f9efec">P</text><text transform="translate(346.7 91.8) rotate(-20.58)" text-anchor="middle" font-family="Georgia" font-size="27" font-weight="bold" fill="#f9efec">H</text><text transform="translate(367.8 84.5) rotate(-17.66)" text-anchor="middle" font-family="Georgia" font-size="27" font-weight="bold" fill="#f9efec">I</text><text transform="translate(386.5 79.0) rotate(-15.08)" text-anchor="middle" font-family="Georgia" font-size="27" font-weight="bold" fill="#f9efec">L</text><text transform="translate(410.3 73.3) rotate(-11.87)" text-anchor="middle" font-family="Georgia" font-size="27" font-weight="bold" fill="#f9efec">O</text><text transform="translate(434.6 68.9) rotate(-8.62)" text-anchor="middle" font-family="Georgia" font-size="27" font-weight="bold" fill="#f9efec">P</text><text transform="translate(458.5 66.0) rotate(-5.47)" text-anchor="middle" font-family="Georgia" font-size="27" font-weight="bold" fill="#f9efec">A</text><text transform="translate(482.3 64.4) rotate(-2.32)" text-anchor="middle" font-family="Georgia" font-size="27" font-weight="bold" fill="#f9efec">T</text><text transform="translate(505.8 64.0) rotate(0.76)" text-anchor="middle" font-family="Georgia" font-size="27" font-weight="bold" fill="#f9efec">E</text><text transform="translate(530.5 65.1) rotate(4.01)" text-anchor="middle" font-family="Georgia" font-size="27" font-weight="bold" fill="#f9efec">R</text><text transform="translate(568.8 69.5) rotate(9.09)" text-anchor="middle" font-family="Georgia" font-size="27" font-weight="bold" fill="#f9efec">&amp;</text><text transform="translate(604.8 76.8) rotate(13.91)" text-anchor="middle" font-family="Georgia" font-size="27" font-weight="bold" fill="#f9efec">S</text><text transform="translate(626.4 82.7) rotate(16.86)" text-anchor="middle" font-family="Georgia" font-size="27" font-weight="bold" fill="#f9efec">T</text><text transform="translate(643.6 88.3) rotate(19.24)" text-anchor="middle" font-family="Georgia" font-size="27" font-weight="bold" fill="#f9efec">.</text><text transform="translate(675.8 101.0) rotate(23.78)" text-anchor="middle" font-family="Georgia" font-size="27" font-weight="bold" fill="#f9efec">M</text><text transform="translate(697.4 111.2) rotate(26.92)" text-anchor="middle" font-family="Georgia" font-size="27" font-weight="bold" fill="#f9efec">I</text><text transform="translate(716.3 121.4) rotate(29.74)" text-anchor="middle" font-family="Georgia" font-size="27" font-weight="bold" fill="#f9efec">N</text><text transform="translate(738.2 134.8) rotate(33.11)" text-anchor="middle" font-family="Georgia" font-size="27" font-weight="bold" fill="#f9efec">A</text>
+
+  <text x="500" y="752" text-anchor="middle" font-family="Georgia" font-size="50"
         font-weight="bold" letter-spacing="5" fill="#f9efec">WELCOME NEWCOMERS</text>
 
-  <rect x="280" y="676" width="440" height="78" rx="39" fill="#c4261a" stroke="url(#trim)" stroke-width="3"/>
-  <g transform="translate(340 715) scale(0.72)"><circle cx="-30" cy="0" r="7" fill="#f9efec"/><path d="M-14.73596875004335 -14.040000000000001A18 18 0 0 1 -14.73596875004335 14.040000000000001" fill="none" stroke="#f9efec" stroke-width="7" stroke-linecap="round"/><path d="M-4.723496527859659 -26.52A34 34 0 0 1 -4.723496527859659 26.52" fill="none" stroke="#f9efec" stroke-width="7" stroke-linecap="round"/><path d="M5.28897569432403 -39A50 50 0 0 1 5.28897569432403 39" fill="none" stroke="#f9efec" stroke-width="7" stroke-linecap="round"/></g>
-  <text x="534" y="726" text-anchor="middle" font-family="Georgia" font-size="31" font-weight="bold"
-        letter-spacing="2" fill="#f9efec">TAP YOUR PHONE</text>
+  <rect x="280" y="778" width="440" height="78" rx="39" fill="#f9efec"/>
+  <g transform="translate(340 817) scale(0.72)"><circle cx="-30" cy="0" r="7" fill="#c4261a"/><path d="M-14.73596875004335 -14.040000000000001A18 18 0 0 1 -14.73596875004335 14.040000000000001" fill="none" stroke="#c4261a" stroke-width="7" stroke-linecap="round"/><path d="M-4.723496527859659 -26.52A34 34 0 0 1 -4.723496527859659 26.52" fill="none" stroke="#c4261a" stroke-width="7" stroke-linecap="round"/><path d="M5.28897569432403 -39A50 50 0 0 1 5.28897569432403 39" fill="none" stroke="#c4261a" stroke-width="7" stroke-linecap="round"/></g>
+  <text x="534" y="828" text-anchor="middle" font-family="Georgia" font-size="31" font-weight="bold"
+        letter-spacing="2" fill="#7a1a12">TAP YOUR PHONE</text>
 
-  <text x="500" y="812" text-anchor="middle" font-family="Georgia" font-size="25" fill="#f9efec" opacity="0.85">www.spsmwayland.org/c/welcome</text>
+  <text x="500" y="900" text-anchor="middle" font-family="Georgia" font-size="23" fill="#f3d7d2">www.spsmwayland.org/c/welcome</text>
 </svg>

@@ -8,27 +8,35 @@
  * picture rather than a paragraph. Top to bottom:
  *
  *   - the church's name over the rim, so it reads as the parish's tag;
- *   - an illustration in a gold-framed window — a scene, not an icon, from
- *     `scripts/nfc-scenes/<slug>.svg`;
- *   - the name;
+ *   - the scene from `scripts/nfc-scenes/<slug>.svg`, filling the sticker;
+ *   - the name, on a maroon shade that rises over the foot of the picture;
  *   - TAP YOUR PHONE, with the contactless mark;
  *   - the URL, lowercase and with `www.`, for a phone that cannot read NFC.
  *
+ * ## No border, and why
+ *
+ * The printer (Seritag) cuts to about 1mm. A ring or a change of colour near the
+ * cut shows plainly when the print lands off-centre, so nothing here is drawn
+ * concentric with the edge: the picture and the shade run straight out to it.
+ * An off-centre cut trims a sliver of picture, which nobody can see.
+ *
  * ## The scenes
  *
- * Each is a standalone 400x400 SVG, drawn to be clipped to the circle of radius
- * 200 at its centre, and opened on its own in any viewer to work on it. Their
- * ids are prefixed with the slug, because every one is inlined into a sticker
- * that has defs of its own. They have to render in librsvg, which is what
- * draws the PNGs: no `<textPath>`, no CSS, no `<foreignObject>`.
+ * Each is a standalone 400x400 SVG, opened on its own in any viewer to work on
+ * it. Their ids are prefixed with the slug, because every one is inlined into a
+ * sticker that has defs of its own. They have to render in librsvg, which is
+ * what draws the PNGs: no `<textPath>`, no CSS, no `<foreignObject>`. Each is
+ * framed by its entry in `FRAMING` (scene-art.mjs) and widened by
+ * `extendScene`, so that its top and its subject both show.
  *
- * ## Size
+ * ## Size, and bleed
  *
- * Drawn on a 1000-unit circle and written as SVG (scales to anything) and as a
- * 1200x1200 PNG with a transparent corner, which is 400 dpi at 3 inches. Sticker
- * printers that cut to shape add their own bleed from the circle's edge; for one
- * that wants it in the file, `--bleed` paints the ground out to the square.
- * `--only <slug>` renders one, which is the loop for working on a scene.
+ * Drawn on a 1000-unit circle. `store/nfc-stickers/<slug>.{svg,png}` is the
+ * circle, 1200px (400 dpi at 3 inches), for looking at and for `sheet.png`.
+ * `store/nfc-stickers/bleed/` is what goes to the printer: the same art on a
+ * square carried `BLEED_MM` past the cut on every side, so a cut that wanders
+ * lands on picture rather than on bare stock. `--only <slug>` renders one, which
+ * is the loop for working on a scene.
  *
  * ## Taksis
  *
@@ -44,34 +52,31 @@ import { promisify } from 'node:util';
 
 import { root, sharp } from './brand.mjs';
 import { INK } from './clip-symbols.mjs';
+import { FRAMING, extendScene, readScene } from './scene-art.mjs';
 
 const run = promisify(execFile);
 
 const ORIGIN = 'www.spsmwayland.org';
 const PNG_SIZE = 1200;
-const BLEED = process.argv.includes('--bleed');
+/** The sticker is 3 inches across, on a 1000-unit circle. */
+const MM = 1000 / 76.2;
+/** How far the printer's file carries the art past the cut. */
+const BLEED_MM = 2;
 const ONLY = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;
 
 /*
  * One palette for all nine, Taksis's included: on a wall of tags they read as
- * one set, and the illustration is what tells them apart.
- *
- * The church's maroon and the website's gold (`--color-gold`, #b08d43), both
- * pushed brighter than the theme's own values. The theme is tuned for text on
- * a screen; a sticker on a church wall is lit by whatever is in the room and
- * has to carry from across it.
+ * one set, and the picture is what tells them apart. The church's maroon, with
+ * the red pushed brighter than the theme's for a sticker lit by whatever is in
+ * the room.
  */
 const PALETTE = {
   ink: INK,
+  maroon: '#7a1a12',
+  deep: '#4f0e09',
+  shade: '#1a0503',
   accent: '#c4261a',
-  groundIn: '#6a1811',
-  groundOut: '#330906',
-  band: '#a8231a',
-  bandEdge: '#6a120b',
-  trimHigh: '#fff0b8',
-  trim: '#dcae45',
-  trimLow: '#a07824',
-  lettering: '#ffeab0',
+  url: '#f3d7d2',
 };
 
 /** The nine. `label` is the sticker's name, set in tracked capitals. */
@@ -138,107 +143,65 @@ function rim(text, color, c, { radius, size, tracking, bottom = false }) {
 }
 
 /**
- * A Coptic cross, centred on 0,0 and `s` across: four equal arms, each ending
- * in the three knobs that make it Coptic rather than Greek.
+ * One sticker. With `bleed`, the canvas grows `BLEED_MM` past the circle on
+ * every side and nothing is clipped to it; without, it is the circle alone.
  */
-function copticCross(s, fill) {
-  const arm = `
-    <rect x="${-0.1 * s}" y="${-0.36 * s}" width="${0.2 * s}" height="${0.36 * s}" rx="${0.03 * s}"/>
-    <circle cx="0" cy="${-0.42 * s}" r="${0.08 * s}"/>
-    <circle cx="${-0.12 * s}" cy="${-0.34 * s}" r="${0.065 * s}"/>
-    <circle cx="${0.12 * s}" cy="${-0.34 * s}" r="${0.065 * s}"/>`;
-  return `<g fill="${fill}">${[0, 90, 180, 270]
-    .map((deg) => `<g transform="rotate(${deg})">${arm}</g>`)
-    .join('')}<circle r="${0.14 * s}"/></g>`;
-}
-
-/** Dots evenly round a circle — the beading inside the ribbon. */
-function beads(c, radius, count, r, fill, opacity) {
-  return Array.from({ length: count }, (_, i) => {
-    const a = (i / count) * Math.PI * 2;
-    return `<circle cx="${(c + radius * Math.sin(a)).toFixed(1)}" cy="${(c - radius * Math.cos(a)).toFixed(1)}" r="${r}"/>`;
-  })
-    .join('')
-    .replace(/^/, `<g fill="${fill}" opacity="${opacity}">`)
-    .concat('</g>');
-}
-
-/** A scene file's contents, re-rooted in a window `size` across at x, y. */
-function window_(scene, x, y, size) {
-  const inner = scene.slice(scene.indexOf('>', scene.indexOf('<svg')) + 1, scene.lastIndexOf('</svg>'));
-  return `<svg x="${x}" y="${y}" width="${size}" height="${size}" viewBox="0 0 400 400">${inner}</svg>`;
-}
-
-function stickerSvg({ slug, label, fontSize: size_ }, scene) {
+function stickerSvg({ slug, label, fontSize: size_ }, scene, { bleed = false } = {}) {
   const p = PALETTE;
   const size = 1000;
   const c = size / 2;
+  const b = bleed ? BLEED_MM * MM : 0;
+  const box = `${-b} ${-b} ${size + 2 * b} ${size + 2 * b}`;
+  const span = { x: -b, y: -b, w: size + 2 * b };
 
-  /* The ribbon is the band between these two; the field is inside it. */
-  const outer = 488;
-  const field = 418;
-  const view = { cy: 322, r: 214 };
+  /*
+   * The scene is scaled so its `top` lands just under the rim's lettering and
+   * its `focus` just over the name, and centred across. Wherever that leaves
+   * the square short of the edge, `extendScene` has carried its background on.
+   */
+  const { top, focus } = FRAMING[slug];
+  const scale = 610 / (focus - top);
+  const sceneX = c - 200 * scale;
+  const sceneY = 690 - focus * scale;
 
-  const fontSize = size_ ?? Math.round(Math.min(78, 560 / Math.max(label.length, 5)));
+  const fontSize = size_ ?? Math.round(Math.min(64, 560 / Math.max(label.length, 5)));
   const url = `${ORIGIN}/c/${slug}`;
+  const px = Math.round(PNG_SIZE * (size + 2 * b) / size);
 
-  const ground = BLEED
-    ? `<rect width="${size}" height="${size}" fill="url(#band)"/>`
-    : `<circle cx="${c}" cy="${c}" r="${c}" fill="url(#band)"/>`;
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${px}" height="${px}" viewBox="${box}">
   <defs>
-    <radialGradient id="band" cx="50%" cy="50%" r="50%">
-      <stop offset="80%" stop-color="${p.band}"/>
-      <stop offset="100%" stop-color="${p.bandEdge}"/>
-    </radialGradient>
-    <radialGradient id="ground" cx="50%" cy="36%" r="60%">
-      <stop offset="0%" stop-color="${p.groundIn}"/>
-      <stop offset="100%" stop-color="${p.groundOut}"/>
-    </radialGradient>
-    <linearGradient id="trim" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="${p.trimHigh}"/>
-      <stop offset="50%" stop-color="${p.trim}"/>
-      <stop offset="100%" stop-color="${p.trimLow}"/>
+    <!-- Behind the church's name, so it reads over a bright sky. -->
+    <linearGradient id="topShade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${p.shade}" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="${p.shade}" stop-opacity="0"/>
     </linearGradient>
-    <!-- The scenes were drawn dim and candlelit; this lifts them to match the frame. -->
-    <filter id="vivid" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
-      <feColorMatrix type="saturate" values="1.3"/>
-      <feComponentTransfer>
-        <feFuncR type="linear" slope="1.12" intercept="0.02"/>
-        <feFuncG type="linear" slope="1.12" intercept="0.02"/>
-        <feFuncB type="linear" slope="1.12" intercept="0.02"/>
-      </feComponentTransfer>
-    </filter>
-    <clipPath id="viewClip"><circle cx="${c}" cy="${view.cy}" r="${view.r}"/></clipPath>
+    <!-- The shade the words sit on: clear over the picture, nearly solid by the URL. -->
+    <linearGradient id="lowShade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${p.deep}" stop-opacity="0"/>
+      <stop offset="0.25" stop-color="${p.deep}" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="${p.deep}" stop-opacity="0.97"/>
+    </linearGradient>
+    <clipPath id="disc"><circle cx="${c}" cy="${c}" r="${c}"/></clipPath>
   </defs>
 
-  ${ground}
-  <circle cx="${c}" cy="${c}" r="${outer}" fill="none" stroke="url(#trim)" stroke-width="7"/>
-  <circle cx="${c}" cy="${c}" r="${outer - 11}" fill="none" stroke="${p.trim}" stroke-width="1.5" opacity="0.7"/>
-  ${rim('ST. PHILOPATER & ST. MINA', p.lettering, c, { radius: 436, size: 30, tracking: 5 })}
-  <g transform="translate(${c - 451} ${c})">${copticCross(34, 'url(#trim)')}</g>
-  <g transform="translate(${c + 451} ${c})">${copticCross(34, 'url(#trim)')}</g>
-  <g transform="translate(${c} ${c + 451})">${copticCross(30, 'url(#trim)')}</g>
+  <g${bleed ? '' : ' clip-path="url(#disc)"'}>
+    <rect x="${span.x}" y="${span.y}" width="${span.w}" height="${span.w}" fill="${p.deep}"/>
+    ${scene ? `<g transform="translate(${sceneX.toFixed(1)} ${sceneY.toFixed(1)}) scale(${scale.toFixed(4)})">${extendScene(scene)}</g>` : ''}
+    <rect x="${span.x}" y="${span.y}" width="${span.w}" height="${230 + b}" fill="url(#topShade)"/>
+    <rect x="${span.x}" y="610" width="${span.w}" height="${390 + b}" fill="url(#lowShade)"/>
+  </g>
 
-  <circle cx="${c}" cy="${c}" r="${field}" fill="url(#ground)"/>
-  <circle cx="${c}" cy="${c}" r="${field}" fill="none" stroke="url(#trim)" stroke-width="5"/>
-  ${beads(c, field - 12, 96, 2.6, p.trim, 0.75)}
+  ${rim('ST. PHILOPATER & ST. MINA', p.ink, c, { radius: 436, size: 27, tracking: 5 })}
 
-  <circle cx="${c}" cy="${view.cy}" r="${view.r}" fill="${p.groundOut}"/>
-  <g clip-path="url(#viewClip)"><g filter="url(#vivid)">${scene ? window_(scene, c - view.r, view.cy - view.r, view.r * 2) : ''}</g></g>
-  <circle cx="${c}" cy="${view.cy}" r="${view.r}" fill="none" stroke="url(#trim)" stroke-width="8"/>
-  <circle cx="${c}" cy="${view.cy}" r="${view.r + 10}" fill="none" stroke="${p.trim}" stroke-width="1.5" opacity="0.7"/>
-
-  <text x="${c}" y="${view.cy + view.r + 92}" text-anchor="middle" font-family="Georgia" font-size="${fontSize}"
+  <text x="${c}" y="752" text-anchor="middle" font-family="Georgia" font-size="${fontSize}"
         font-weight="bold" letter-spacing="${fontSize * 0.1}" fill="${p.ink}">${escape(label.toUpperCase())}</text>
 
-  <rect x="${c - 220}" y="676" width="440" height="78" rx="39" fill="${p.accent}" stroke="url(#trim)" stroke-width="3"/>
-  <g transform="translate(${c - 160} 715) scale(0.72)">${contactless(p.ink)}</g>
-  <text x="${c + 34}" y="726" text-anchor="middle" font-family="Georgia" font-size="31" font-weight="bold"
-        letter-spacing="2" fill="${p.ink}">TAP YOUR PHONE</text>
+  <rect x="${c - 220}" y="778" width="440" height="78" rx="39" fill="${p.ink}"/>
+  <g transform="translate(${c - 160} 817) scale(0.72)">${contactless(p.accent)}</g>
+  <text x="${c + 34}" y="828" text-anchor="middle" font-family="Georgia" font-size="31" font-weight="bold"
+        letter-spacing="2" fill="${p.maroon}">TAP YOUR PHONE</text>
 
-  <text x="${c}" y="812" text-anchor="middle" font-family="Georgia" font-size="25" fill="${p.ink}" opacity="0.85">${escape(url)}</text>
+  <text x="${c}" y="900" text-anchor="middle" font-family="Georgia" font-size="23" fill="${p.url}">${escape(url)}</text>
 </svg>`;
 }
 
@@ -263,20 +226,20 @@ async function main() {
   const out = join(root, 'store', 'nfc-stickers');
   await mkdir(out, { recursive: true });
 
+  await mkdir(join(out, 'bleed'), { recursive: true });
+
   const pngs = [];
   for (const sticker of STICKERS.filter((s) => !ONLY || s.slug === ONLY)) {
-    const scene = await readFile(join(root, 'scripts', 'nfc-scenes', `${sticker.slug}.svg`), 'utf8').catch(() => {
-      console.warn(`  ${sticker.slug}: no scene yet, window left empty.`);
-      return null;
-    });
-    const svgFile = join(out, `${sticker.slug}.svg`);
-    await writeFile(svgFile, stickerSvg(sticker, scene));
-    const { stdout } = await run('rsvg-convert', ['-w', String(PNG_SIZE), '-h', String(PNG_SIZE), svgFile], {
-      encoding: 'buffer',
-      maxBuffer: 64 * 1024 * 1024,
-    });
-    await writeFile(join(out, `${sticker.slug}.png`), stdout);
-    pngs.push(stdout);
+    const scene = await readScene(sticker.slug);
+    if (!scene) console.warn(`  ${sticker.slug}: no scene yet, picture left empty.`);
+
+    for (const [dir, bleed] of [[out, false], [join(out, 'bleed'), true]]) {
+      const svgFile = join(dir, `${sticker.slug}.svg`);
+      await writeFile(svgFile, stickerSvg(sticker, scene, { bleed }));
+      const { stdout } = await run('rsvg-convert', [svgFile], { encoding: 'buffer', maxBuffer: 64 * 1024 * 1024 });
+      await writeFile(join(dir, `${sticker.slug}.png`), stdout);
+      if (!bleed) pngs.push(stdout);
+    }
     console.log(`  ${sticker.slug.padEnd(17)} https://${ORIGIN}/c/${sticker.slug}`);
   }
 
@@ -306,7 +269,7 @@ async function main() {
     .png()
     .toFile(join(out, 'sheet.png'));
 
-  console.log(`\nWritten to store/nfc-stickers/ (${BLEED ? 'square bleed' : 'circle'}), plus sheet.png.`);
+  console.log(`\nWritten to store/nfc-stickers/ (circles, plus sheet.png) and bleed/ (${BLEED_MM}mm past the cut, for the printer).`);
 }
 
 await main();

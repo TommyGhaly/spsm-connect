@@ -8,34 +8,19 @@
  * somebody sees at the bottom of the screen when they tap a tag by a door, and
  * it is the only thing about this app most of them will ever look at.
  *
- * ## It is Taksis's card, in this church's colours
+ * ## It is the sticker's picture
  *
- * The parish's other app already has one — `car.png`, the vehicle registration
- * card — and the two apps belong to the same church and will be seen by the same
- * people, often in the same car park. So the *composition* is deliberately
- * copied from it rather than invented:
+ * Somebody taps a tag by a door, and the card rises a second later. The tag has
+ * a picture on it (the scene in `scripts/nfc-scenes/<slug>.svg`) and the card
+ * shows the same one, whole, at the right, so they know at a glance that the
+ * phone has understood which tag it was. The name sits in a maroon column on
+ * the left, over the scene's own background carried on by `extendScene`, with
+ * the church's name above it.
  *
- *   - a near-black ground with a soft radial glow behind the subject;
- *   - one large flat symbol, centred high, filled with a light-to-brand
- *     gradient and floated over a blurred shadow;
- *   - the name under it in tracked uppercase;
- *   - a short accent rule beneath that.
- *
- * What is *not* copied is the palette or the type. Taksis is blue on black and
- * sets its label in a heavy geometric sans; this church is `deep` maroon and
- * sets everything in Georgia, which is what `brand.mjs` bakes into the icons and
- * the splash. Same family, different member — a card that copied the blue too
- * would say Taksis to anybody who has both.
- *
- * ## The eight symbols are the app's own tab glyphs
- *
- * A gift, a calendar, four tiles, a doorway, a building, a bag, a document, a
- * camera. Redrawn here as filled shapes rather than reused from
- * `components/Icon.tsx` — those are React Native SVG *elements*, which cannot be
- * rendered by a Node script, and they are 1.6px strokes designed to be read at
- * 24px. At 500px on a card a hairline outline looks like a mistake. The
- * silhouettes match so that the card and the tab bar are recognisably the same
- * drawing.
+ * This replaced a card modelled on Taksis's `car.png`: one flat symbol, lit, on
+ * near-black. It matched Taksis, but a gift-box symbol said *a* gift; the scene
+ * says this church's candles and offering box, and it matches the tag, which is
+ * the thing in the person's hand.
  *
  * ## Apple's rules, and the one judgement call
  *
@@ -67,16 +52,8 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
 import { root, sharp } from './brand.mjs';
-import {
-  ACCENT,
-  DEEP,
-  GROUND_IN,
-  GROUND_OUT,
-  INK,
-  SUBJECT_LOW,
-  SUBJECT_MID,
-  SYMBOLS,
-} from './clip-symbols.mjs';
+import { ACCENT, DEEP, GROUND_OUT, INK } from './clip-symbols.mjs';
+import { extendScene, readScene } from './scene-art.mjs';
 
 const run = promisify(execFile);
 
@@ -84,114 +61,107 @@ const run = promisify(execFile);
 const CARD = { width: 1800, height: 1200 };
 
 /**
- * The eight, in the order they are registered.
+ * The eight, in the order they are registered, and Taksis's.
  *
- * `label` is what is drawn on the image and is *not* always the App Store
- * Connect `title`: "Send a Photograph" is 16 characters of tracked uppercase and
- * becomes a thin ribbon of type at this width, so the card says PHOTOGRAPHS and
- * lets the title underneath say the rest. Where the title is already short it is
- * used unchanged.
+ * `lines` is what is drawn on the image, one entry per line, and is *not*
+ * always the App Store Connect `title`: the card sets the name large and
+ * stacked in a column beside the picture, so "Send a Photograph" becomes
+ * PHOTOGRAPHS and lets the title underneath say the rest. They are the
+ * stickers' names, so the tag and the card say the same word.
  */
 const CARDS = [
-  { slug: 'give', label: 'Give', symbol: 'gift' },
-  { slug: 'schedule', label: 'This Week', symbol: 'calendar' },
-  { slug: 'apps', label: 'Our Apps', symbol: 'apps' },
-  { slug: 'welcome', label: 'Welcome', symbol: 'door' },
-  { slug: 'plans', label: 'Our Plans', symbol: 'building' },
-  { slug: 'bookstore', label: 'Bookstore', symbol: 'bag' },
-  { slug: 'forms', label: 'Parish Forms', symbol: 'form' },
-  { slug: 'photos', label: 'Photographs', symbol: 'camera' },
+  { slug: 'give', lines: ['Give'] },
+  { slug: 'schedule', lines: ['This', 'Week'] },
+  { slug: 'apps', lines: ['Our', 'Apps'] },
+  { slug: 'welcome', lines: ['Welcome'] },
+  { slug: 'plans', lines: ['Our', 'Plans'] },
+  { slug: 'bookstore', lines: ['Book-', 'store'] },
+  { slug: 'forms', lines: ['Parish', 'Forms'] },
+  { slug: 'photos', lines: ['Photo-', 'graphs'] },
+  /*
+   * Taksis's, not this app's: uploaded against Taksis's own App Clip
+   * experience for /c/register-vehicle. Drawn here so it is laid out like the
+   * other eight, but in Taksis's blue rather than the church's maroon: it is
+   * the card for Taksis's App Clip, and should say Taksis.
+   */
+  { slug: 'register-vehicle', lines: ['Register', 'Car'], taksis: true, palette: 'taksis' },
 ];
+
+/**
+ * The card's colours. The church's are its theme's; Taksis's are its tint
+ * (`#147efb`) on a navy panel, and its scene, drawn in the church's reds like
+ * every scene, has its red and blue channels swapped — so the red car and the
+ * red night sky turn blue, and the warm lights turn a cool white-blue with them.
+ */
+const PALETTES = {
+  church: { deep: DEEP, accent: ACCENT, foot: GROUND_OUT, sceneFilter: null },
+  taksis: {
+    deep: '#071a33',
+    accent: '#147efb',
+    foot: '#020812',
+    sceneFilter: '0 0 1 0 0  0 1 0 0 0  1 0 0 0 0  0 0 0 1 0',
+  },
+};
 
 /**
  * One card, as SVG.
  *
- * The whole thing is one document rather than a composite of rasterised parts,
- * because everything here — the ground, the glow, the gradient on the subject,
- * the shadow, the type — is something SVG does natively and sharp would need a
- * separate pass for. `rsvg-convert` rasterises it in one go, and the font is
- * resolved by fontconfig exactly as it is in `brand.mjs`'s `typeInk`.
+ * The picture is the sticker's: the whole scene, 1200px square, standing at
+ * the right of the card, with its backgrounds carried on leftwards by
+ * `extendScene` under a maroon panel that holds the name. Somebody who has just
+ * tapped a tag sees the same picture rise up their screen, and that is what
+ * tells them they tapped the right thing; a symbol said *a* gift, and the scene
+ * says this church's offering box.
+ *
+ * The name is stacked, one word to a line and a long word hyphenated, and sized by its
+ * longest line so the column is as wide as the panel allows and no wider.
  */
-function cardSvg({ label, symbol }) {
+function cardSvg({ lines, palette = 'church' }, scene) {
   const { width, height } = CARD;
+  const { deep, accent, foot, sceneFilter } = PALETTES[palette];
+  const sceneX = width - height;
+  const scale = height / 400;
 
-  /*
-   * The subject's box, and the numbers that set the whole composition.
-   *
-   * 500px tall, centred horizontally and sitting high — its centre is at 40% of
-   * the height rather than 50%, which leaves the lower third for the name and
-   * the rule without either crowding the other. Taksis's proportions, measured
-   * off the card.
-   */
-  const box = 660;
-  const subjectLeft = (width - box) / 2;
-  const subjectTop = height * 0.4 - box / 2;
-  const scale = box / 512;
+  const left = 130;
+  const column = 600;
+  const longest = Math.max(...lines.map((line) => line.length));
+  const fontSize = Math.round(Math.min(160, column / (longest * 0.8)));
+  const leading = fontSize * 1.02;
+  const nameTop = height / 2 - ((lines.length - 1) * leading) / 2 + fontSize * 0.36;
 
-  /*
-   * Tracked uppercase, and the size is derived from the label's length rather
-   * than fixed: "Give" and "Parish Forms" differ by a factor of three in
-   * character count, and one size for both would either shrink the short label
-   * to nothing or run the long one off the card. 1180px of usable width divided
-   * by the character count, clamped so a very short word does not become
-   * absurd.
-   */
-  const letters = label.length;
-  const fontSize = Math.round(Math.min(132, Math.max(76, 1180 / Math.max(letters, 5))));
-  const tracking = fontSize * 0.14;
+  const escape = (text) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-  const escaped = label
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <defs>
-    <radialGradient id="ground" cx="50%" cy="40%" r="78%">
-      <stop offset="0%" stop-color="${GROUND_IN}"/>
-      <stop offset="100%" stop-color="${GROUND_OUT}"/>
-    </radialGradient>
-
-    <!-- The glow behind the subject. Accent at low alpha, falling to nothing
-         well inside the edges, so the card has a light source rather than a
-         coloured rectangle. -->
-    <radialGradient id="glow" cx="50%" cy="40%" r="46%">
-      <stop offset="0%" stop-color="${ACCENT}" stop-opacity="0.55"/>
-      <stop offset="60%" stop-color="${DEEP}" stop-opacity="0.22"/>
-      <stop offset="100%" stop-color="${DEEP}" stop-opacity="0"/>
-    </radialGradient>
-
-    <!-- Light at the top, brand colour at the bottom: the same direction
-         Taksis's car is lit from, so the two cards agree about where the
-         light is. -->
-    <linearGradient id="subject" x1="0" y1="0" x2="0.35" y2="1">
-      <stop offset="0%" stop-color="#ffffff"/>
-      <stop offset="45%" stop-color="${SUBJECT_MID}"/>
-      <stop offset="100%" stop-color="${SUBJECT_LOW}"/>
+    <!-- The panel: solid behind the name, gone by the time it reaches the subject. -->
+    <linearGradient id="panel" x1="0" y1="0" x2="${width}" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="${deep}" stop-opacity="0.97"/>
+      <stop offset="${(640 / width).toFixed(3)}" stop-color="${deep}" stop-opacity="0.9"/>
+      <stop offset="${(930 / width).toFixed(3)}" stop-color="${deep}" stop-opacity="0"/>
     </linearGradient>
-
-    <filter id="soften" x="-60%" y="-60%" width="220%" height="220%">
-      <feGaussianBlur stdDeviation="34"/>
-    </filter>
+    <!-- A little weight at the foot, where the card meets the sheet's title. -->
+    <linearGradient id="foot" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0.75" stop-color="${foot}" stop-opacity="0"/>
+      <stop offset="1" stop-color="${foot}" stop-opacity="0.45"/>
+    </linearGradient>
+    ${sceneFilter ? `<filter id="recolour" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="${sceneFilter}"/></filter>` : ''}
   </defs>
 
-  <rect width="${width}" height="${height}" fill="url(#ground)"/>
-  <rect width="${width}" height="${height}" fill="url(#glow)"/>
+  <rect width="${width}" height="${height}" fill="${deep}"/>
+  ${scene ? `<g${sceneFilter ? ' filter="url(#recolour)"' : ''}><g transform="translate(${sceneX} 0) scale(${scale})">${extendScene(scene)}</g></g>` : ''}
+  <rect width="${width}" height="${height}" fill="url(#panel)"/>
+  <rect width="${width}" height="${height}" fill="url(#foot)"/>
 
-  <!-- The shadow the subject floats over. An ellipse rather than a real
-       projection: it only has to say the symbol is above the ground. -->
-  <ellipse cx="${width / 2}" cy="${subjectTop + box * 0.98}" rx="${box * 0.42}" ry="${box * 0.055}"
-           fill="#000000" opacity="0.5" filter="url(#soften)"/>
+  <text x="${left}" y="${nameTop - fontSize - 70}" font-family="Georgia" font-size="29" font-weight="bold"
+        letter-spacing="5" fill="${INK}" opacity="0.8">ST. PHILOPATER &amp; ST. MINA</text>
+  <rect x="${left}" y="${nameTop - fontSize - 40}" width="120" height="7" rx="3.5" fill="${accent}"/>
 
-  <g transform="translate(${subjectLeft} ${subjectTop}) scale(${scale})">
-    ${SYMBOLS[symbol]}
-  </g>
-
-  <text x="${width / 2}" y="${height * 0.775}" text-anchor="middle"
-        font-family="Georgia" font-size="${fontSize}" font-weight="bold"
-        letter-spacing="${tracking}" fill="${INK}">${escaped.toUpperCase()}</text>
-
-  <rect x="${width / 2 - 165}" y="${height * 0.822}" width="330" height="8" rx="4" fill="${ACCENT}"/>
+  ${lines
+    .map(
+      (line, i) => `<text x="${left - fontSize * 0.04}" y="${(nameTop + i * leading).toFixed(1)}" font-family="Georgia"
+        font-size="${fontSize}" font-weight="bold" letter-spacing="${fontSize * 0.04}" fill="${INK}">${escape(line.toUpperCase())}</text>`,
+    )
+    .join('\n  ')}
 </svg>`;
 }
 
@@ -209,7 +179,7 @@ async function checkAgainstExperiences() {
   const table = source.slice(source.indexOf('export const EXPERIENCES'));
   const slugs = [...table.matchAll(/slug:\s*'([a-z-]+)'/g)].map((match) => match[1]);
 
-  const mine = CARDS.map((card) => card.slug);
+  const mine = CARDS.filter((card) => !card.taksis).map((card) => card.slug);
   const missing = slugs.filter((slug) => !mine.includes(slug));
   const extra = mine.filter((slug) => !slugs.includes(slug));
 
@@ -233,7 +203,7 @@ async function main() {
 
   for (const card of CARDS) {
     const file = join(tmpdir(), `spsm-clip-${card.slug}.svg`);
-    await writeFile(file, cardSvg(card));
+    await writeFile(file, cardSvg(card, await readScene(card.slug)));
 
     const { stdout } = await run('rsvg-convert', [file], {
       encoding: 'buffer',
@@ -260,7 +230,7 @@ async function main() {
     }
 
     await writeFile(join(out, `${card.slug}.png`), png);
-    console.log(`  ${card.slug.padEnd(10)} ${card.label}`);
+    console.log(`  ${card.slug.padEnd(16)} ${card.lines.join(' ').replace('- ', '')}${card.taksis ? '  (Taksis\'s, upload in Taksis)' : ''}`);
   }
 
   console.log(`\nWritten to store/clip-cards/. Upload each in App Store Connect →`);

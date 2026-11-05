@@ -14,6 +14,49 @@ import type { ExpoConfig } from 'expo/config';
 const IS_PRODUCTION = process.env.APP_VARIANT !== 'development';
 
 /*
+ * The site's paths this app opens instead of the browser, on Android.
+ *
+ * ---------------------------------------------------------------------------
+ * The same list `apple-app-site-association` gives SPSM Connect's `applinks`
+ * on iOS, written out again because Android has no equivalent of that file: on
+ * Android the *app* says which paths it claims, and `assetlinks.json` only says
+ * that the app may claim them. `src/clip/appLinks.test.ts` reads the iOS file
+ * from ../Website and fails when the two lists drift.
+ *
+ * An intent filter with hosts and no paths claims **every** URL on those hosts.
+ * That is what this replaced, and it sent the Taksis car-park tag
+ * (`/c/register-vehicle`) and every page of the website into this app, most of
+ * them to a not-found screen. iOS never did, because the association file
+ * names its paths.
+ *
+ * `exact` is Android's `path` and `prefix` its `pathPrefix`. AASA's `/events/*`
+ * is a prefix of `/events/`, with the trailing slash, so `/eventsfoo` stays on
+ * the website exactly as it does on iOS.
+ * ---------------------------------------------------------------------------
+ */
+export const ANDROID_LINK_PATHS: readonly ({ exact: string } | { prefix: string })[] = [
+  { exact: '/c/give' },
+  { exact: '/c/schedule' },
+  { exact: '/c/apps' },
+  { exact: '/c/welcome' },
+  { exact: '/c/plans' },
+  { exact: '/c/bookstore' },
+  { exact: '/c/forms' },
+  { exact: '/c/photos' },
+  { exact: '/events' },
+  { prefix: '/events/' },
+  { exact: '/calendar' },
+  { exact: '/forms' },
+  { prefix: '/forms/' },
+  { exact: '/bookstore' },
+  { exact: '/giving' },
+  { exact: '/apps' },
+  { exact: '/about/welcome-newcomers' },
+  { exact: '/about/future-plans' },
+  { exact: '/admin/camp/attendance' },
+];
+
+/*
  * Which Square the app talks to, and the two public ids that go with it.
  *
  * ---------------------------------------------------------------------------
@@ -165,7 +208,7 @@ const APPLE_PAY_MERCHANT_ID = process.env.APPLE_PAY_MERCHANT_ID ?? '';
 const IOS_BUILD = Number(process.env.IOS_BUILD_NUMBER ?? 1);
 
 /** Play's versionCode. This is the one that climbs. */
-const ANDROID_VERSION_CODE = Number(process.env.ANDROID_VERSION_CODE ?? 9);
+const ANDROID_VERSION_CODE = Number(process.env.ANDROID_VERSION_CODE ?? 10);
 
 for (const [name, value, variable] of [
   ['iOS build number', IOS_BUILD, 'IOS_BUILD_NUMBER'],
@@ -379,6 +422,10 @@ const config: ExpoConfig = {
      * and still worth having: somebody with SPSM Connect installed who taps a
      * `/c/*` tag gets the app at the right screen rather than a browser. Anyone
      * else gets the fallback page, which is what those pages are for.
+     *
+     * Only the paths in ANDROID_LINK_PATHS. Android combines every <data> in a
+     * filter, so the two hosts and the paths below mean "these paths, on
+     * either host" — which is what both hosts serving one site wants.
      */
     intentFilters: [
       {
@@ -387,6 +434,9 @@ const config: ExpoConfig = {
         data: [
           { scheme: 'https', host: 'www.spsmwayland.org' },
           { scheme: 'https', host: 'spsm-database.web.app' },
+          ...ANDROID_LINK_PATHS.map((entry) =>
+            'exact' in entry ? { path: entry.exact } : { pathPrefix: entry.prefix },
+          ),
         ],
         category: ['BROWSABLE', 'DEFAULT'],
       },
