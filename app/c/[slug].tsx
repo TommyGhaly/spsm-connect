@@ -27,16 +27,19 @@
  * back gesture a blank screen to return to.
  * ---------------------------------------------------------------------------
  */
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator } from 'react-native';
 import { Redirect, useLocalSearchParams, type Href } from 'expo-router';
 
 import { Screen } from '@/components/Surface';
 import { Body, Label } from '@/components/Type';
 import { experience } from '@/clip/experiences';
+import { readFormsPageConfig } from '@/forms/data';
 
 export default function ClipLanding() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const meta = experience(slug ?? '');
+  const nfcForm = useNfcForm(meta?.slug === 'forms');
 
   useEffect(() => {
     if (!meta) {
@@ -45,6 +48,25 @@ export default function ClipLanding() {
       console.warn(`[clip] no experience called "${slug}" in this version of the app.`);
     }
   }, [meta, slug]);
+
+  /*
+   * `/c/forms` is the one row whose destination is a setting rather than a
+   * route. The clip opens the form the office has put on the tag —
+   * `config/forms.nfcFormSlug` — and nothing else, so the app does the same
+   * rather than opening the list of every form; on Android this is the only
+   * way that tag behaves like the clip at all. The website's `/parking` reads
+   * the same setting for a phone without the app.
+   */
+  if (meta?.slug === 'forms') {
+    if (!nfcForm) {
+      return (
+        <Screen>
+          <ActivityIndicator />
+        </Screen>
+      );
+    }
+    return <Redirect href={`/forms/${nfcForm}` as Href} />;
+  }
 
   if (meta) {
     /*
@@ -62,8 +84,30 @@ export default function ClipLanding() {
       <Label>NOT IN THIS VERSION</Label>
       <Body>
         That tag points at something this version of SPSM Connect does not have
-        yet. Updating the app from the App Store should sort it.
+        yet. Updating the app from the App Store or Google Play should sort it.
       </Body>
     </Screen>
   );
+}
+
+/**
+ * The slug of the form on the tag, once `config/forms` has answered — or the
+ * vehicle registration, which `readFormsPageConfig` falls back to when the
+ * read fails, so the tag always goes somewhere.
+ */
+function useNfcForm(wanted: boolean): string | null {
+  const [slug, setSlug] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!wanted) return;
+    let cancelled = false;
+    void readFormsPageConfig().then(({ nfcFormSlug }) => {
+      if (!cancelled) setSlug(nfcFormSlug);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [wanted]);
+
+  return slug;
 }

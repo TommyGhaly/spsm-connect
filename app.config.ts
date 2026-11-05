@@ -379,6 +379,14 @@ const config: ExpoConfig = {
      * and still worth having: somebody with SPSM Connect installed who taps a
      * `/c/*` tag gets the app at the right screen rather than a browser. Anyone
      * else gets the fallback page, which is what those pages are for.
+     *
+     * **The same paths the iPhone claims, and no others** — SPSM Connect's
+     * `components` in the site's `apple-app-site-association`. It claimed the
+     * whole host once, which did nothing while `assetlinks.json` named only
+     * Taksis; with the app listed there, it would have sent every link to the
+     * site — `/parking`, `/contact`, a gallery — into an app with no screen for
+     * most of them, and fought Taksis for `/c/register-vehicle`. Android crosses
+     * every host with every path within one filter, so each is listed once.
      */
     intentFilters: [
       {
@@ -387,6 +395,15 @@ const config: ExpoConfig = {
         data: [
           { scheme: 'https', host: 'www.spsmwayland.org' },
           { scheme: 'https', host: 'spsm-database.web.app' },
+          ...['give', 'schedule', 'apps', 'welcome', 'plans', 'bookstore', 'forms', 'photos'].map(
+            (slug) => ({ path: `/c/${slug}` }),
+          ),
+          ...['/events', '/calendar', '/forms', '/bookstore', '/giving', '/apps'].map((path) => ({ path })),
+          { pathPrefix: '/events/' },
+          { pathPrefix: '/forms/' },
+          { path: '/about/welcome-newcomers' },
+          { path: '/about/future-plans' },
+          { path: '/admin/camp/attendance' },
         ],
         category: ['BROWSABLE', 'DEFAULT'],
       },
