@@ -25,6 +25,9 @@ enum Ink {
 
     static let gold = Color(hex: 0xB08D43)
     static let deep = Color(hex: 0x481010)
+
+    /// `--color-azure`: the calendar's meetings and gatherings.
+    static let azure = Color(hex: 0x2F5D8A)
 }
 
 /// The type scale.
