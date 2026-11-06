@@ -19,6 +19,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { Pressable, View } from 'react-native';
 import {
   NO_PAYMENT,
+  ORDINATION_FORM_SLUG,
   builtInForms,
   toFormSlug,
   type FormDefinition,
@@ -30,6 +31,7 @@ import { Icon, isIconName } from '@/components/Icon';
 import { Screen } from '@/components/Surface';
 import { Body, Heading, Small } from '@/components/Type';
 import { useCampSignUpOpen } from '@/camp/useCampConfig';
+import { useOrdinationsOpen } from '@/ordination/data';
 import { AdminFab } from '@/components/AdminFab';
 import { mayAdminScreen } from '@/firebase/grants';
 import { useGrants } from '@/session/SessionProvider';
@@ -78,6 +80,26 @@ const CAMP_CARD: HubCard = {
  */
 const SHOW_CAMP = true;
 
+/**
+ * The nomination for ordination, at its own route like the camp's — the
+ * website's `ORDINATION_CARD`, word for word.
+ *
+ * Unlike the camp card it is absent until proven present: it shows only while
+ * some ordination is open (`useOrdinationsOpen`), because the parish prepares
+ * one a few times a year and a card leading to "nothing is open" the rest of
+ * the time is noise.
+ */
+const ORDINATION_CARD: HubCard = {
+  slug: ORDINATION_FORM_SLUG,
+  title: 'Nomination for ordination',
+  blurb:
+    'Put forward a cantor, reader or subdeacon for ordination. The parish priests review ' +
+    'every nomination before it goes to the diocese.',
+  icon: 'file',
+  image: null,
+  href: { kind: 'route', path: '/forms/ordination' },
+};
+
 function builtInCards(): HubCard[] {
   return builtInForms().map(({ draft }) => toCard(draft as FormDefinition));
 }
@@ -123,7 +145,12 @@ export function FormsHub() {
    * form on a phone that could not reach the database.
    */
   const campOpen = useCampSignUpOpen();
-  const visible = SHOW_CAMP && campOpen ? [...cards, CAMP_CARD] : cards;
+  const ordinationsOpen = useOrdinationsOpen();
+  const visible = [
+    ...cards,
+    ...(SHOW_CAMP && campOpen ? [CAMP_CARD] : []),
+    ...(ordinationsOpen ? [ORDINATION_CARD] : []),
+  ];
 
   /*
    * Not a security boundary — `firestore.rules` is, and it reads the grant

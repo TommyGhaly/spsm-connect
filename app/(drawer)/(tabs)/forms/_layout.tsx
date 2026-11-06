@@ -54,6 +54,7 @@ export default function FormsLayout() {
       <Stack.Screen name="[slug]" options={{ title: 'Form' }} />
 
       <Stack.Screen name="summer-camp" options={{ title: 'Serve at summer camp' }} />
+      <Stack.Screen name="ordination" options={{ title: 'Nomination for ordination' }} />
 
       {/*
         A redirect to the hub, not a screen — managing the forms is a mode on
