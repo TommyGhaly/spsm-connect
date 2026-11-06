@@ -8,9 +8,9 @@ import SwiftUI
 /// `src/about/future.ts` rather than copied, with the church's website edits
 /// laid over it — see `AboutPage.swift`.
 ///
-/// The renderings and the flythrough are still on the church's page, because
-/// a 15 MB budget has no room for architectural renderings at any useful
-/// resolution; the footer says so.
+/// The renderings are drawn from the church's site as the page opens — the same
+/// `/img/future/` files the app shows, none of them in the clip's 15 MB. The
+/// flythrough itself is still on the church's page; the footer says so.
 ///
 /// It ends by offering the construction fund, because somebody who has just
 /// read what is being built is the person most likely to want to help build it.
@@ -26,7 +26,7 @@ struct PlansView: View {
 
             ClipFooter(
                 destination: .plans,
-                readMore: "The church’s page has the renderings, the site drawing filed with the town, and a flythrough of the design."
+                readMore: "The church’s page has the flythrough of the design, and every view at full size."
             )
         }
         .safari(url: $sheet)

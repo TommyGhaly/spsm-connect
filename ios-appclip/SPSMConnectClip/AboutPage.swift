@@ -70,6 +70,11 @@ struct AboutDocument: Decodable {
         let label: String?
         let paragraphs: [String]?
         let items: [Item]?
+        /// A picture: a path on the church's site, never a bundled file.
+        let src: String?
+        let alt: String?
+        /// Width over height, so the space is held before the file lands.
+        let aspect: Double?
     }
 
     struct Item: Decodable {
@@ -84,6 +89,9 @@ struct AboutDocument: Decodable {
         let when: String?
         let what: String?
         let paragraphs: [String]?
+        let src: String?
+        let alt: String?
+        let aspect: Double?
     }
 
     static let all: [String: AboutDocument] = {
@@ -93,7 +101,8 @@ struct AboutDocument: Decodable {
 
 /// A section staff appended on the website: `AboutSection` in
 /// `schema/about.ts`. A `picture` section shows its words and caption; the
-/// photograph itself stays on the website, like every picture on these pages.
+/// photograph itself stays on the website. (The coded pages' own pictures are
+/// drawn, by path — see `RemotePicture`.)
 struct AddedAboutSection {
     let id: String
     let order: Int
@@ -393,6 +402,43 @@ private struct BlockView: View {
                 }
             }
 
+        case "plate":
+            // `Plate`: column width, the caption under it. The caption can be
+            // the church's edit; the picture is the website's file.
+            VStack(alignment: .leading, spacing: 6) {
+                RemotePicture(src: block.src, alt: block.alt, aspect: block.aspect)
+                if !words(block.text, block.slot).isEmpty {
+                    Text(rich(words(block.text, block.slot)))
+                        .font(Face.small)
+                        .foregroundStyle(ground.soft)
+                        .tint(ground.accent)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+        case "strip":
+            // `Strip`: a row of pictures to swipe through, each at one height
+            // and its own width, the caption under it.
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .top, spacing: 12) {
+                    ForEach(Array((block.items ?? []).enumerated()), id: \.offset) { _, item in
+                        let width = Self.stripHeight * min(max(item.aspect ?? 1, 0.6), 1.8)
+                        VStack(alignment: .leading, spacing: 6) {
+                            RemotePicture(src: item.src, alt: item.alt, aspect: nil)
+                                .frame(width: width, height: Self.stripHeight)
+                            Text(item.note ?? "")
+                                .font(Face.small)
+                                .foregroundStyle(ground.soft)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(width: width, alignment: .leading)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+            // Out to the card's edges, so the row reads as one that goes on.
+            .padding(.horizontal, -16)
+
         case "give":
             if let give {
                 ClipButton(label: block.text ?? "Give", action: give)
@@ -410,6 +456,50 @@ private struct BlockView: View {
         default:
             EmptyView()
         }
+    }
+}
+
+extension BlockView {
+    static let stripHeight: CGFloat = 180
+}
+
+/// One of the website's pictures, fetched when it is drawn.
+///
+/// Nothing is bundled — the clip's 15 MB is for code — so until the file lands,
+/// and if it never does, the space is held by a plain sunken ground of the
+/// right shape: no spinner, no broken-image glyph, the same honest state as
+/// `AppIconImage`. The words around it read whole either way.
+private struct RemotePicture: View {
+    let src: String?
+    let alt: String?
+    let aspect: Double?
+
+    var body: some View {
+        // No aspect fills whatever frame it is given — the strip's tiles.
+        // (`aspectRatio(nil)` would not: it falls back to a square.)
+        if let aspect {
+            picture.aspectRatio(CGFloat(aspect), contentMode: .fit)
+        } else {
+            picture
+        }
+    }
+
+    private var picture: some View {
+        Rectangle()
+            .fill(Ink.paperSunken)
+            .overlay {
+                if let src {
+                    AsyncImage(url: ClipConfig.page(src), transaction: Transaction(animation: .easeOut(duration: 0.2))) { phase in
+                        if let image = phase.image {
+                            image.resizable().scaledToFill()
+                        }
+                    }
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .accessibilityElement()
+            .accessibilityLabel(alt ?? "")
+            .accessibilityAddTraits(.isImage)
     }
 }
 

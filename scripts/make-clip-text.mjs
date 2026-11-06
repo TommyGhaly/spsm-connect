@@ -16,9 +16,14 @@
  *
  * ## What it keeps, and what it leaves on the website
  *
- * Every paragraph, heading, figure, list and timeline entry. Not the pictures
- * (15 MB), the flythrough, or the tour's three interactive widgets — the hymn,
- * the year and the name in Coptic letters — which say so where they would be.
+ * Every paragraph, heading, figure, list and timeline entry, and every
+ * picture — but as a *path*, not a file. The pictures are the website's
+ * `/img/...`, the same files `src/about/media.ts` points the app at, and the
+ * clip fetches them over the network as it does the church's edits; the 15 MB
+ * budget never sees them. A picture that does not arrive leaves its space and
+ * its caption, and the words read whole without it. Not the flythrough, or the
+ * tour's three interactive widgets — the hymn, the year and the name in Coptic
+ * letters — which say so where they would be.
  *
  * ## The slot ids are the website's
  *
@@ -39,26 +44,21 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'ios-appclip/SPSMConnectClip/AboutText.swift');
 
 /*
- * `./media` builds image URLs from the app's config, and `./parts` is React.
- * Neither is text, so both resolve to a stub: every picture becomes `null`,
- * and the type-only import of `./parts` is stripped before it is ever asked
- * for. Node's own type stripping does the rest — these two files are plain
- * data with annotations.
+ * `./parts` is React, and only its types are imported, so it resolves to an
+ * empty module and the type-only import is stripped before it is ever asked
+ * for. `./media` is the real file: it is the one place the app names where a
+ * picture lives, and the clip should not keep a second copy of those patterns.
+ * Node's own type stripping does the rest — these files are plain data with
+ * annotations.
  */
-const stub = `data:text/javascript,${encodeURIComponent(
-  [
-    'const none = () => null;',
-    'export const siteUrl = (p) => p;',
-    'export const tourPicture = none, tourThumb = none;',
-    'export const futurePicture = none, futureThumb = none, firmLogo = none;',
-  ].join('\n'),
-)}`;
-
 register(
   `data:text/javascript,${encodeURIComponent(`
     export async function resolve(specifier, context, next) {
-      if (specifier === './media' || specifier === './parts') {
-        return { url: ${JSON.stringify(stub)}, shortCircuit: true };
+      if (specifier === './parts') {
+        return { url: 'data:text/javascript,', shortCircuit: true };
+      }
+      if (specifier === './media') {
+        return next('./media.ts', context);
       }
       return next(specifier, context);
     }
@@ -68,6 +68,26 @@ register(
 const about = (name) => pathToFileURL(path.join(root, 'src/about', name)).href;
 const future = await import(about('future.ts'));
 const tour = await import(about('tour.ts'));
+
+/**
+ * `media.ts` answers with an absolute URL on the app's origin. The clip has its
+ * own (`ClipConfig.origin`, a build setting), so it gets the path alone and
+ * resolves it there — a clip pointed at staging gets staging's pictures.
+ */
+const pathOf = (url) => new URL(url).pathname;
+
+/** `Plate` in parts.tsx: one picture at column width, its caption under it. */
+const plate = (name, captionSlot) => {
+  const meta = need(future.FUTURE_PICTURES[name], `future.ts FUTURE_PICTURES.${name}`);
+  return {
+    t: 'plate',
+    src: pathOf(future.future(name)),
+    alt: meta.alt,
+    text: meta.caption,
+    ...(captionSlot ? { slot: captionSlot } : {}),
+    aspect: meta.width / meta.height,
+  };
+};
 
 function need(value, name) {
   if (value === undefined || value === null) {
@@ -80,12 +100,14 @@ function need(value, name) {
 
 const {
   HERO, WHAT, HEADLINE, BUILDING_A, BUILDING_B, BUILDING_C, ALL_OF_IT, BY_USE,
-  THE_LAND, WHERE_IT_STANDS, PROGRESS, WHO_IS_DRAWING, TEAM, PAYING,
+  THE_LAND, WHERE_IT_STANDS, PROGRESS, WHO_IS_DRAWING, TEAM, PAYING, MORE_VIEWS,
+  FUTURE_GALLERY,
 } = future;
 
 for (const [name, value] of Object.entries({
   HERO, WHAT, HEADLINE, BUILDING_A, BUILDING_B, BUILDING_C, ALL_OF_IT, BY_USE,
-  THE_LAND, WHERE_IT_STANDS, PROGRESS, WHO_IS_DRAWING, TEAM, PAYING,
+  THE_LAND, WHERE_IT_STANDS, PROGRESS, WHO_IS_DRAWING, TEAM, PAYING, MORE_VIEWS,
+  FUTURE_GALLERY,
 })) need(value, `future.ts ${name}`);
 
 /** `Head` in parts.tsx: `${band}.eyebrow`, `.h2`, `.lede`. */
@@ -95,12 +117,13 @@ const head = (band, { eyebrow, title, lede }) => [
   ...(lede ? [{ t: 'lede', text: lede, slot: `${band}.lede` }] : []),
 ];
 
-const building = (band, b, ground) => ({
+const building = (band, b, ground, plates) => ({
   ground,
   blocks: [
     { t: 'eyebrow', text: b.tag },
     ...head(band, { title: b.title }),
     { t: 'prose', paragraphs: b.body, slot: `${band}.body` },
+    ...plates,
   ],
 });
 
@@ -117,16 +140,48 @@ const futurePlans = {
       ],
     },
     {
+      // The flythrough's poster, where FutureScreen puts the film. The film
+      // itself stays on the website; the still is the first thing it shows.
+      ground: 'plain',
+      blocks: [plate('approach')],
+    },
+    {
       ground: 'plain',
       blocks: [
         ...head('what-is-being-built', { title: WHAT.title }),
         { t: 'prose', paragraphs: WHAT.body, slot: 'what-is-being-built.body' },
+        plate('campus-aerial', 'what-is-being-built.cap-campus-aerial'),
         { t: 'figures', items: HEADLINE.map((f) => ({ value: f.value, label: f.label, note: f.note })) },
+        plate('piazza', 'what-is-being-built.cap-piazza'),
       ],
     },
-    building('the-church', BUILDING_A, 'sunken'),
-    building('youth-and-housing', BUILDING_B, 'plain'),
-    building('the-diocese-centre', BUILDING_C, 'sunken'),
+    building('the-church', BUILDING_A, 'sunken', [
+      plate('steps', 'the-church.cap-steps'),
+      plate('west-front', 'the-church.cap-west-front'),
+    ]),
+    building('youth-and-housing', BUILDING_B, 'plain', [
+      plate('youth-center', 'youth-and-housing.cap-youth-center'),
+    ]),
+    building('the-diocese-centre', BUILDING_C, 'sunken', [
+      plate('diocese-center', 'the-diocese-centre.cap-diocese-center'),
+    ]),
+    {
+      ground: 'plain',
+      blocks: [
+        ...head('more-views', MORE_VIEWS),
+        {
+          t: 'strip',
+          // The 480 tiles are cropped to one size by the optimiser and carry
+          // no dimensions; 16:9 is the frame, as FutureScreen says.
+          items: Object.entries(future.FUTURE_GALLERY).map(([name, meta]) => ({
+            src: pathOf(future.galleryThumb(name)),
+            alt: meta.alt,
+            note: meta.caption,
+            aspect: 16 / 9,
+          })),
+        },
+      ],
+    },
     {
       ground: 'tinted',
       blocks: [
@@ -145,7 +200,10 @@ const futurePlans = {
       ground: 'plain',
       blocks: [
         ...head('the-land', THE_LAND),
+        plate('roofs-aerial', 'the-land.cap-roofs-aerial'),
+        plate('site-plan', 'the-land.cap-site-plan'),
         { t: 'prose', paragraphs: THE_LAND.body, slot: 'the-land.body' },
+        plate('massing', 'the-land.cap-massing'),
       ],
     },
     {
@@ -251,6 +309,20 @@ const welcome = {
       number: station.number,
       blocks: [
         ...head(station.id, { title: station.title, lede: station.lede }),
+        // The pictures before the words, as TourScreen draws them: somebody at
+        // a station wants to see the thing before reading about it.
+        {
+          t: 'strip',
+          items: station.pictures.map((name) => {
+            const meta = need(tour.TOUR_PICTURES[name], `tour.ts TOUR_PICTURES.${name}`);
+            return {
+              src: pathOf(tour.tourSmall(name)),
+              alt: meta.alt,
+              note: meta.caption,
+              aspect: meta.width / meta.height,
+            };
+          }),
+        },
         ...station.sections.flatMap((section) => [
           { t: 'subhead', text: section.title },
           ...section.blocks.flatMap(block),

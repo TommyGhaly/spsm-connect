@@ -29,7 +29,7 @@ struct WelcomeView: View {
 
             ClipFooter(
                 destination: .welcome,
-                readMore: "The church’s website has the same tour with its pictures, the hymn to listen to, and your name in Coptic letters."
+                readMore: "The church’s website has the same tour with the hymn to listen to, and your name in Coptic letters."
             )
         }
         .safari(url: $sheet)
