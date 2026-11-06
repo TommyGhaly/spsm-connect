@@ -175,6 +175,8 @@ const futurePlans = {
           // no dimensions; 16:9 is the frame, as FutureScreen says.
           items: Object.entries(future.FUTURE_GALLERY).map(([name, meta]) => ({
             src: pathOf(future.galleryThumb(name)),
+            // The larger file the viewer opens, as FutureScreen's `full`.
+            full: pathOf(future.galleryThumb(name)).replace('-480.webp', '-1600.webp'),
             alt: meta.alt,
             note: meta.caption,
             aspect: 16 / 9,
@@ -317,6 +319,8 @@ const welcome = {
             const meta = need(tour.TOUR_PICTURES[name], `tour.ts TOUR_PICTURES.${name}`);
             return {
               src: pathOf(tour.tourSmall(name)),
+              // The larger file the viewer opens, as TourScreen's `full`.
+              full: pathOf(tour.tourSmall(name)).replace('-640.webp', '-1280.webp'),
               alt: meta.alt,
               note: meta.caption,
               aspect: meta.width / meta.height,

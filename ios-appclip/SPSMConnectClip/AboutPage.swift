@@ -90,6 +90,8 @@ struct AboutDocument: Decodable {
         let what: String?
         let paragraphs: [String]?
         let src: String?
+        /// The larger file the viewer opens, when the tile is a crop of one.
+        let full: String?
         let alt: String?
         let aspect: Double?
     }
@@ -233,8 +235,11 @@ private struct SectionCard: View {
                     }
                 }
             } else {
-                ForEach(Array(section.blocks.enumerated()), id: \.offset) { _, block in
+                ForEach(Array(section.blocks.enumerated()), id: \.offset) { at, block in
                     BlockView(block: block, slots: slots, ground: ground, give: give)
+                        // A plate that opens the card runs up to its top edge,
+                        // rather than floating under a stripe of paper.
+                        .padding(.top, at == 0 && block.t == "plate" ? -16 : 0)
                 }
             }
         }
@@ -403,41 +408,10 @@ private struct BlockView: View {
             }
 
         case "plate":
-            // `Plate`: column width, the caption under it. The caption can be
-            // the church's edit; the picture is the website's file.
-            VStack(alignment: .leading, spacing: 6) {
-                RemotePicture(src: block.src, alt: block.alt, aspect: block.aspect)
-                if !words(block.text, block.slot).isEmpty {
-                    Text(rich(words(block.text, block.slot)))
-                        .font(Face.small)
-                        .foregroundStyle(ground.soft)
-                        .tint(ground.accent)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
+            PlateView(block: block, caption: words(block.text, block.slot), ground: ground)
 
         case "strip":
-            // `Strip`: a row of pictures to swipe through, each at one height
-            // and its own width, the caption under it.
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .top, spacing: 12) {
-                    ForEach(Array((block.items ?? []).enumerated()), id: \.offset) { _, item in
-                        let width = Self.stripHeight * min(max(item.aspect ?? 1, 0.6), 1.8)
-                        VStack(alignment: .leading, spacing: 6) {
-                            RemotePicture(src: item.src, alt: item.alt, aspect: nil)
-                                .frame(width: width, height: Self.stripHeight)
-                            Text(item.note ?? "")
-                                .font(Face.small)
-                                .foregroundStyle(ground.soft)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .frame(width: width, alignment: .leading)
-                    }
-                }
-                .padding(.horizontal, 16)
-            }
-            // Out to the card's edges, so the row reads as one that goes on.
-            .padding(.horizontal, -16)
+            StripView(items: block.items ?? [], ground: ground)
 
         case "give":
             if let give {
@@ -459,8 +433,294 @@ private struct BlockView: View {
     }
 }
 
-extension BlockView {
-    static let stripHeight: CGFloat = 180
+/* ── Pictures ───────────────────────────────────────────────────────────── */
+
+/// One picture as the viewer needs it.
+private struct Shown {
+    let src: String?
+    let full: String?
+    let alt: String
+    let caption: String
+}
+
+/// `Plate`: one picture across the whole card, the caption under it.
+///
+/// Edge to edge rather than a box inside the card's margins — a rendering at
+/// column width, with paper all round it, read as a thumbnail of itself. Tap
+/// opens it full screen, and the corner badge says so before anyone has to
+/// guess: the app's plates open the same way.
+private struct PlateView: View {
+    let block: AboutDocument.Block
+    let caption: String
+    let ground: Ground
+    @State private var open = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button { open = true } label: {
+                RemotePicture(src: block.src, alt: block.alt, aspect: block.aspect, corner: 0)
+                    .overlay(alignment: .bottomTrailing) { ExpandBadge().padding(12) }
+            }
+            .buttonStyle(PressablePicture())
+            .padding(.horizontal, -16)
+            .accessibilityLabel("\(block.alt ?? "Picture") — open larger")
+
+            if !caption.isEmpty {
+                Text(rich(caption))
+                    .font(Face.small)
+                    .foregroundStyle(ground.soft)
+                    .tint(ground.accent)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 10)
+                    .overlay(alignment: .leading) {
+                        Rectangle().fill(ground.accent.opacity(0.6)).frame(width: 2)
+                    }
+            }
+        }
+        .fullScreenCover(isPresented: $open) {
+            PictureViewer(
+                pictures: [Shown(src: block.src, full: nil, alt: block.alt ?? "", caption: caption)],
+                start: 0
+            )
+        }
+    }
+}
+
+/// `Strip`: a row of pictures to swipe through.
+///
+/// A row that runs off the right edge is a swipe to somebody who swipes all day
+/// and a cropped picture to somebody who does not, so the row says how many
+/// there are and which way they go. Each tile opens the viewer at that picture,
+/// and the viewer pages through the rest.
+private struct StripView: View {
+    let items: [AboutDocument.Item]
+    let ground: Ground
+    @State private var open: Int?
+
+    private static let height: CGFloat = 200
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if items.count > 1 {
+                HStack(spacing: 6) {
+                    Image(systemName: "photo.on.rectangle.angled")
+                    Text("\(items.count) pictures")
+                    Spacer(minLength: 8)
+                    Text("Swipe")
+                    Image(systemName: "arrow.right")
+                }
+                .font(Face.small.weight(.semibold))
+                .foregroundStyle(ground.accent)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(items.count) pictures. Swipe left or right to see them all.")
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .top, spacing: 12) {
+                    ForEach(Array(items.enumerated()), id: \.offset) { at, item in
+                        let width = Self.height * min(max(item.aspect ?? 1, 0.6), 1.8)
+                        Button { open = at } label: {
+                            VStack(alignment: .leading, spacing: 8) {
+                                RemotePicture(src: item.src, alt: item.alt, aspect: nil)
+                                    .frame(width: width, height: Self.height)
+                                    .overlay(alignment: .bottomTrailing) { ExpandBadge().padding(8) }
+                                Text(item.note ?? "")
+                                    .font(Face.small)
+                                    .foregroundStyle(ground.soft)
+                                    .multilineTextAlignment(.leading)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .frame(width: width, alignment: .leading)
+                        }
+                        .buttonStyle(PressablePicture())
+                        .accessibilityLabel("\(item.alt ?? "Picture"), \(at + 1) of \(items.count) — open larger")
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+            // Out to the card's edges, so the row reads as one that goes on.
+            .padding(.horizontal, -16)
+        }
+        .fullScreenCover(item: Binding(
+            get: { open.map(Opened.init) },
+            set: { open = $0?.id }
+        )) { opened in
+            PictureViewer(
+                pictures: items.map {
+                    Shown(src: $0.src, full: $0.full, alt: $0.alt ?? "", caption: $0.note ?? "")
+                },
+                start: opened.id
+            )
+        }
+    }
+
+    private struct Opened: Identifiable { let id: Int }
+}
+
+/// The corner mark that says a picture opens larger.
+private struct ExpandBadge: View {
+    var body: some View {
+        Image(systemName: "arrow.up.left.and.arrow.down.right")
+            .font(.system(size: 12, weight: .bold))
+            .foregroundStyle(.white)
+            .frame(width: 28, height: 28)
+            .background(Circle().fill(.black.opacity(0.45)))
+            .overlay(Circle().strokeBorder(.white.opacity(0.35), lineWidth: 0.5))
+            .accessibilityHidden(true)
+    }
+}
+
+/// A picture that gives under the finger, so a tap is felt as one.
+private struct PressablePicture: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .opacity(configuration.isPressed ? 0.9 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+/// Pictures full screen: swipe between them, pinch or double-tap to look
+/// closer, the caption underneath and "2 of 5" at the top.
+///
+/// The app's `Lightbox`, with the paging a phone reader expects of a photo
+/// once it is open. The larger file is fetched when there is one, over the
+/// small one already on screen, so nothing goes blank while it lands.
+private struct PictureViewer: View {
+    let pictures: [Shown]
+    @State private var at: Int
+    @Environment(\.dismiss) private var dismiss
+
+    init(pictures: [Shown], start: Int) {
+        self.pictures = pictures
+        _at = State(initialValue: start)
+    }
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            TabView(selection: $at) {
+                ForEach(Array(pictures.enumerated()), id: \.offset) { index, picture in
+                    ZoomablePicture(picture: picture)
+                        .tag(index)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                HStack {
+                    if pictures.count > 1 {
+                        Text("\(at + 1) of \(pictures.count)")
+                            .font(Face.small.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Capsule().fill(.white.opacity(0.15)))
+                    }
+                    Spacer()
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 44, height: 44)
+                            .background(Circle().fill(.white.opacity(0.15)))
+                    }
+                    .accessibilityLabel("Close")
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+
+                Spacer()
+
+                if let caption = pictures[safe: at]?.caption, !caption.isEmpty {
+                    Text(rich(caption))
+                        .font(Face.body)
+                        .foregroundStyle(.white)
+                        .tint(Ink.gold)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 28)
+                        .padding(.bottom, 12)
+                        .background(
+                            LinearGradient(colors: [.black.opacity(0), .black.opacity(0.75)], startPoint: .top, endPoint: .bottom)
+                                .ignoresSafeArea(edges: .bottom)
+                        )
+                        .allowsHitTesting(false)
+                        .id(at)
+                        .transition(.opacity)
+                }
+            }
+            .animation(.easeOut(duration: 0.15), value: at)
+        }
+        .statusBarHidden()
+    }
+}
+
+private struct ZoomablePicture: View {
+    let picture: Shown
+    @State private var scale: CGFloat = 1
+    @State private var settled: CGFloat = 1
+    @State private var offset: CGSize = .zero
+    @State private var dragged: CGSize = .zero
+
+    var body: some View {
+        ZStack {
+            layer(picture.src)
+            if let full = picture.full { layer(full) }
+        }
+        .scaleEffect(scale)
+        .offset(offset)
+        .gesture(
+            MagnificationGesture()
+                .onChanged { scale = min(max(settled * $0, 1), 4) }
+                .onEnded { _ in
+                    settled = scale
+                    if scale == 1 { recentre() }
+                }
+        )
+        // Panning only once zoomed in — at 1x a drag is the swipe to the next.
+        .simultaneousGesture(
+            DragGesture()
+                .onChanged { value in
+                    guard settled > 1 else { return }
+                    offset = CGSize(width: dragged.width + value.translation.width, height: dragged.height + value.translation.height)
+                }
+                .onEnded { _ in dragged = offset },
+            including: settled > 1 ? .all : .subviews
+        )
+        .onTapGesture(count: 2) {
+            withAnimation(.easeOut(duration: 0.2)) {
+                if settled > 1 { scale = 1; settled = 1; recentre() } else { scale = 2.5; settled = 2.5 }
+            }
+        }
+        .onDisappear { scale = 1; settled = 1; recentre() }
+        .accessibilityElement()
+        .accessibilityLabel(picture.alt)
+        .accessibilityAddTraits(.isImage)
+    }
+
+    private func recentre() {
+        offset = .zero
+        dragged = .zero
+    }
+
+    private func layer(_ src: String?) -> some View {
+        AsyncImage(url: src.map(ClipConfig.page), transaction: Transaction(animation: .easeOut(duration: 0.2))) { phase in
+            if let image = phase.image {
+                image.resizable().scaledToFit()
+            } else {
+                Color.clear
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private extension Array {
+    subscript(safe index: Int) -> Element? { indices.contains(index) ? self[index] : nil }
 }
 
 /// One of the website's pictures, fetched when it is drawn.
@@ -473,6 +733,7 @@ private struct RemotePicture: View {
     let src: String?
     let alt: String?
     let aspect: Double?
+    var corner: CGFloat = 12
 
     var body: some View {
         // No aspect fills whatever frame it is given — the strip's tiles.
@@ -496,7 +757,7 @@ private struct RemotePicture: View {
                     }
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .clipShape(RoundedRectangle(cornerRadius: corner))
             .accessibilityElement()
             .accessibilityLabel(alt ?? "")
             .accessibilityAddTraits(.isImage)
