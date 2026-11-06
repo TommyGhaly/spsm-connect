@@ -58,6 +58,7 @@ import { Icon } from '@/components/Icon';
 import { Button, Card, Screen } from '@/components/Surface';
 import { Body, Heading, Label, Lede, Small } from '@/components/Type';
 import { money } from '@/payments/money';
+import { WalletButton } from '@/payments/WalletButton';
 import {
   chargeWithCard,
   chargeWithWallet,
@@ -524,8 +525,8 @@ export function ServantSignUp() {
           ) : (
             <>
               {wallet ? (
-                <Button
-                  label={`Pay ${money(chargeCents)} and send my sign-up`}
+                <WalletButton
+                  kind="plain"
                   onPress={() => void payAndSend('wallet')}
                   busy={sending}
                 />

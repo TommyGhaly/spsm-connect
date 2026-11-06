@@ -45,6 +45,7 @@ import { Icon } from '@/components/Icon';
 import { Button, Card } from '@/components/Surface';
 import { Body, Heading, Label, Small } from '@/components/Type';
 import { money } from '@/payments/money';
+import { WalletButton } from '@/payments/WalletButton';
 import {
   chargeWithCard,
   chargeWithWallet,
@@ -300,11 +301,7 @@ export function FormRenderer({
           ) : (
             <>
               {wallet ? (
-                <Button
-                  label={`Pay ${money(total)} and submit`}
-                  onPress={() => void pay('wallet')}
-                  busy={sending}
-                />
+                <WalletButton kind="plain" onPress={() => void pay('wallet')} busy={sending} />
               ) : null}
               <Button
                 label={wallet ? 'Pay by card instead' : `Pay ${money(total)} and submit`}

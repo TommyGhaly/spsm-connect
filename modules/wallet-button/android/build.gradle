@@ -1,0 +1,21 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'org.spsm'
+version = '1.0.0'
+
+android {
+  namespace 'org.spsm.walletbutton'
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}
+
+dependencies {
+  // The same Wallet library Square's Google Pay already pulls in — see
+  // react-native-square-in-app-payments/android/gradle.properties.
+  implementation 'com.google.android.gms:play-services-wallet:19.2.1'
+}

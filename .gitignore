@@ -52,3 +52,7 @@ yarn-error.*
 google-services.json
 GoogleService-Info.plist
 
+
+# Gradle output from local Expo modules
+modules/*/android/build/
+modules/*/android/.gradle/

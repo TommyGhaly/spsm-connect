@@ -74,6 +74,7 @@ import {
   paymentsAvailable,
   walletAvailable,
 } from '@/payments/square';
+import { WalletButton } from '@/payments/WalletButton';
 import { useTheme } from '@/theme/ThemeProvider';
 
 import { Cover } from './Cover';
@@ -935,8 +936,8 @@ function Checkout({
           wallet configured must not have to discover the ordinary option.
         */}
         {wallet ? (
-          <Button
-            label="Pay with wallet"
+          <WalletButton
+            kind="buy"
             busy={busy}
             disabled={!ready}
             /*

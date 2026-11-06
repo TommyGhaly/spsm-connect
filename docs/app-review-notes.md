@@ -567,3 +567,63 @@ Ask for a phone call through the Resolution Center before changing anything,
 and if it still stands, appeal to the App Review Board. Removing sign-in from
 the public binary (a Custom App or TestFlight for servants) is a fallback, not
 a first answer.
+
+# Part E — the third rejection, 1.0 (12), 23 October 2026
+
+One finding, **2.1 Information Needed**: the binary links PassKit and the
+reviewer "were unable to verify any integration of Apple Pay". They were right
+to be confused. The app offered Apple Pay through a button in its own type that
+said **"Pay with wallet"**, and showed it only when the device had a card in
+Wallet — nothing on screen ever said Apple Pay.
+
+## E1. What changed in the binary
+
+- `modules/wallet-button` — a local Expo module drawing the platform's own
+  mark: `PKPaymentButton` on iOS, Play Services' `PayButton` on Android. Both
+  stores' brand rules require it; the App Clip already used `PKPaymentButton`.
+- `payments/WalletButton.tsx` — the app-side wrapper (busy, disabled), used by
+  the bookstore basket (**Buy with Apple Pay**), paid forms and the camp
+  servant sign-up (the plain mark). Card payment is unchanged beside it.
+
+The native event is `onWalletPress`, not `onPress`: React Native already
+registers `topPress` as a bubbling event, and declaring it again as a direct
+one threw the moment checkout rendered.
+
+**Before resubmitting:** the archive is made locally in Xcode, so the merchant
+id comes from `.env` (`APPLE_PAY_MERCHANT_ID`). Check the archive's
+entitlements still carry `com.apple.developer.in-app-payments` — without it the
+button never appears, which would reproduce this rejection exactly.
+
+## E2. The Resolution Center reply
+
+> Paste from here to the end of E2.
+
+Thank you for the review.
+
+The app integrates Apple Pay, through Square's In-App Payments SDK; that is
+where the PassKit framework comes from. In the build now submitted it is offered
+with Apple's own Apple Pay button, which previously appeared under a generic
+label. It can be found here:
+
+1. **Bookstore** — open the Bookstore tab, tap "Add" on any book, tap the
+   basket bar at the bottom of the screen, then "Checkout". "Buy with Apple
+   Pay" appears below the order total, above card payment. It becomes active
+   once a name and email address are entered.
+2. **Paid forms** — on the Forms tab, any form with a fee shows the Apple Pay
+   button beside card payment.
+3. **App Clip** — the bookstore App Clip takes payment by Apple Pay only.
+
+The Apple Pay button is shown only when the device has a card in Wallet, as
+Apple Pay requires; on a device without one, card payment is offered instead.
+The app uses Square's production environment, so please do not complete a
+payment with a live card; we can provide a sandbox build on request.
+
+> End of E2.
+
+## E3. The Notes-field addendum
+
+Append to the Notes field (cut from Part B's item 2 to stay under 4,000):
+
+> APPLE PAY (2.1): via Square. Bookstore tab > Add a book > basket >
+> Checkout: "Buy with Apple Pay". Also on paid forms and in the bookstore App Clip. Shown only with
+> a card in Wallet.
