@@ -136,8 +136,9 @@ export async function setFulfillment(
  * which is the bookstore grant and *not* finance, so this is offered only to
  * somebody who `canEdit`. See `session.ts`.
  */
-export async function refundOrder(orderId: string, reason: string): Promise<void> {
-  await apiPost('/api/square/refund', { orderId, reason });
+/** `restock` puts the order's clothing sizes back on the shelf once the refund completes. */
+export async function refundOrder(orderId: string, reason: string, restock = false): Promise<void> {
+  await apiPost('/api/square/refund', { orderId, reason, restock });
 }
 
 /* -------------------------------------------------------------------------- */
