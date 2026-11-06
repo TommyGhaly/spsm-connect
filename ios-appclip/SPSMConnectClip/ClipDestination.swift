@@ -31,7 +31,7 @@ enum ClipDestination: String, CaseIterable {
         case .welcome: return "Welcome"
         case .plans: return "Our Expansion Plans"
         case .bookstore: return "The Bookstore"
-        case .forms: return "Parish Forms"
+        case .forms: return "Church Forms"
         case .photos: return "Send a Photograph"
         }
     }

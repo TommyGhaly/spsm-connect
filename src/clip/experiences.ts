@@ -208,7 +208,7 @@ export const EXPERIENCES: readonly Experience[] = [
   },
   {
     slug: 'forms',
-    title: 'Parish Forms',
+    title: 'Church Forms',
     card: 'Fill in a church form from your phone',
     kind: 'native',
     appPath: '/forms',

@@ -88,7 +88,7 @@ const STICKERS = [
   { slug: 'welcome', label: 'Welcome Newcomers', fontSize: 50 },
   { slug: 'plans', label: 'Our Plans' },
   { slug: 'bookstore', label: 'Bookstore' },
-  { slug: 'forms', label: 'Parish Forms' },
+  { slug: 'forms', label: 'Church Forms' },
   { slug: 'photos', label: 'Photographs' },
   { slug: 'register-vehicle', label: 'Register Car', taksis: true },
 ];
