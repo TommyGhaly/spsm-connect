@@ -29,13 +29,13 @@
  *
  * The website marks every gallery picture `loading="lazy"`, so a browser fetches
  * the screenful somebody is looking at and the next one, and nothing else. This
- * drew them all at once: a level holds up to 300 photographs, each a ~900 KB
- * rendition about 2600 pixels wide, and all of them began downloading and
+ * drew them all at once: a level can hold thousands of photographs (Summer
+ * Camp 2025 has 6,193), each a ~900 KB rendition about 2600 pixels wide, and all of them began downloading and
  * decoding the moment the page opened. The ones on screen came in last among
  * equals and the scroll stuttered behind the decoding. Now a row gets its
  * photographs once it is within `AHEAD` screens of the bottom of the view, and
- * until then it is a sunken box of exactly the size it will be, so nothing
- * moves when it fills.
+ * the rows below it are one sunken box of exactly their combined height, so
+ * nothing moves when they fill and the page is not thousands of empty views.
  *
  * Mounted rows stay mounted. The point is the first screen and the scroll, not
  * a recycler; `expo-image` already decodes at the tile's size rather than the
@@ -133,6 +133,15 @@ export function Mosaic({
     return out;
   }, [rows]);
 
+  /** How many rows, from the top, have their photographs. Always a prefix. */
+  const live = useMemo(() => {
+    const first = tops.findIndex((top) => top > reach);
+    return first === -1 ? rows.length : first;
+  }, [tops, reach, rows.length]);
+
+  const last = rows.at(-1);
+  const total = last ? (tops.at(-1) ?? 0) + last.height : 0;
+
   const photos = order.filter((one) => one.kind !== 'video').length;
   const clips = order.length - photos;
 
@@ -141,43 +150,42 @@ export function Mosaic({
       <Small color={theme.color.inkFaint}>{countLine(photos, clips)}</Small>
 
       <View style={{ gap: GAP }}>
-        {rows.map((row, at) => (
+        {rows.slice(0, live).map((row) => (
           <View key={row.items[0]?.media.id} style={{ flexDirection: 'row', gap: GAP }}>
-            {(tops[at] ?? 0) > reach
-              ? row.items.map(({ media, width: tile }) => (
-                  <View
-                    key={media.id}
-                    style={{
-                      width: tile,
-                      height: row.height,
-                      borderRadius: theme.radius.sm,
-                      backgroundColor: theme.color.paperSunken,
-                    }}
-                  />
-                ))
-              : row.items.map(({ media, index, width: tile }) => (
-                  <View key={media.id} style={{ width: tile }}>
-                    <Pressable
-                      onPress={() => setOpen(index)}
-                      accessibilityRole="imagebutton"
-                      accessibilityLabel={`${media.caption || 'Photograph'}, ${index + 1} of ${order.length}. Open larger.`}
-                      style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
-                    >
-                      <Picture media={media} height={row.height} />
-                    </Pressable>
-                    {/* Over the tile rather than inside the Pressable, so editing a
-                        photograph is not also opening it. */}
-                    <PictureTools
-                      media={media}
-                      program={program}
-                      tree={tree}
-                      onChanged={onChanged}
-                      compact
-                    />
-                  </View>
-                ))}
+            {row.items.map(({ media, index, width: tile }) => (
+              <View key={media.id} style={{ width: tile }}>
+                <Pressable
+                  onPress={() => setOpen(index)}
+                  accessibilityRole="imagebutton"
+                  accessibilityLabel={`${media.caption || 'Photograph'}, ${index + 1} of ${order.length}. Open larger.`}
+                  style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
+                >
+                  <Picture media={media} height={row.height} />
+                </Pressable>
+                {/* Over the tile rather than inside the Pressable, so editing a
+                    photograph is not also opening it. */}
+                <PictureTools
+                  media={media}
+                  program={program}
+                  tree={tree}
+                  onChanged={onChanged}
+                  compact
+                />
+              </View>
+            ))}
           </View>
         ))}
+        {/* Every row not loaded yet, as one box of their combined height, so the
+            page is its full length without thousands of empty views in it. */}
+        {live < rows.length ? (
+          <View
+            style={{
+              height: total - (tops[live] ?? 0),
+              borderRadius: theme.radius.sm,
+              backgroundColor: theme.color.paperSunken,
+            }}
+          />
+        ) : null}
       </View>
 
       <Viewer items={order} index={open} onIndex={setOpen} onClose={() => setOpen(null)} />
