@@ -21,35 +21,40 @@ cd "$(dirname "$0")"
 # everybody's clone and every backup of it.
 #
 # Usage:
-#   ./reset-android.sh              sandbox Square, debug signing — development
-#   ./reset-android.sh --store      production Square, upload key required, AAB
+#   ./reset-android.sh              production Square, upload key required, AAB
 #                                   (bumps the versionCode; see below)
-#   ./reset-android.sh --bump       bump the versionCode without a store build
-#   ./reset-android.sh --store --no-bump
-#                                   rebuild the same versionCode — only when the
+#   ./reset-android.sh --dev        sandbox Square, debug signing — development
+#   ./reset-android.sh --dev --bump bump the versionCode without a store build
+#   ./reset-android.sh --no-bump    rebuild the same versionCode — only when the
 #                                   last one never reached Play
+#
+# A store build by default, because this is what an upload is made from and the
+# build you upload is the one that should need no flag to remember. `--store` is
+# still accepted, and is the default.
 
 fail() { echo "   ✗ $1" >&2; exit 1; }
 note() { echo "   · $1"; }
 
-STORE_BUILD=0
+STORE_BUILD=1
 BUMP=
 for arg in "$@"; do
   case "$arg" in
-    --store)   STORE_BUILD=1; export SQUARE_ENV=production ;;
+    --dev)     STORE_BUILD=0 ;;
+    --store)   STORE_BUILD=1 ;;
     --bump)    BUMP=1 ;;
     --no-bump) BUMP=0 ;;
-    *) fail "Unknown option '$arg'. Usage: ./reset-android.sh [--store] [--bump|--no-bump]" ;;
+    *) fail "Unknown option '$arg'. Usage: ./reset-android.sh [--dev] [--bump|--no-bump]" ;;
   esac
 done
+if [ "$STORE_BUILD" = "1" ]; then export SQUARE_ENV=production; else export SQUARE_ENV=sandbox; fi
 
 # A store build bumps unless told not to. Everything else leaves it alone.
 BUMP="${BUMP:-$STORE_BUILD}"
 
 if [ "$STORE_BUILD" = "1" ]; then
-  echo "→ Square: PRODUCTION — this build can take real money"
+  echo "→ Square: PRODUCTION — this build can take real money (pass --dev for the sandbox)"
 else
-  echo "→ Square: sandbox (pass --store for a build you will upload)"
+  echo "→ Square: sandbox — for development"
 fi
 
 # ── Environment ──────────────────────────────────────────────────────────────
@@ -125,7 +130,7 @@ fi
 # whole AAB has uploaded** — so the cost of forgetting is a full build and a
 # full upload, and the cost of bumping when you did not need to is a gap in a
 # sequence nobody reads. Those are not close, which is why this is automatic on
-# --store rather than a flag somebody has to remember.
+# a store build rather than a flag somebody has to remember.
 #
 # It edits the committed default in app.config.ts, which is the only thing that
 # actually moves the number: `ANDROID_VERSION_CODE` is read from the
@@ -264,5 +269,5 @@ else
   echo "   $(du -h "$OUT" | cut -f1)"
   echo
   echo "  Install it:  adb install -r $OUT"
-  echo "  Run ./reset-android.sh --store for an AAB you intend to upload."
+  echo "  Run ./reset-android.sh with no flag for an AAB you intend to upload."
 fi

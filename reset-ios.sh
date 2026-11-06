@@ -26,8 +26,8 @@ cd "$(dirname "$0")"
 #                             launch under dyld with no crash report
 #
 # Usage:
-#   ./reset-ios.sh              sandbox Square — for development
-#   ./reset-ios.sh --store      production Square — for an archive you will upload
+#   ./reset-ios.sh              production Square — for an archive you will upload
+#   ./reset-ios.sh --dev        sandbox Square — for development
 
 fail() { echo "   ✗ $1" >&2; exit 1; }
 note() { echo "   · $1"; }
@@ -48,20 +48,26 @@ APPLE_TEAM_ID="${APPLE_TEAM_ID:-5ZRM8X66TN}"
 
 # ── Which Square ─────────────────────────────────────────────────────────────
 #
-# Never defaulted off anything. app.config.ts defaults to the sandbox precisely
-# so that no ordinary build can charge the church's live account, and this
-# script must not quietly undo that. `--store` is the only way to production and
-# it says so on every run.
-STORE_BUILD=0
-if [ "${1:-}" = "--store" ]; then
-  STORE_BUILD=1
-  export SQUARE_ENV=production
-fi
+# A store build by default, and `--dev` for the sandbox. This script is what an
+# upload is made from, so the build you upload is the one that needs no flag to
+# remember. app.config.ts still defaults to the sandbox for a bare
+# `npx expo run:ios`; only this script opts in, and it says which on every run.
+# `--store` is still accepted, and is the default.
+STORE_BUILD=1
+for arg in "$@"; do
+  case "$arg" in
+    --dev)   STORE_BUILD=0 ;;
+    --store) STORE_BUILD=1 ;;
+    *) fail "Unknown option '$arg'. Usage: ./reset-ios.sh [--dev]" ;;
+  esac
+done
 
 if [ "$STORE_BUILD" = "1" ]; then
-  echo "→ Square: PRODUCTION — this build can take real money"
+  export SQUARE_ENV=production
+  echo "→ Square: PRODUCTION — this build can take real money (pass --dev for the sandbox)"
 else
-  echo "→ Square: sandbox (pass --store for a build you will upload)"
+  export SQUARE_ENV=sandbox
+  echo "→ Square: sandbox — for development"
 fi
 
 # CocoaPods requires a UTF-8 locale. An interactive Terminal usually has one; a
@@ -347,5 +353,5 @@ if [ "$STORE_BUILD" = "1" ]; then
   echo "  Bump BUILD in app.config.ts first if this number has been uploaded before."
   echo "  Before uploading, confirm SPSMConnectClip.app is inside SPSMConnect.app/AppClips/."
 else
-  echo "  Sandbox Square. Run ./reset-ios.sh --store for a build you intend to upload."
+  echo "  Sandbox Square. Run ./reset-ios.sh with no flag for a build you intend to upload."
 fi

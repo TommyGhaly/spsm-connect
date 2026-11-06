@@ -432,19 +432,21 @@ generated native directory, prebuild, install, verify, build — and each takes
 one optional argument:
 
 ```bash
-./reset-ios.sh              # sandbox Square, for development
-./reset-ios.sh --store      # production Square, then archive in Xcode
+./reset-ios.sh              # production Square, then archive in Xcode
+./reset-ios.sh --dev        # sandbox Square, for development
 ```
 
 ```bash
-./reset-android.sh          # sandbox Square, debug-signed APK
-./reset-android.sh --store  # production Square, upload key required, AAB
+./reset-android.sh          # production Square, upload key required, AAB
+./reset-android.sh --dev    # sandbox Square, debug-signed APK
 ```
 
-`--store` is the only route to production Square and the only one that requires
-the church's upload key. Neither is defaulted off anything, because
-`app.config.ts` defaults to the sandbox precisely so that no ordinary build can
-charge the church's live account, and a script must not quietly undo that.
+Both scripts make a **store build by default** — production Square, and on
+Android the church's upload key — because they are what an upload is made from,
+and the build you upload should be the one that needs no flag. `--dev` gives the
+sandbox. `app.config.ts` itself still defaults to the sandbox, so a bare
+`npx expo run:ios` or `run:android` never charges the church's live account;
+only the reset scripts opt in to production, and each says which on every run.
 
 **The verification is the point.** Every check guards something that fails
 silently — the project builds and breaks later somewhere that does not point
@@ -455,7 +457,7 @@ Release build dies at launch under dyld with no crash report; that the clip's
 version matches the app's, which App Store Connect otherwise rejects after the
 whole archive has uploaded; and that every associated domain is on `www.` with
 no bare apex, which is an association that can never validate. The Android
-script checks that `withReleaseSigning` applied at all, and on `--store` that
+script checks that `withReleaseSigning` applied at all, and on a store build that
 all four key properties exist *before* it wipes anything.
 
 Neither script contains a credential. The keystore and its passwords are four
