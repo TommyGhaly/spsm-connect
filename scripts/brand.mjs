@@ -126,10 +126,137 @@ async function transparentSvg() {
     );
   }
 
+  /*
+   * The red arch is the path straight after the plate — see GROUND below for
+   * why it is wanted on its own. Asserted for the same reason the plate is.
+   */
+  const afterPlate = original.slice(original.indexOf(plates[0]) + plates[0].length);
+  const arch = afterPlate.match(/<path[^>]*?\/>/)?.[0] ?? '';
+  if (!arch.includes(`fill="${ARCH_RED}"`)) {
+    throw new Error(
+      `Expected the path after the background plate to be the ${ARCH_RED} arch. ` +
+        'The artwork has changed; check GROUND in brand.mjs before trusting this script.',
+    );
+  }
+
   const stripped = original.replace(plates[0], '');
   const file = join(tmpdir(), 'spsm-seal-transparent.svg');
   await writeFile(file, stripped);
-  return file;
+
+  const archFile = join(tmpdir(), 'spsm-seal-arch.svg');
+  await writeFile(archFile, `${original.match(/<svg[^>]*>/)[0]}${arch}</svg>`);
+
+  return { file, archFile };
+}
+
+/**
+ * The white inside the arch, carried down under the saints' feet to the ribbon.
+ *
+ * The seal's white field is not one shape. Most of it is two white paths
+ * inside the arch, and they stop where the arch does, level with the camels;
+ * below that, under St. Mina's feet and between the horse's legs, the artwork
+ * relied on the plate stripped above to be white. With the plate gone those
+ * pockets show the icon's red ground, and the seal reads as a white dome with
+ * the saints standing on a red floor. Tommy: *"the white inner circle should
+ * include the part under the saint's legs and that should happen everywhere."*
+ *
+ * Put back by filling rather than by restoring the plate, since the plate is a
+ * rectangle and the whole point of stripping it was that nothing outside the
+ * seal is white. What is filled is every transparent pocket enclosed by the
+ * artwork. That alone fills nothing, because the arch's two ends stop short of
+ * the ribbon and each pocket leaks out through the gap; so for the fill only,
+ * a wall is dropped straight down from the inside edge of each end of the arch,
+ * which is the line the white field's own sides were already following. The
+ * ribbon closes the bottom.
+ *
+ * Grown by `bleed` pixels before it is painted, so the white runs under the
+ * antialiased edge of the artwork around it rather than leaving a hairline of
+ * red between the two.
+ */
+const GROUND = { colour: '#fefefe', alphaCutoff: 128, wall: 2, bleed: 3 };
+
+/** The arch's own red, which is how its path is recognised. */
+const ARCH_RED = '#81171c';
+
+async function rasterise(file, width) {
+  // rsvg-convert rather than sharp's own SVG support: this file uses a
+  // clipPath, and librsvg renders it faithfully where resvg has historically
+  // not. The church's logo is not the place to discover a rendering difference.
+  // No `-o`: rsvg-convert writes to stdout by default, and naming /dev/stdout
+  // explicitly fails with "Error truncating file" because it tries to open it
+  // for writing rather than inheriting the pipe.
+  const { stdout } = await run('rsvg-convert', ['-w', String(width), file], {
+    encoding: 'buffer',
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  return sharp(stdout).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+}
+
+/** The seal at `width`, with GROUND painted under it, as a PNG buffer. */
+async function sealOnGround({ file, archFile }, width) {
+  const { data, info } = await rasterise(file, width);
+  const { data: arch } = await rasterise(archFile, width);
+  const { width: W, height: H } = info;
+  const solid = (buffer, i) => buffer[i * 4 + 3] >= GROUND.alphaCutoff;
+
+  const wall = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) wall[i] = solid(data, i) ? 1 : 0;
+
+  // One wall per side, from the arch's lowest row on that side down.
+  const middle = W >> 1;
+  for (const [from, to, step] of [
+    [middle, -1, -1],
+    [middle, W, 1],
+  ]) {
+    let end = -1;
+    for (let y = H - 1; y >= 0 && end < 0; y--) {
+      for (let x = from; x !== to; x += step) if (solid(arch, y * W + x)) end = y;
+    }
+    // A few rows up, so the wall starts inside the arch rather than at its tip.
+    const top = end - 3 * GROUND.wall;
+    let inside = -1;
+    for (let x = from; x !== to && inside < 0; x += step) if (solid(arch, top * W + x)) inside = x;
+    if (end < 0 || inside < 0) throw new Error('Could not find the ends of the arch.');
+    for (let y = top; y < H; y++) {
+      for (let dx = -GROUND.wall; dx <= GROUND.wall; dx++) wall[y * W + inside + dx] = 1;
+    }
+  }
+
+  // Flood the outside in from the canvas edge; what it cannot reach is enclosed.
+  const outside = new Uint8Array(W * H);
+  const stack = [];
+  for (let x = 0; x < W; x++) stack.push(x, (H - 1) * W + x);
+  for (let y = 0; y < H; y++) stack.push(y * W, y * W + W - 1);
+  while (stack.length) {
+    const i = stack.pop();
+    if (outside[i] || wall[i]) continue;
+    outside[i] = 1;
+    const x = i % W;
+    if (x > 0) stack.push(i - 1);
+    if (x < W - 1) stack.push(i + 1);
+    if (i >= W) stack.push(i - W);
+    if (i < W * (H - 1)) stack.push(i + W);
+  }
+
+  const pockets = Buffer.alloc(W * H);
+  for (let i = 0; i < W * H; i++) if (!outside[i] && !solid(data, i)) pockets[i] = 255;
+  const mask = await sharp(pockets, { raw: { width: W, height: H, channels: 1 } })
+    .dilate(GROUND.bleed)
+    .extractChannel(0)
+    .raw()
+    .toBuffer();
+
+  const [r, g, b] = [1, 3, 5].map((at) => parseInt(GROUND.colour.slice(at, at + 2), 16));
+  const ground = Buffer.alloc(W * H * 4);
+  for (let i = 0; i < W * H; i++) {
+    if (mask[i]) ground.set([r, g, b, 255], i * 4);
+  }
+
+  const artwork = await sharp(data, { raw: { width: W, height: H, channels: 4 } }).png().toBuffer();
+  return sharp(ground, { raw: { width: W, height: H, channels: 4 } })
+    .composite([{ input: artwork }])
+    .png()
+    .toBuffer();
 }
 
 let transparentLogo = null;
@@ -155,17 +282,8 @@ let inkBuffer = null;
  */
 async function ink() {
   transparentLogo ??= await transparentSvg();
-  // rsvg-convert rather than sharp's own SVG support: this file uses a
-  // clipPath, and librsvg renders it faithfully where resvg has historically
-  // not. The church's logo is not the place to discover a rendering difference.
-  // No `-o`: rsvg-convert writes to stdout by default, and naming /dev/stdout
-  // explicitly fails with "Error truncating file" because it tries to open it
-  // for writing rather than inheriting the pipe.
-  const { stdout } = await run('rsvg-convert', ['-w', String(SIZE * 2), transparentLogo], {
-    encoding: 'buffer',
-    maxBuffer: 64 * 1024 * 1024,
-  });
-  return sharp(stdout).trim({ threshold: 0 }).png().toBuffer();
+  const seal = await sealOnGround(transparentLogo, SIZE * 2);
+  return sharp(seal).trim({ threshold: 0 }).png().toBuffer();
 }
 
 /**

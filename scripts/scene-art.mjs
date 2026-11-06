@@ -22,7 +22,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { root } from './brand.mjs';
+import { root, sharp } from './brand.mjs';
 
 /** How far past its square each scene is carried, in the scene's own units. */
 const PAD = 160;
@@ -47,11 +47,26 @@ export const FRAMING = {
   'register-vehicle': { top: 62, focus: 345 },
 };
 
-/** The scene's markup, without its `<svg>` wrapper — or null if it is not drawn yet. */
+/**
+ * The scene's markup, without its `<svg>` wrapper — or null if it is not drawn yet.
+ *
+ * A scene may show a real picture from this repo as `<image href="assets/…">`,
+ * which is how `apps` puts the app's own icon on the phone rather than a
+ * drawing of it: a hand-drawn seal was close enough to look deliberate and
+ * wrong enough to look like somebody else's app. Inlined as a data URI here,
+ * since rsvg-convert renders from a temporary file and the sticker SVGs are
+ * shipped on their own, and neither can reach back into the repo. Shrunk first;
+ * the tile is about 130px on the largest of them.
+ */
 export async function readScene(slug) {
   const source = await readFile(join(root, 'scripts', 'nfc-scenes', `${slug}.svg`), 'utf8').catch(() => null);
   if (!source) return null;
-  return source.slice(source.indexOf('>', source.indexOf('<svg')) + 1, source.lastIndexOf('</svg>'));
+  let inner = source.slice(source.indexOf('>', source.indexOf('<svg')) + 1, source.lastIndexOf('</svg>'));
+  for (const path of new Set([...inner.matchAll(/href="(assets\/[^"]+\.png)"/g)].map((m) => m[1]))) {
+    const png = await sharp(join(root, path)).resize(256).png().toBuffer();
+    inner = inner.replaceAll(`href="${path}"`, `href="data:image/png;base64,${png.toString('base64')}"`);
+  }
+  return inner;
 }
 
 /**
