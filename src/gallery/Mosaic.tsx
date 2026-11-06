@@ -24,11 +24,28 @@
  * Every row is scaled so its photographs, at their real aspect ratios, exactly
  * fill the page width. The crop that remains is only the clamp on extreme
  * shapes (a panorama, a phone screenshot), and `focal` covers it.
+ *
+ * ## Why the photographs further down wait their turn
+ *
+ * The website marks every gallery picture `loading="lazy"`, so a browser fetches
+ * the screenful somebody is looking at and the next one, and nothing else. This
+ * drew them all at once: a level holds up to 300 photographs, each a ~900 KB
+ * rendition about 2600 pixels wide, and all of them began downloading and
+ * decoding the moment the page opened. The ones on screen came in last among
+ * equals and the scroll stuttered behind the decoding. Now a row gets its
+ * photographs once it is within `AHEAD` screens of the bottom of the view, and
+ * until then it is a sunken box of exactly the size it will be, so nothing
+ * moves when it fills.
+ *
+ * Mounted rows stay mounted. The point is the first screen and the scroll, not
+ * a recycler; `expo-image` already decodes at the tile's size rather than the
+ * file's.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
 import type { GalleryTree } from '@spsm/shared';
 
+import { useScroller } from '@/components/Surface';
 import { Small } from '@/components/Type';
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -45,6 +62,47 @@ interface Row {
 
 /** The space between tiles. Tight on purpose — a mosaic reads as one surface. */
 const GAP = 4;
+
+/**
+ * How many screens past the bottom of the view a row starts loading.
+ *
+ * Measured from the top of the page rather than the top of the mosaic, which
+ * only ever loads a little early: the mosaic cannot start above the page.
+ */
+const AHEAD = 1.5;
+
+/**
+ * How far down the page, in points, rows should have their photographs by now.
+ *
+ * Only ever grows, and only re-renders when it has grown by a third of a screen,
+ * so a scroll is a handful of renders rather than one a frame.
+ */
+function useReach(): number {
+  const scroller = useScroller();
+  const { height: window } = useWindowDimensions();
+  const [reach, setReach] = useState(() =>
+    scroller ? window * (1 + AHEAD) : Number.POSITIVE_INFINITY,
+  );
+  const held = useRef(reach);
+
+  useEffect(() => {
+    if (!scroller) return;
+
+    const check = () => {
+      const view = scroller.viewport.current || window;
+      const want = scroller.offset.current + view * (1 + AHEAD);
+      if (want > held.current + view / 3) {
+        held.current = want;
+        setReach(want);
+      }
+    };
+
+    check();
+    return scroller.listen(check);
+  }, [scroller, window]);
+
+  return reach;
+}
 
 export function Mosaic({
   order,
@@ -64,6 +122,16 @@ export function Mosaic({
 
   const page = width - theme.space.gutter * 2;
   const rows = useMemo(() => justify(order, page), [order, page]);
+  const reach = useReach();
+
+  /** Where each row starts, from the top of the mosaic. */
+  const tops = useMemo(() => {
+    const out: number[] = [];
+    for (let at = 0; at < rows.length; at += 1) {
+      out.push(at === 0 ? 0 : out[at - 1]! + rows[at - 1]!.height + GAP);
+    }
+    return out;
+  }, [rows]);
 
   const photos = order.filter((one) => one.kind !== 'video').length;
   const clips = order.length - photos;
@@ -73,29 +141,41 @@ export function Mosaic({
       <Small color={theme.color.inkFaint}>{countLine(photos, clips)}</Small>
 
       <View style={{ gap: GAP }}>
-        {rows.map((row) => (
+        {rows.map((row, at) => (
           <View key={row.items[0]?.media.id} style={{ flexDirection: 'row', gap: GAP }}>
-            {row.items.map(({ media, index, width: tile }) => (
-              <View key={media.id} style={{ width: tile }}>
-                <Pressable
-                  onPress={() => setOpen(index)}
-                  accessibilityRole="imagebutton"
-                  accessibilityLabel={`${media.caption || 'Photograph'}, ${index + 1} of ${order.length}. Open larger.`}
-                  style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
-                >
-                  <Picture media={media} height={row.height} />
-                </Pressable>
-                {/* Over the tile rather than inside the Pressable, so editing a
-                    photograph is not also opening it. */}
-                <PictureTools
-                  media={media}
-                  program={program}
-                  tree={tree}
-                  onChanged={onChanged}
-                  compact
-                />
-              </View>
-            ))}
+            {(tops[at] ?? 0) > reach
+              ? row.items.map(({ media, width: tile }) => (
+                  <View
+                    key={media.id}
+                    style={{
+                      width: tile,
+                      height: row.height,
+                      borderRadius: theme.radius.sm,
+                      backgroundColor: theme.color.paperSunken,
+                    }}
+                  />
+                ))
+              : row.items.map(({ media, index, width: tile }) => (
+                  <View key={media.id} style={{ width: tile }}>
+                    <Pressable
+                      onPress={() => setOpen(index)}
+                      accessibilityRole="imagebutton"
+                      accessibilityLabel={`${media.caption || 'Photograph'}, ${index + 1} of ${order.length}. Open larger.`}
+                      style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
+                    >
+                      <Picture media={media} height={row.height} />
+                    </Pressable>
+                    {/* Over the tile rather than inside the Pressable, so editing a
+                        photograph is not also opening it. */}
+                    <PictureTools
+                      media={media}
+                      program={program}
+                      tree={tree}
+                      onChanged={onChanged}
+                      compact
+                    />
+                  </View>
+                ))}
           </View>
         ))}
       </View>

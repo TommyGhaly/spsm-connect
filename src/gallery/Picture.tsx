@@ -64,7 +64,17 @@ export function Picture({
   }
 
   return (
-    <View style={{ height, borderRadius: radius, overflow: 'hidden' }}>
+    // Sunken while the file is on its way, the same box `Mosaic` draws for a row
+    // it has not loaded yet, so a tile goes from tinted to photograph and never
+    // through an empty hole with an edit button floating in it.
+    <View
+      style={{
+        height,
+        borderRadius: radius,
+        overflow: 'hidden',
+        backgroundColor: theme.color.paperSunken,
+      }}
+    >
       <Image
         source={{ uri: url }}
         style={{ width: '100%', height: '100%' }}

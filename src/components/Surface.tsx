@@ -46,6 +46,17 @@ export interface Scroller {
    * travels at the sum of the two.
    */
   setEnabled: (enabled: boolean) => void;
+  /** How tall the visible part of the page is. Points. */
+  viewport: React.RefObject<number>;
+  /**
+   * Be told when the page scrolls or resizes, and stop being told.
+   *
+   * For a long gallery that mounts its photographs as they come near, the way
+   * the website's `loading="lazy"` does. A subscription rather than state for
+   * the reason the offset is a ref: only the one listener decides whether
+   * anything needs to render.
+   */
+  listen: (listener: () => void) => () => void;
 }
 
 const ScrollerContext = createContext<Scroller | null>(null);
@@ -99,8 +110,25 @@ export function Screen({
   const viewport = useRef(0);
   const content = useRef(0);
   const [enabled, setEnabled] = useState(true);
+  const listeners = useRef(new Set<() => void>());
 
-  const scroller = useMemo<Scroller>(() => ({ ref, offset, max, setEnabled }), []);
+  const scroller = useMemo<Scroller>(
+    () => ({
+      ref,
+      offset,
+      max,
+      setEnabled,
+      viewport,
+      listen: (listener) => {
+        listeners.current.add(listener);
+        return () => {
+          listeners.current.delete(listener);
+        };
+      },
+    }),
+    [],
+  );
+  const tell = () => listeners.current.forEach((listener) => listener());
 
   const padding: ViewStyle = {
     padding: theme.space.gutter,
@@ -131,10 +159,12 @@ export function Screen({
         scrollEventThrottle={16}
         onScroll={(event) => {
           offset.current = event.nativeEvent.contentOffset.y;
+          tell();
         }}
         onLayout={(event) => {
           viewport.current = event.nativeEvent.layout.height;
           max.current = Math.max(0, content.current - viewport.current);
+          tell();
         }}
         onContentSizeChange={(_width, height) => {
           content.current = height;
