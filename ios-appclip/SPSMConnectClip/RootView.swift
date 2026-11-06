@@ -25,12 +25,11 @@ struct RootView: View {
     }
 }
 
-/// The card every read-only experience ends with.
+/// The card every read-only experience ends with: the church's own page, which
+/// is current and complete and needs nothing installed.
 ///
-/// Two exits, in the order they are useful: the church's own page, which is
-/// current and complete and needs nothing installed, then the app, which is the
-/// thing this clip is a sample of. Shared rather than repeated because the
-/// wording is the same argument on every screen.
+/// The app is no longer offered here — `AppBanner` offers it at the top of
+/// every screen with Apple's badge, where it is seen without scrolling.
 struct ClipFooter: View {
     let destination: ClipDestination
     var readMore: String
@@ -38,13 +37,12 @@ struct ClipFooter: View {
 
     var body: some View {
         ClipCard {
-            ClipEyebrow(text: "There is more")
+            ClipEyebrow(text: "On the church’s website")
             ClipBody(text: readMore)
 
-            ClipButton(label: "Open on the church’s website", tone: .quiet) {
+            ClipButton(label: "Open the full page") {
                 sheet = IdentifiableURL(url: ClipConfig.page(destination.sitePath))
             }
-            ClipButton(label: "Get SPSM Connect") { AppOffer.present() }
 
             Text("This is a quick preview of the app. Your iPhone removes it on its own after a while.")
                 .font(Face.small)

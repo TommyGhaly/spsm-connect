@@ -35,11 +35,23 @@ enum FirestoreREST {
          * failed read resolves to the defaults and never rejects.
          */
         if http.statusCode == 404 { return [:] }
+        /*
+         * 403 is the rules saying no, and the signal is fine. For a public read
+         * that almost always means a document that is unpublished, or not there
+         * at all (a rule that reads `resource.data` refuses a missing document
+         * rather than reporting it absent). Its own error, so a caller can say
+         * that instead of "check your Wi-Fi" to somebody who will then press
+         * Try again forever.
+         */
+        if http.statusCode == 403 { throw Refused() }
         guard (200..<300).contains(http.statusCode) else { throw URLError(.badServerResponse) }
 
         let decoded = try JSONDecoder().decode(FirestoreDocument.self, from: data)
         return decoded.fields ?? [:]
     }
+
+    /// `firestore.rules` refused the read. See `document(_:)`.
+    struct Refused: Error {}
 
     /// Every document in a collection, as decoded fields.
     ///

@@ -139,14 +139,19 @@ struct AppsView: View {
     }
 }
 
-/// One app's icon: 64pt square, as on the app's `/apps` screen, over the sunken
+/// One app's icon: 64pt square by default, as on the app's `/apps` screen (the
+/// top-of-screen app banner draws it smaller), over the sunken
 /// paper that holds the row open while the file arrives so the name does not
 /// jump left as the icon lands.
 ///
 /// Decorative, hence hidden rather than described — the app's name is on the
 /// line beside it, and a screen reader announcing both says "Taksis Taksis".
-private struct AppIconImage: View {
+struct AppIconImage: View {
     let url: URL
+    var size: CGFloat = 64
+    /// 16 at 64, which is `radius.lg`; kept in proportion at other sizes so a
+    /// smaller icon still reads as an icon and not a rounded thumbnail.
+    private var radius: CGFloat { size / 4 }
 
     var body: some View {
         AsyncImage(url: url) { phase in
@@ -159,7 +164,7 @@ private struct AppIconImage: View {
                 Color.clear
             }
         }
-        .frame(width: 64, height: 64)
+        .frame(width: size, height: size)
         .background(Ink.paperSunken)
         /*
          * 16, which is `radius.lg`, and it was 8. A 64pt icon on a home screen
@@ -173,8 +178,8 @@ private struct AppIconImage: View {
          * square is empty paper until a fetched file arrives, which without an
          * edge is a gap rather than a space being held.
          */
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Ink.rule, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: radius))
+        .overlay(RoundedRectangle(cornerRadius: radius).strokeBorder(Ink.rule, lineWidth: 1))
         .accessibilityHidden(true)
     }
 }

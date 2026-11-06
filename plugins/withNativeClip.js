@@ -118,6 +118,8 @@ const SWIFT_FILES = [
   'FormsView.swift',
   'FormModel.swift',
   'FormFields.swift',
+  'OrdinationView.swift',
+  'CampSignUpView.swift',
   'PhotosView.swift',
   'ClipCamera.swift',
   'AppAttest.swift',

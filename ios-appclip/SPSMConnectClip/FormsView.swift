@@ -41,6 +41,18 @@ struct FormsView: View {
             case .failed(let message):
                 ClipProblem(message: message) { model.load() }
 
+            case .ordination:
+                OrdinationForm()
+
+            case .camp:
+                CampSignUpForm()
+
+            case .unavailable:
+                ClipCard {
+                    ClipEyebrow(text: "Not open right now")
+                    ClipBody(text: "The form on this tag isn’t open to the public at the moment. Please let the church office know. Every form the church has open is on its website.")
+                }
+
             case .closed(let form):
                 ClipCard {
                     ClipEyebrow(text: "Closed")
@@ -153,6 +165,12 @@ final class FormsScreenModel: ObservableObject {
     enum State {
         case loading
         case failed(String)
+        /// The tag's form is unpublished or gone. No retry: it is the office's to fix.
+        case unavailable
+        /// The nomination for ordination, which has a screen of its own.
+        case ordination
+        /// The camp's servant sign-up, likewise.
+        case camp
         case closed(ParishForm)
         case elsewhere(ParishForm, URL)
         case filling(ParishForm)
@@ -209,6 +227,12 @@ final class FormsScreenModel: ObservableObject {
                 } else {
                     state = .filling(form)
                 }
+            } catch is FormsAPI.OrdinationTagged {
+                state = .ordination
+            } catch is FormsAPI.CampTagged {
+                state = .camp
+            } catch is FormsAPI.NotPublic {
+                state = .unavailable
             } catch {
                 state = .failed("The form couldn’t be opened just now. Check you have signal or Wi-Fi, then try again.")
             }

@@ -363,6 +363,22 @@ enum FormsAPI {
     /// `DEFAULT_FORMS_PAGE_CONFIG.nfcFormSlug`.
     static let defaultSlug = "vehicle-registration"
 
+    /// The tag names a form that is unpublished or gone. Nothing the person
+    /// holding the phone can fix, and pressing again will not help.
+    struct NotPublic: Error {}
+
+    /*
+     * The two forms that are not in the `forms` collection and never will be:
+     * each is a screen of its own at `/forms/<slug>` on the website and in the
+     * app (`ORDINATION_FORM_SLUG` and `CAMP_FORM_SLUG` in `schema/config.ts`),
+     * and in the clip — `OrdinationView.swift` and `CampSignUpView.swift`.
+     * Reading `forms/ordination` is refused because there is no such document,
+     * so either on the tag is recognised by slug before any read. Thrown rather
+     * than returned because the answer is not a `ParishForm`; not failures.
+     */
+    struct OrdinationTagged: Error {}
+    struct CampTagged: Error {}
+
     /// The form the office has put on the tag, and only that one.
     ///
     /// A single-document read, which the `forms` rule allows for a published
@@ -376,8 +392,31 @@ enum FormsAPI {
            let chosen = config["nfcFormSlug"]?.stringValue, !chosen.isEmpty {
             slug = chosen
         }
+        #if DEBUG
+            /*
+             * Try any form on the tag without changing the live setting:
+             * `SIMCTL_CHILD_SPSM_TAG_FORM=summer-camp xcrun simctl launch …`.
+             * Debug builds only, like `_XCAppClipURL`.
+             */
+            if let override = ProcessInfo.processInfo.environment["SPSM_TAG_FORM"], !override.isEmpty {
+                slug = override
+            }
+        #endif
+        if slug == "ordination" { throw OrdinationTagged() }
+        if slug == "summer-camp" { throw CampTagged() }
 
-        var fields = try await FirestoreREST.document("forms/\(slug)")
+        /*
+         * Refused is not fatal yet: the id may not be the slug, and the query
+         * below states `published == true`, which the rules always allow. It
+         * is when the query finds nothing either that the tag is pointing at a
+         * form the public cannot see.
+         */
+        var fields: [String: FirestoreValue]
+        do {
+            fields = try await FirestoreREST.document("forms/\(slug)")
+        } catch is FirestoreREST.Refused {
+            fields = [:]
+        }
         if fields.isEmpty {
             let found = try await FirestoreREST.query(
                 "forms",
@@ -388,7 +427,7 @@ enum FormsAPI {
 
         if fields.isEmpty {
             if slug == defaultSlug { return .builtInVehicle }
-            throw URLError(.fileDoesNotExist)
+            throw NotPublic()
         }
         return parse(id: slug, fields)
     }

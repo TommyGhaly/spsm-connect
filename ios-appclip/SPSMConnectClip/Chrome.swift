@@ -29,6 +29,16 @@ struct ClipScreen<Content: View>: View {
             .padding(.bottom, 18)
             .background(Ink.deep)
 
+            /*
+             * The app, offered at the top rather than at the end of a long
+             * scroll. `/c/apps` is the exception: the whole screen is that
+             * offer, with its own SPSM Connect card, and a banner above it
+             * would be saying the same thing twice.
+             */
+            if destination != .apps {
+                AppBanner()
+            }
+
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     content()
@@ -45,6 +55,48 @@ struct ClipScreen<Content: View>: View {
          * edge rather than leaving a band of paper under the last card.
          */
         .ignoresSafeArea(edges: .bottom)
+    }
+}
+
+/// The full app, pinned under the header of every experience — the clip's own
+/// Smart App Banner.
+///
+/// Apple's badge rather than a "Get SPSM Connect" button: it is the control
+/// people already know means "this is in the App Store", which a tinted button
+/// presenting `SKOverlay` was not. It opens the product page in the Safari
+/// sheet, for the reason `AppsView` gives — leaving the clip dismisses it.
+///
+/// Outside the `ScrollView`, so it stays put while the body scrolls under it.
+struct AppBanner: View {
+    @State private var sheet: IdentifiableURL?
+
+    var body: some View {
+        HStack(spacing: 12) {
+            AppIconImage(url: ClipConfig.page("/img/app-spsm-connect-192.webp"), size: 44)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("SPSM Connect")
+                    .font(Face.body.weight(.semibold))
+                    .foregroundStyle(Ink.ink)
+                Text("The church’s full app. Free.")
+                    .font(Face.small)
+                    .foregroundStyle(Ink.inkSoft)
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            AppStoreBadge(appName: "SPSM Connect") {
+                sheet = IdentifiableURL(url: ClipConfig.appStore)
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
+        .background(Ink.paperRaised)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Ink.rule).frame(height: 1)
+        }
+        .accessibilityElement(children: .contain)
+        .safari(url: $sheet)
     }
 }
 
