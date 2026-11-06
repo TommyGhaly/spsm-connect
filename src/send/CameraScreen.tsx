@@ -58,7 +58,7 @@ import { Image } from 'expo-image';
 import * as MediaLibrary from 'expo-media-library';
 import { useFocusEffect, useIsFocused, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Linking, Platform, Pressable, View } from 'react-native';
+import { AppState, Platform, Pressable, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -76,9 +76,8 @@ import {
 } from 'react-native-vision-camera';
 import { VIDEO_MAX_BYTES } from '@spsm/shared';
 
-import { Button, Card, Screen } from '@/components/Surface';
 import { Icon } from '@/components/Icon';
-import { Body, Label, Micro, Small } from '@/components/Type';
+import { Micro, Small } from '@/components/Type';
 import { mayAdminProgramEvent } from '@/firebase/grants';
 import { useGrants } from '@/session/SessionProvider';
 import { pickAndQueue, queueCapture, type PickOutcome } from '@/upload/pick';
@@ -86,6 +85,7 @@ import { useUploads } from '@/upload/useUploads';
 import { useTheme } from '@/theme/ThemeProvider';
 
 import { DestinationBar } from './DestinationBar';
+import { NoCamera } from './NoCamera';
 import { Preview, type Capture } from './Preview';
 import { Shutter } from './Shutter';
 import { useDestination } from './useDestination';
@@ -923,6 +923,7 @@ export function CameraScreen() {
       <NoCamera
         canAskAgain={camera.canRequestPermission}
         onAsk={() => void requestCamera()}
+        destination={destination}
       />
     );
   }
@@ -1572,36 +1573,6 @@ function FocusRing({ focusAt }: { focusAt: { x: number; y: number; at: number } 
         borderColor: theme.color.gold,
       }}
     />
-  );
-}
-
-/**
- * No camera, and what can be done about it.
- *
- * Two different situations and two different sentences. `canAskAgain` means the
- * prompt has not been answered or the system will show it again, so there is a
- * button that works. Once it is false the app cannot ask at all and the only
- * true thing to say is where the switch actually is — a button that silently
- * does nothing is worse than no button.
- */
-function NoCamera({ canAskAgain, onAsk }: { canAskAgain: boolean; onAsk: () => void }) {
-  const theme = useTheme();
-
-  return (
-    <Screen>
-      <Card gap={theme.space.sm}>
-        <Label>The camera</Label>
-        <Body color={theme.color.inkSoft}>
-          SPSM Connect needs your camera so you can send photographs to the church galleries.
-          Nothing is published until an administrator has looked at it.
-        </Body>
-        {canAskAgain ? (
-          <Button label="Turn on the camera" onPress={onAsk} />
-        ) : (
-          <Button label="Open Settings" onPress={() => void Linking.openSettings()} tone="quiet" />
-        )}
-      </Card>
-    </Screen>
   );
 }
 

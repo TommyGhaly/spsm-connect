@@ -135,7 +135,7 @@ export function DestinationBar({
   );
 }
 
-function DestinationSheet({
+export function DestinationSheet({
   open,
   onClose,
   current,
