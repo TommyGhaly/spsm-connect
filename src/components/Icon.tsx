@@ -381,6 +381,47 @@ const ICONS = {
       <Path d="M10 18a2 2 0 0 0 4 0" />
     </>
   ),
+
+  /*
+   * The four below are the feature chips on `/apps`, copied from the
+   * website's `components/Icon.tsx`, where they say in a word what each app
+   * holds — the same words the App Clip's Apps screen uses.
+   */
+  /** Taksis keeps the parish's vehicles. */
+  car: (
+    <>
+      <Path d="M5 16.5V12l1.8-4.6A2 2 0 0 1 8.7 6h6.6a2 2 0 0 1 1.9 1.4L19 12v4.5" />
+      <Path d="M4 16.5h16" />
+      <Path d="M5 12h14" />
+      <Circle cx="8" cy="16.5" r="1.6" />
+      <Circle cx="16" cy="16.5" r="1.6" />
+    </>
+  ),
+  /** Giving on a schedule. */
+  repeat: (
+    <>
+      <Path d="M17 3l3 3-3 3" />
+      <Path d="M4 11V9a3 3 0 0 1 3-3h13" />
+      <Path d="M7 21l-3-3 3-3" />
+      <Path d="M20 13v2a3 3 0 0 1-3 3H4" />
+    </>
+  ),
+  /** A parent and a child: the children's accounts in Taksis. */
+  users: (
+    <>
+      <Circle cx="9" cy="7.5" r="3" />
+      <Path d="M3.5 20v-1a5.5 5.5 0 0 1 11 0v1" />
+      <Circle cx="17" cy="10" r="2.2" />
+      <Path d="M15.5 15a4 4 0 0 1 5 3.9V20" />
+    </>
+  ),
+  /** The bookstore. */
+  book: (
+    <>
+      <Path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5z" />
+      <Path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3" />
+    </>
+  ),
 } satisfies Record<string, ReactElement>;
 
 export type IconName = keyof typeof ICONS;

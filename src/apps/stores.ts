@@ -26,7 +26,11 @@
  */
 import type { Href } from 'expo-router';
 
+import type { IconName } from '@/components/Icon';
 import { TITHELY_APP as TITHELY_GIVING_APP } from '@/giving/config';
+
+/** One chip under an app's sentence: what it holds, in a word. */
+export type AppFeature = { icon: IconName; label: string };
 
 export type ChurchApp = {
   /** The name as it appears on the store listing. */
@@ -54,6 +58,14 @@ export type ChurchApp = {
   android: string;
   /** A screen in this app that says more, when there is one. */
   more?: { href: Href; label: string };
+  /**
+   * The card's stripe and chip colour — the website's `tone`, and the App
+   * Clip's. A theme token's name, never the icon's own colour: the artwork is
+   * somebody else's trademark and the card does not borrow from it.
+   */
+  tone: 'gold' | 'azure';
+  /** The chips, in the website's words and order. */
+  features: readonly AppFeature[];
 };
 
 /**
@@ -75,6 +87,13 @@ export const TAKSIS_APP: ChurchApp = {
   icon: '/img/app-taksis-192.webp',
   ios: 'https://apps.apple.com/us/app/taksis/id6743824691',
   android: 'https://play.google.com/store/apps/details?id=com.tghaly.taksis',
+  tone: 'gold',
+  features: [
+    { icon: 'calendar', label: 'Schedules' },
+    { icon: 'check', label: 'Attendance' },
+    { icon: 'users', label: 'Children’s accounts' },
+    { icon: 'car', label: 'Vehicles' },
+  ],
 };
 
 /**
@@ -96,6 +115,36 @@ export const TITHELY_APP: ChurchApp = {
   what:
     'Gives to the church from a phone, once or on a schedule — the same offering as the form on the Giving screen.',
   more: { href: '/giving', label: 'How the church receives an offering' },
+  tone: 'azure',
+  features: [
+    { icon: 'gift', label: 'Give once' },
+    { icon: 'repeat', label: 'Or on a schedule' },
+  ],
 };
+
+/**
+ * This app, for the dark card at the foot of `/apps` — not one of
+ * `CHURCH_APPS`, and the header above says why it cannot be drawn as one: it
+ * offers nothing to install. It is drawn the way the App Clip draws it, as
+ * "the one you are holding", with what it holds and a way to pass it on, which
+ * is the one thing a reader can usefully do with an app they already have.
+ *
+ * The store URLs are the website's, and are opened only through the share
+ * sheet — never as a badge, which would read as "install this".
+ */
+export const CONNECT_APP = {
+  name: 'SPSM Connect',
+  icon: '/img/app-spsm-connect-192.webp',
+  ios: 'https://apps.apple.com/us/app/spsm-connect/id6812929115',
+  android: 'https://play.google.com/store/apps/details?id=org.spsm.connect',
+  features: [
+    { icon: 'calendar', label: 'Calendar' },
+    { icon: 'photos', label: 'Galleries' },
+    { icon: 'file', label: 'Forms' },
+    { icon: 'book', label: 'Bookstore' },
+    { icon: 'gift', label: 'Offering' },
+    { icon: 'bell', label: 'Reminders' },
+  ],
+} as const satisfies { name: string; icon: string; ios: string; android: string; features: readonly AppFeature[] };
 
 export const CHURCH_APPS: readonly ChurchApp[] = [TAKSIS_APP, TITHELY_APP];
