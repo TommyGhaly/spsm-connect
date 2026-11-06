@@ -41,15 +41,20 @@ struct PhotosView: View {
                 }
 
             case .ready:
+                // The website's upload panel, in its order: heading, two
+                // sentences, where it goes, then the dashed box to press.
                 ClipCard(spacing: 14) {
+                    if let program = model.destination?.programName {
+                        ClipEyebrow(text: program)
+                    }
                     ClipHeading(text: "Share a photo with the church")
-                    ClipBody(text: "Take one photo and send it. Someone from the church looks at every photo before it goes in the gallery.")
+                    // The two controls first: the clip opens with the system's
+                    // banner over its lower half, and what is under it is
+                    // what nobody finds. The reading can wait below them.
+                    TakeBox { camera = true }
                     DestinationRow(model: model) { choosing = true }
-                    ClipButton(label: "Take a photo") { camera = true }
-                    Text("Your iPhone will ask to use the camera. Tap Allow.")
-                        .font(Face.small)
-                        .foregroundStyle(Ink.inkFaint)
-                        .fixedSize(horizontal: false, vertical: true)
+                    ClipBody(text: "Photographs from \(model.destination?.programName ?? "the church") are welcome — the moments the people running it are too busy to catch.")
+                    GoodToKnow()
                 }
 
             case .review(let image):
@@ -126,38 +131,135 @@ struct PhotosView: View {
     }
 }
 
-/// "Your photo will go to: Summer Camp 2026, Week 1 — Change". Shown on every
-/// screen before sending, so the place is never a surprise.
+/// Three plain facts, said before anyone has to wonder: what to take, that
+/// they see it first, and who sees it next.
+private struct GoodToKnow: View {
+    private let lines: [(String, String)] = [
+        ("camera.viewfinder", "One photo at a time, taken here and now."),
+        ("eye", "You see it before it sends, and can take it again."),
+        ("checkmark.seal", "Someone from the church looks at every photo before it goes in the gallery."),
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ForEach(lines, id: \.1) { icon, line in
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Image(systemName: icon)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Ink.accent)
+                        .frame(width: 22)
+                    Text(line)
+                        .font(Face.small)
+                        .foregroundStyle(Ink.inkSoft)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// The website's `.submit-drop`, for a camera instead of a file picker: a
+/// sunken box with a dashed edge, the call in accent, a faint line under it.
+/// The whole box is the button. Pressed, the edge goes solid on the soft
+/// accent — the site's `is-over`, where the invitation has been accepted.
+private struct TakeBox: View {
+    let open: () -> Void
+
+    var body: some View {
+        Button(action: open) {
+            VStack(spacing: 8) {
+                Image(systemName: "camera.fill")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(Ink.inkInverse)
+                    .frame(width: 56, height: 56)
+                    .background(Circle().fill(Ink.accent))
+                    .overlay(Circle().strokeBorder(Ink.gold, lineWidth: 2).padding(-4))
+                    .padding(.bottom, 4)
+                Text("Take a photo")
+                    .font(Face.heading)
+                    .foregroundStyle(Ink.accentStrong)
+                Text("Your iPhone will ask to use the camera. Tap Allow.")
+                    .font(Face.small)
+                    .foregroundStyle(Ink.inkSoft)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 24)
+            .padding(.horizontal, 16)
+        }
+        .buttonStyle(DropStyle())
+        .accessibilityHint("Opens the camera")
+    }
+}
+
+private struct DropStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        let pressed = configuration.isPressed
+        configuration.label
+            .background(pressed ? Ink.accent.opacity(0.2) : Ink.accentSoft)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10).strokeBorder(
+                    pressed ? Ink.accent : Ink.accent.opacity(0.45),
+                    style: StrokeStyle(lineWidth: 1, dash: pressed ? [] : [5, 4])
+                )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .contentShape(RoundedRectangle(cornerRadius: 10))
+            .animation(.easeOut(duration: 0.15), value: pressed)
+    }
+}
+
+/// "Your photo goes to: Summer Camp 2026, Week 1 ›". Shown on every screen
+/// before sending, so the place is never a surprise — and when there is more
+/// than one place, the whole row is the control, the way a Settings row is.
 private struct DestinationRow: View {
     @ObservedObject var model: PhotosModel
     let change: () -> Void
 
+    private var changeable: Bool { (model.destination?.targets.count ?? 0) > 1 }
+
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Your photo will go to")
-                    .font(Face.small)
-                    .foregroundStyle(Ink.inkFaint)
-                Text(model.chosen?.label ?? "")
-                    .font(Face.body.weight(.semibold))
-                    .foregroundStyle(Ink.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .accessibilityElement(children: .combine)
-            Spacer(minLength: 8)
-            if (model.destination?.targets.count ?? 0) > 1 {
-                Button(action: change) {
-                    Text("Change")
+        Button(action: change) {
+            HStack(alignment: .center, spacing: 12) {
+                Image(systemName: "photo.stack")
+                    .font(.system(size: 18))
+                    .foregroundStyle(Ink.gold)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("GOING TO")
+                        .font(Face.label)
+                        .kerning(0.8)
+                        .foregroundStyle(Ink.gold)
+                    Text(model.chosen?.label ?? "")
                         .font(Face.body.weight(.semibold))
-                        .foregroundStyle(Ink.accent)
-                        .frame(minWidth: 64, minHeight: 44)
+                        .foregroundStyle(Ink.ink)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .accessibilityHint("Choose a different event for your photo")
+                Spacer(minLength: 8)
+                if changeable {
+                    HStack(spacing: 4) {
+                        Text("Change")
+                            .font(Face.small.weight(.semibold))
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.bold))
+                    }
+                    .foregroundStyle(Ink.accent)
+                }
             }
+            .padding(12)
+            .padding(.leading, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Ink.paperSunken)
+            .overlay(alignment: .leading) { Rectangle().fill(Ink.gold).frame(width: 4) }
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .contentShape(RoundedRectangle(cornerRadius: 10))
         }
-        .padding(12)
-        .background(Ink.paperSunken)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .buttonStyle(.plain)
+        .disabled(!changeable)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint(changeable ? "Choose a different event for your photo" : "")
     }
 }
 
