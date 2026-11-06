@@ -72,11 +72,6 @@ struct ScheduleView: View {
 
                         Legend()
                     }
-
-                    ClipFooter(
-                        destination: .schedule,
-                        readMore: "The church’s calendar has the whole month, and every event’s own page."
-                    )
                 }
             }
         }

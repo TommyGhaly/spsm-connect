@@ -80,11 +80,6 @@ struct FormsView: View {
                     ClipBody(text: form.confirmationMessage)
                 }
             }
-
-            ClipFooter(
-                destination: .forms,
-                readMore: "Every form the church keeps is on its website, and none of them needs an account."
-            )
         }
         .safari(url: $sheet)
         .task { model.loadIfNeeded() }

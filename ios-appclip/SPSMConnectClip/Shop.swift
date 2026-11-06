@@ -29,11 +29,12 @@ import Foundation
 
 /// One thing the church sells — or, for clothing, one size of it.
 ///
-/// Clothing is laid out as one row per size ("Parish tee — size M"), each with
-/// its own count and its own price, because the clip's basket is a quantity per
-/// row and a size picker would be a second screen inside a sheet the system
-/// sizes. The checkout is told the size; the add-on is charged from Firestore by
-/// `buildSquareOrder`, never from what the clip sends.
+/// Clothing is one of these per size ("Parish tee — size M"), each with its own
+/// count and its own price, because the basket is a quantity per key. The
+/// *shelf* does not show them that way: `BookstoreView` groups them by `slug`
+/// into one entry with a row of size chips, so a shirt in thirteen sizes is one
+/// title, not thirteen. The checkout is told the size; the add-on is charged
+/// from Firestore by `buildSquareOrder`, never from what the clip sends.
 struct ShopProduct: Identifiable, Equatable {
     /// The basket key: the slug, or `slug|size` for one size of clothing — the
     /// app's and the website's `cartKey`.
@@ -41,6 +42,9 @@ struct ShopProduct: Identifiable, Equatable {
     let slug: String
     /// The size this row is, for clothing; `nil` for everything else.
     let size: String?
+    /// The title as the shop lists it, without the size.
+    let title: String
+    /// The title with the size, for the Apple Pay sheet's lines.
     let name: String
     /// Cents. `Money.amount` in `@spsm/shared`'s `commerce.ts` is an integer of
     /// the smallest unit, and this carries it as one all the way to Apple Pay —
@@ -108,6 +112,7 @@ struct ShopProduct: Identifiable, Equatable {
                     id: "\(slug)|\(label)",
                     slug: slug,
                     size: label,
+                    title: name,
                     name: "\(name) — size \(label)",
                     amount: amount + size.extra,
                     imageURL: first.flatMap(URL.init(string:)),
@@ -123,7 +128,7 @@ struct ShopProduct: Identifiable, Equatable {
              */
             if rows.isEmpty {
                 return [ShopProduct(
-                    id: slug, slug: slug, size: nil, name: name, amount: amount,
+                    id: slug, slug: slug, size: nil, title: name, name: name, amount: amount,
                     imageURL: first.flatMap(URL.init(string:)), stockCount: 0,
                     taxable: taxable, wasCents: was
                 )]
@@ -135,6 +140,7 @@ struct ShopProduct: Identifiable, Equatable {
             id: slug,
             slug: slug,
             size: nil,
+            title: name,
             name: name,
             amount: amount,
             imageURL: first.flatMap(URL.init(string:)),
@@ -336,11 +342,16 @@ final class ShopModel: ObservableObject {
             do {
                 let rows = try await FirestoreREST.query("products", where: "published", equals: true)
                 products = rows
-                    .flatMap { ShopProduct.decode($0.fields, id: $0.id) }
-                    // Alphabetical, matching `getProducts` on the website.
-                    // Square's own order is the order things were created in,
-                    // which is nobody's idea of a shelf.
-                    .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+                    .map { ShopProduct.decode($0.fields, id: $0.id) }
+                    .filter { !$0.isEmpty }
+                    // Alphabetical by title, matching `getProducts` on the
+                    // website. Square's own order is the order things were
+                    // created in, which is nobody's idea of a shelf. Sorted as
+                    // documents, not rows, so a shirt's sizes stay together and
+                    // in preset order — sorting "size 2XL" against "size L" as
+                    // text would put them in neither.
+                    .sorted { $0[0].title.localizedCaseInsensitiveCompare($1[0].title) == .orderedAscending }
+                    .flatMap { $0 }
                 state = .loaded(products)
             } catch {
                 state = .failed(

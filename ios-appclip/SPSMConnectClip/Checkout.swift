@@ -110,6 +110,13 @@ final class Checkout: NSObject, ObservableObject {
     /// taken — see `settle`.
     private var shownTotal = 0
 
+    /// Whether the address now in the sheet has been put to the quote
+    /// Function. Only the wording of the flat row depends on it: with live
+    /// postage on, the website says the price comes from your ZIP until there
+    /// is one ("USPS postage for your ZIP code"), and says the plain figure once
+    /// USPS has been asked and could not price the basket ("$7.00 delivery.").
+    private var priced = false
+
     init(model: ShopModel) {
         self.model = model
         super.init()
@@ -154,6 +161,7 @@ final class Checkout: NSObject, ObservableObject {
         model.deliveryOptions = []
         model.chosenOption = nil
         model.flatDeliveryCents = model.settings.deliveryCents
+        priced = false
 
         let request = PKPaymentRequest.squarePaymentRequest(
             merchantIdentifier: ClipConfig.applePayMerchantId,
@@ -233,7 +241,7 @@ final class Checkout: NSObject, ObservableObject {
         if model.deliveryOptions.isEmpty {
             let flat = PKShippingMethod(label: "Post to me", amount: usd(model.flatDeliveryCents))
             flat.identifier = Checkout.flatId
-            flat.detail = "Flat rate, anywhere in the United States."
+            flat.detail = flatDetail
             posts = [flat]
         } else {
             // Cheapest first, as the Function sorts them.
@@ -250,6 +258,18 @@ final class Checkout: NSObject, ObservableObject {
         }
 
         return model.shipping ? posts + [collect] : [collect] + posts
+    }
+
+    /// The flat row's second line, in the website's words.
+    ///
+    /// With live postage off there is one price everywhere, and it says so.
+    /// With it on, the row is only a stand-in until an address is chosen —
+    /// Apple Pay will not show a row without an amount, so it carries the flat
+    /// figure — and after one, it is the charge USPS could not improve on: an
+    /// unweighed item in the basket, an address abroad, or USPS not answering.
+    private var flatDetail: String {
+        guard model.settings.liveShipping else { return "Flat rate, anywhere in the United States." }
+        return priced ? "Delivery to this address." : "USPS postage, priced for the address you choose."
     }
 
     /// Every line, then postage when there is any, then the church.
@@ -576,6 +596,7 @@ extension Checkout {
         }
 
         model.deliveryOptions = options
+        priced = true
         // The service the buyer had, if this address still has it; otherwise
         // the cheapest, as the website preselects. Only read while posting.
         model.chosenOption = options.first { $0.service == held?.service } ?? options.first

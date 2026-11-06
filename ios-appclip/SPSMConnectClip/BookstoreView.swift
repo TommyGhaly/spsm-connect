@@ -57,7 +57,7 @@ struct BookstoreView: View {
     }
 
     var body: some View {
-        ClipScreen(destination: .bookstore) {
+        ClipScreen(destination: .bookstore, bar: payBar) {
             shop
         }
         .task {
@@ -65,6 +65,16 @@ struct BookstoreView: View {
             model.loadIfNeeded()
         }
         .safari(url: $sheet)
+    }
+
+    /// The total and the button, pinned under the shelf so paying never means
+    /// scrolling past every title first. Only while there is something to pay
+    /// for: an empty basket, a paid order or a wallet Square cannot charge has
+    /// no bar at all, and the shelf keeps the whole sheet.
+    private var payBar: AnyView? {
+        guard selling, !model.isEmpty, case .loaded = model.state else { return nil }
+        if case .paid = checkout.outcome { return nil }
+        return AnyView(PayBar(model: model, checkout: checkout))
     }
 
     @ViewBuilder private var shop: some View {
@@ -117,28 +127,40 @@ struct BookstoreView: View {
                             count: onSale.count
                         ) { clearanceOnly.toggle() }
                     }
-                    ForEach(shown) { product in
-                        Shelf(product: product, model: model, selling: selling)
-                        if product.id != shown.last?.id {
+                    let titles = grouped(shown)
+                    ForEach(titles, id: \.first!.slug) { variants in
+                        Shelf(variants: variants, model: model, selling: selling)
+                        if variants.first?.slug != titles.last?.first?.slug {
                             Divider().overlay(Ink.rule)
                         }
                     }
                 }
 
                 if selling {
-                    Basket(model: model, checkout: checkout)
+                    Text("The church is charged nothing until Apple Pay is confirmed.")
+                        .font(Face.small)
+                        .foregroundStyle(Ink.inkFaint)
 
                     ClipBody(text: model.settings.returnsNotice, tone: Ink.inkFaint)
                         .font(Face.small)
                 }
             }
         }
-
-        ClipFooter(
-            destination: .bookstore,
-            readMore: "The church's shop has every title, with its full description and more pictures."
-        )
     }
+}
+
+/// Rows back into titles: every size of one shirt under one entry, in the order
+/// the rows came — alphabetical by title, sizes in preset order (`ShopModel`).
+private func grouped(_ rows: [ShopProduct]) -> [[ShopProduct]] {
+    var titles: [[ShopProduct]] = []
+    for row in rows {
+        if let last = titles.last?.first, last.slug == row.slug {
+            titles[titles.count - 1].append(row)
+        } else {
+            titles.append([row])
+        }
+    }
+    return titles
 }
 
 /* ── Clearance ────────────────────────────────────────────────────────────── */
@@ -172,53 +194,191 @@ private struct ClearanceToggle: View {
 /* ── One title ────────────────────────────────────────────────────────────── */
 
 private struct Shelf: View {
-    let product: ShopProduct
+    /// One row for a book; one per size for clothing.
+    let variants: [ShopProduct]
     @ObservedObject var model: ShopModel
     /// False leaves the title, the cover and the price, and takes away the
     /// stepper — a price list rather than a basket nobody can pay for.
     let selling: Bool
 
+    /// The size the stepper is counting, by basket key.
+    @State private var chosenId: String?
+
+    private var sized: Bool { variants.contains { $0.size != nil } }
+    /// The tapped size — or, when only one size is left to buy, that one,
+    /// since asking somebody to choose from one is a tap for nothing.
+    private var chosen: ShopProduct? {
+        guard sized else { return variants.first }
+        if let picked = variants.first(where: { $0.id == chosenId }) { return picked }
+        let buyable = variants.filter { !$0.soldOut }
+        return buyable.count == 1 ? buyable[0] : nil
+    }
+    private var soldOut: Bool { variants.allSatisfy(\.soldOut) }
+
+    /// The row whose price is shown: the chosen size, or the cheapest one
+    /// that can be bought until a size is chosen.
+    private var priced: ShopProduct {
+        chosen
+            ?? variants.filter { !$0.soldOut }.min { $0.amount < $1.amount }
+            ?? variants[0]
+    }
+
+    /// "From" only while the sizes disagree on price and none is chosen.
+    private var from: Bool {
+        chosen == nil && Set(variants.filter { !$0.soldOut }.map(\.amount)).count > 1
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Cover(url: product.imageURL)
+            Cover(url: priced.imageURL)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(product.name)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(priced.title)
                     .font(Face.body.weight(.medium))
                     .foregroundStyle(Ink.ink)
                     .fixedSize(horizontal: false, vertical: true)
 
-                // On clearance: the old price struck through beside the new
-                // one, and the saving — the shop's crossed-out price and badge.
-                HStack(spacing: 6) {
-                    if let was = product.wasCents, let off = product.percentOff {
-                        Text(money(was))
-                            .font(Face.small)
-                            .strikethrough()
-                            .foregroundStyle(Ink.inkFaint)
-                        Text(money(product.amount))
-                            .font(Face.small.weight(.semibold))
-                            .foregroundStyle(Ink.accent)
-                        Text("\(off)% off")
-                            .font(Face.small.weight(.semibold))
-                            .foregroundStyle(Ink.accent)
-                    } else {
-                        Text(money(product.amount))
-                            .font(Face.small.weight(.semibold))
-                            .foregroundStyle(Ink.accent)
-                    }
-                }
+                Price(product: priced, from: from)
 
-                if product.soldOut {
+                if soldOut {
                     Text("Sold out")
                         .font(Face.small)
                         .foregroundStyle(Ink.inkFaint)
-                } else if selling {
-                    Stepper(product: product, model: model)
+                } else {
+                    if sized {
+                        SizePicker(variants: variants, model: model, chosenId: $chosenId, chosen: chosen)
+                    }
+                    if selling {
+                        if let chosen {
+                            Stepper(product: chosen, model: model)
+                        } else {
+                            Text("Choose a size")
+                                .font(Face.small)
+                                .foregroundStyle(Ink.inkFaint)
+                        }
+                    }
                 }
             }
 
             Spacer(minLength: 0)
+        }
+    }
+}
+
+/// On clearance: the old price struck through beside the new one, and the
+/// saving — the shop's crossed-out price and badge.
+private struct Price: View {
+    let product: ShopProduct
+    let from: Bool
+
+    var body: some View {
+        HStack(spacing: 6) {
+            if from {
+                Text("From").font(Face.small).foregroundStyle(Ink.inkFaint)
+            }
+            if let was = product.wasCents, let off = product.percentOff {
+                Text(money(was))
+                    .font(Face.small)
+                    .strikethrough()
+                    .foregroundStyle(Ink.inkFaint)
+                Text(money(product.amount))
+                    .font(Face.small.weight(.semibold))
+                    .foregroundStyle(Ink.accent)
+                Text("\(off)% off")
+                    .font(Face.small.weight(.semibold))
+                    .foregroundStyle(Ink.accent)
+            } else {
+                Text(money(product.amount))
+                    .font(Face.small.weight(.semibold))
+                    .foregroundStyle(Ink.accent)
+            }
+        }
+    }
+}
+
+/// Every size as a chip, wrapped — one tap chooses the size the stepper below
+/// counts. A size already in the basket carries its count, so a buyer taking
+/// an M and two Ls sees both without opening anything. Sold-out sizes stay,
+/// struck through and untappable, because a missing size reads as "never made".
+private struct SizePicker: View {
+    let variants: [ShopProduct]
+    @ObservedObject var model: ShopModel
+    @Binding var chosenId: String?
+    /// What the shelf is counting, which may be a size nobody tapped.
+    let chosen: ShopProduct?
+
+    var body: some View {
+        Wrap(spacing: 6) {
+            ForEach(variants) { variant in
+                let label = variant.size ?? variant.title
+                let count = model.quantity(of: variant)
+                let on = chosen?.id == variant.id
+                Button {
+                    chosenId = variant.id
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(label)
+                            .strikethrough(variant.soldOut)
+                        if count > 0 {
+                            Text("×\(count)").opacity(0.8).monospacedDigit()
+                        }
+                    }
+                    .font(Face.small.weight(on ? .semibold : .regular))
+                    .foregroundStyle(
+                        on ? Color.white : variant.soldOut ? Ink.inkFaint : count > 0 ? Ink.accent : Ink.ink
+                    )
+                    .padding(.horizontal, 10)
+                    .frame(minWidth: 40, minHeight: 32)
+                    .background(
+                        Capsule().fill(on ? Ink.accent : count > 0 ? Ink.accentSoft : Color.clear)
+                    )
+                    .overlay(Capsule().strokeBorder(on ? Ink.accent : Ink.rule, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .disabled(variant.soldOut)
+                .accessibilityLabel(
+                    "Size \(label)\(variant.soldOut ? ", sold out" : "")\(count > 0 ? ", \(count) in basket" : "")"
+                )
+                .accessibilityAddTraits(on ? .isSelected : [])
+            }
+        }
+    }
+}
+
+/// Left to right, then onto the next line — chips that wrap rather than a
+/// row that scrolls sideways and hides half the sizes.
+struct Wrap: Layout {
+    var spacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? .infinity
+        var x: CGFloat = 0, y: CGFloat = 0, line: CGFloat = 0, widest: CGFloat = 0
+        for view in subviews {
+            let size = view.sizeThatFits(.unspecified)
+            if x > 0, x + size.width > width {
+                y += line + spacing
+                x = 0
+                line = 0
+            }
+            x += size.width + spacing
+            line = max(line, size.height)
+            widest = max(widest, x - spacing)
+        }
+        return CGSize(width: widest, height: y + line)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX, y = bounds.minY, line: CGFloat = 0
+        for view in subviews {
+            let size = view.sizeThatFits(.unspecified)
+            if x > bounds.minX, x + size.width > bounds.maxX {
+                y += line + spacing
+                x = bounds.minX
+                line = 0
+            }
+            view.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            line = max(line, size.height)
         }
     }
 }
@@ -292,63 +452,61 @@ private struct Knob: View {
     }
 }
 
-/* ── The total, and the one button ────────────────────────────────────────── */
+/* ── The total, and the one button, pinned ────────────────────────────────── */
 
-private struct Basket: View {
+private struct PayBar: View {
     @ObservedObject var model: ShopModel
     @ObservedObject var checkout: Checkout
 
-    var body: some View {
-        if !model.isEmpty {
-            ClipCard {
-                /*
-                 * Sales tax, when anything in the basket carries it — the same
-                 * figure the Apple Pay sheet itemises and the Function asks
-                 * Square to charge, so the total below is the books as they
-                 * will actually be paid for. Postage is still not here; see
-                 * below.
-                 */
-                if model.taxCents > 0 {
-                    HStack {
-                        ClipBody(text: taxLabel(rateBps: model.settings.taxRateBps), tone: Ink.inkFaint)
-                        Spacer()
-                        Text(money(model.taxCents))
-                            .font(Face.small)
-                            .foregroundStyle(Ink.inkFaint)
-                    }
-                }
+    private var count: Int { model.lines.reduce(0) { $0 + $1.quantity } }
 
-                HStack {
-                    ClipBody(text: "Total", tone: Ink.ink)
-                    Spacer()
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 1) {
+                    /*
+                     * Sales tax, when anything in the basket carries it — the
+                     * same figure the Apple Pay sheet itemises and the Function
+                     * asks Square to charge, so the total is the books as they
+                     * will actually be paid for.
+                     */
+                    Text(
+                        (count == 1 ? "1 item" : "\(count) items")
+                            + (model.taxCents > 0 ? " · incl. \(money(model.taxCents)) tax" : "")
+                    )
                     Text(money(model.total))
                         .font(Face.heading)
                         .foregroundStyle(Ink.ink)
                 }
+                .font(Face.small)
+                .foregroundStyle(Ink.inkFaint)
 
-                /*
-                 * Deliberately not a delivery line. Collecting or posting is
-                 * chosen inside the Apple Pay sheet, and postage is a
-                 * `PKShippingMethod` there, so this figure is the basket until
-                 * the sheet is open and the sheet's own arithmetic afterwards.
-                 * Printing "plus postage" here would be guessing at a choice
-                 * the buyer has not made yet.
-                 */
-                Text("Collect at the church, or have it posted — choose when you pay.")
-                    .font(Face.small)
-                    .foregroundStyle(Ink.inkFaint)
-                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
 
                 ApplePayButton { checkout.begin() }
+                    .frame(maxWidth: 200)
                     .frame(height: 48)
                     .opacity(checkout.busy ? 0.5 : 1)
                     .disabled(checkout.busy)
-
-                Text("The church is charged nothing until Apple Pay is confirmed.")
-                    .font(Face.small)
-                    .foregroundStyle(Ink.inkFaint)
             }
+
+            /*
+             * Deliberately not a delivery line. Collecting or posting is chosen
+             * inside the Apple Pay sheet, and postage is a `PKShippingMethod`
+             * there, so this figure is the basket until the sheet is open and
+             * the sheet's own arithmetic afterwards.
+             */
+            Text("Collect at the church, or have it posted — choose when you pay.")
+                .font(Face.small)
+                .foregroundStyle(Ink.inkFaint)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Ink.paperRaised, ignoresSafeAreaEdges: .bottom)
+        .overlay(alignment: .top) { Rectangle().fill(Ink.rule).frame(height: 1) }
     }
 }
 

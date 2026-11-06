@@ -23,11 +23,6 @@ struct PlansView: View {
             AboutPage(slug: "future-plans") {
                 sheet = IdentifiableURL(url: ClipConfig.givingURL)
             }
-
-            ClipFooter(
-                destination: .plans,
-                readMore: "The church’s page has the flythrough of the design, and every view at full size."
-            )
         }
         .safari(url: $sheet)
     }

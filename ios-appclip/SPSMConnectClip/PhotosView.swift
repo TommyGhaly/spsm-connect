@@ -105,11 +105,6 @@ struct PhotosView: View {
                     ClipButton(label: "Start over", tone: .quiet) { model.again() }
                 }
             }
-
-            ClipFooter(
-                destination: .photos,
-                readMore: "The church’s galleries are on its website, arranged by event."
-            )
         }
         .fullScreenCover(isPresented: $camera) {
             // The app's viewfinder, in Swift — see `ClipCamera.swift` for why

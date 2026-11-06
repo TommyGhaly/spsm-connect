@@ -26,11 +26,6 @@ struct WelcomeView: View {
             }
 
             AboutPage(slug: "welcome-newcomers")
-
-            ClipFooter(
-                destination: .welcome,
-                readMore: "The church’s website has the same tour with the hymn to listen to, and your name in Coptic letters."
-            )
         }
         .safari(url: $sheet)
     }
