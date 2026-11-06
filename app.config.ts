@@ -208,7 +208,7 @@ const APPLE_PAY_MERCHANT_ID = process.env.APPLE_PAY_MERCHANT_ID ?? '';
 const IOS_BUILD = Number(process.env.IOS_BUILD_NUMBER ?? 1);
 
 /** Play's versionCode. This is the one that climbs. */
-const ANDROID_VERSION_CODE = Number(process.env.ANDROID_VERSION_CODE ?? 14);
+const ANDROID_VERSION_CODE = Number(process.env.ANDROID_VERSION_CODE ?? 15);
 
 for (const [name, value, variable] of [
   ['iOS build number', IOS_BUILD, 'IOS_BUILD_NUMBER'],
