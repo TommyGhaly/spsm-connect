@@ -387,6 +387,11 @@ enum FormsAPI {
     /// usually the slug; when it is not (a slug renamed in the builder), the
     /// filtered query finds it.
     static func taggedForm() async throws -> ParishForm {
+        try await form(slug: await taggedSlug())
+    }
+
+    /// The slug the office has put on the tag.
+    static func taggedSlug() async -> String {
         var slug = defaultSlug
         if let config = try? await FirestoreREST.document("config/forms"),
            let chosen = config["nfcFormSlug"]?.stringValue, !chosen.isEmpty {
@@ -402,6 +407,11 @@ enum FormsAPI {
                 slug = override
             }
         #endif
+        return slug
+    }
+
+    /// One form by slug — the tag's, or one chosen from `catalogue()`.
+    static func form(slug: String) async throws -> ParishForm {
         if slug == "ordination" { throw OrdinationTagged() }
         if slug == "summer-camp" { throw CampTagged() }
 
@@ -430,6 +440,57 @@ enum FormsAPI {
             throw NotPublic()
         }
         return parse(id: slug, fields)
+    }
+
+    /// One row of the forms list.
+    struct Choice: Identifiable {
+        let slug: String
+        let title: String
+        let blurb: String
+        let order: Double
+        var id: String { slug }
+    }
+
+    /// `FormsHub`: the published forms, the built-in vehicle form when it is
+    /// missing, and the camp and ordination cards while each is open — sorted
+    /// by `order`, then title, exactly as the website's Forms page sorts them.
+    static func catalogue() async throws -> [Choice] {
+        async let configRead = try? FirestoreREST.document("config/forms")
+        async let campRead = try? FirestoreREST.document("config/camp")
+        async let ordinationRead = try? FirestoreREST.query("ordinations", where: "open", equals: true)
+        let rows = try await FirestoreREST.query("forms", where: "published", equals: true)
+
+        var choices = rows.map { row -> Choice in
+            let form = parse(id: row.id, row.fields)
+            return Choice(slug: form.slug, title: form.title, blurb: form.blurb,
+                          order: row.fields["order"]?.numberValue ?? 0)
+        }
+        if !choices.contains(where: { $0.slug == defaultSlug }) {
+            let vehicle = ParishForm.builtInVehicle
+            choices.insert(Choice(slug: vehicle.slug, title: vehicle.title, blurb: vehicle.blurb, order: -1), at: 0)
+        }
+
+        let config = await configRead ?? [:]
+        if CampConfig(await campRead ?? [:]).servantSignUp {
+            choices.append(Choice(
+                slug: "summer-camp", title: "Serve at summer camp",
+                blurb: "Sign up to serve — the days you can come, which half of the camp, and what you would like to do. No account needed. Children are registered by the camp.",
+                order: config["campOrder"]?.numberValue ?? 1000
+            ))
+        }
+        let ordinations = (await ordinationRead ?? []).compactMap { Ordination(id: $0.id, $0.fields) }
+        if ordinations.contains(where: \.accepting) {
+            choices.append(Choice(
+                slug: "ordination", title: "Nomination for ordination",
+                blurb: "Put forward a cantor, reader or subdeacon for ordination. The parish priests review every nomination before it goes to the diocese.",
+                order: config["ordinationOrder"]?.numberValue ?? 1010
+            ))
+        }
+
+        return choices.sorted {
+            $0.order != $1.order ? $0.order < $1.order
+                : $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+        }
     }
 
     /// `parseFormDefinition`, with its defaults.

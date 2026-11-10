@@ -65,7 +65,9 @@ export default function ClipLanding() {
         </Screen>
       );
     }
-    return <Redirect href={`/forms/${nfcForm}` as Href} />;
+    // `withAnchor` lays the forms stack's `initialRouteName` (the hub) beneath
+    // the form, so a tag-opened form keeps its back arrow to the list.
+    return <Redirect href={`/forms/${nfcForm}` as Href} withAnchor />;
   }
 
   if (meta) {

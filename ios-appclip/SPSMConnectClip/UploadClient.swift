@@ -270,7 +270,12 @@ enum UploadClient {
         let reservation = try JSONDecoder().decode(Reservation.self, from: body)
         onProgress(0.1)
 
-        var put = URLRequest(url: URL(string: reservation.uploadUrl)!)
+        // The address comes from the server, so a malformed one is a refusal
+        // to report, not a force-unwrap to crash on.
+        guard let uploadUrl = URL(string: reservation.uploadUrl) else {
+            throw Failure.refused("The church couldn’t take a photo just now. Please try again in a minute.")
+        }
+        var put = URLRequest(url: uploadUrl)
         put.httpMethod = "PUT"
         put.setValue(reservation.contentType, forHTTPHeaderField: "Content-Type")
         // Both pinned headers, exactly. See the file header.

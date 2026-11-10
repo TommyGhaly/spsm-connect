@@ -128,7 +128,7 @@ struct BookstoreView: View {
                         ) { clearanceOnly.toggle() }
                     }
                     let titles = grouped(shown)
-                    ForEach(titles, id: \.first!.slug) { variants in
+                    ForEach(titles, id: \.first?.slug) { variants in
                         Shelf(variants: variants, model: model, selling: selling)
                         if variants.first?.slug != titles.last?.first?.slug {
                             Divider().overlay(Ink.rule)

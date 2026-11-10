@@ -29,7 +29,39 @@ struct FormsView: View {
 
     var body: some View {
         ClipScreen(destination: .forms) {
+            /*
+             * The tag opens one form, but it is not a cage: somebody by the car
+             * park may have come for the baptism form. The list is a tap away
+             * from every screen but itself.
+             */
+            if !model.isChoosing {
+                ClipButton(label: "All church forms", tone: .quiet) { model.showAll() }
+            }
+
             switch model.state {
+            case .choosing(let choices):
+                ClipCard(spacing: 12) {
+                    ClipEyebrow(text: "Church forms")
+                    ClipBody(text: "The forms the church keeps online. Nothing here needs an account.")
+                }
+                ForEach(choices) { choice in
+                    Button { model.open(slug: choice.slug) } label: {
+                        ClipCard(spacing: 6) {
+                            HStack(alignment: .firstTextBaseline) {
+                                ClipHeading(text: choice.title)
+                                Spacer(minLength: 8)
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(Ink.accent)
+                            }
+                            if !choice.blurb.isEmpty { ClipBody(text: choice.blurb) }
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Opens the form")
+                }
+
             case .loading:
                 ClipCard {
                     HStack(spacing: 10) {
@@ -39,7 +71,7 @@ struct FormsView: View {
                 }
 
             case .failed(let message):
-                ClipProblem(message: message) { model.load() }
+                ClipProblem(message: message) { model.retry() }
 
             case .ordination:
                 OrdinationForm()
@@ -159,6 +191,8 @@ private struct FormBody: View {
 final class FormsScreenModel: ObservableObject {
     enum State {
         case loading
+        /// Every form the church has open, to pick from.
+        case choosing([FormsAPI.Choice])
         case failed(String)
         /// The tag's form is unpublished or gone. No retry: it is the office's to fix.
         case unavailable
@@ -182,6 +216,13 @@ final class FormsScreenModel: ObservableObject {
     @Published private(set) var busy = false
 
     private var started = false
+    /// The form on screen, when it was chosen from the list rather than the tag.
+    private var chosenSlug: String?
+
+    var isChoosing: Bool {
+        if case .choosing = state { return true }
+        return false
+    }
     private var payment: FormPaymentSheet?
 
     private var form: ParishForm? {
@@ -207,11 +248,47 @@ final class FormsScreenModel: ObservableObject {
         load()
     }
 
-    func load() {
+    func showAll() {
+        guard !busy else { return }
         state = .loading
         Task {
             do {
-                let form = try await FormsAPI.taggedForm()
+                state = .choosing(try await FormsAPI.catalogue())
+            } catch {
+                state = .failed("The list of forms couldn’t be opened just now. Check you have signal or Wi-Fi, then try again.")
+                chosenSlug = nil
+                listFailed = true
+            }
+        }
+    }
+
+    func open(slug: String) {
+        chosenSlug = slug
+        load()
+    }
+
+    private var listFailed = false
+
+    func retry() {
+        if listFailed { listFailed = false; showAll() } else { load() }
+    }
+
+    func load() {
+        state = .loading
+        // A fresh form starts empty — answers from another one never carry over.
+        answers = [:]
+        vehicle = VehicleInput()
+        showProblems = false
+        messages = []
+        let slug = chosenSlug
+        Task {
+            do {
+                let form: ParishForm
+                if let slug {
+                    form = try await FormsAPI.form(slug: slug)
+                } else {
+                    form = try await FormsAPI.taggedForm()
+                }
                 if !form.open {
                     state = .closed(form)
                 } else if form.kind == .embed || form.kind == .external || form.hasPhotoField {

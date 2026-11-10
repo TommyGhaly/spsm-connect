@@ -31,6 +31,19 @@ import { Stack } from 'expo-router';
 import { headerChromeStack, headerRootStack } from '@/navigation/header';
 import { useTheme } from '@/theme/ThemeProvider';
 
+/**
+ * The hub is underneath every form, however you arrived at one.
+ *
+ * A tag (`/c/forms` → `/forms/<nfcFormSlug>`) or a universal link lands
+ * straight on a form, and without this that form is the *only* screen in the
+ * stack: no back button, and no way to the other forms but the tab bar.
+ * `initialRouteName` puts `index` beneath it, as `events/_layout.tsx` does for
+ * the galleries.
+ */
+export const unstable_settings = {
+  initialRouteName: 'index',
+};
+
 export default function FormsLayout() {
   const theme = useTheme();
 

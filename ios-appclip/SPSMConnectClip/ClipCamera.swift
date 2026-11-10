@@ -300,6 +300,13 @@ final class ClipCameraModel: NSObject, ObservableObject, @unchecked Sendable {
          * four times the wait for a picture that arrives the same size.
          */
         output.maxPhotoQualityPrioritization = .quality
+        /*
+         * A photo setting may only ask for what the output was switched on
+         * for: `isAutoContentAwareDistortionCorrectionEnabled` on a capture
+         * whose output has it off is an Objective-C exception, which killed
+         * the clip the moment the shutter was pressed.
+         */
+        output.isContentAwareDistortionCorrectionEnabled = output.isContentAwareDistortionCorrectionSupported
         let sizes = device.activeFormat.supportedMaxPhotoDimensions
         let area = { (size: CMVideoDimensions) in Int(size.width) * Int(size.height) }
         if let chosen = sizes.filter({ area($0) <= 12_600_000 }).max(by: { area($0) < area($1) })
@@ -430,7 +437,7 @@ final class ClipCameraModel: NSObject, ObservableObject, @unchecked Sendable {
             settings.maxPhotoDimensions = self.output.maxPhotoDimensions
             if self.output.supportedFlashModes.contains(flash) { settings.flashMode = flash }
             if self.output.isVirtualDeviceFusionSupported { settings.isAutoVirtualDeviceFusionEnabled = true }
-            if self.output.isContentAwareDistortionCorrectionSupported {
+            if self.output.isContentAwareDistortionCorrectionEnabled {
                 settings.isAutoContentAwareDistortionCorrectionEnabled = true
             }
 
