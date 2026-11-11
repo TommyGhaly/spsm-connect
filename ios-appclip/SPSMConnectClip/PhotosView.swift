@@ -46,6 +46,7 @@ struct PhotosView: View {
     @State private var choosing = false
     @State private var library = false
     @State private var libraryPicks: [PhotosPickerItem] = []
+    @State private var site: IdentifiableURL?
 
     var body: some View {
         ClipScreen(destination: .photos) {
@@ -112,7 +113,12 @@ struct PhotosView: View {
                 }
 
             case .batch:
-                BatchCard(model: model, change: { choosing = true }, addMore: { library = true })
+                BatchCard(
+                    model: model,
+                    change: { choosing = true },
+                    addMore: { library = true },
+                    openWebsite: openWebsite
+                )
 
             case .sending(let fraction):
                 ClipCard(spacing: 12) {
@@ -147,6 +153,9 @@ struct PhotosView: View {
                     ClipBody(text: message)
                     if let image = model.lastImage {
                         ClipButton(label: "Try sending again") { model.send(image) }
+                    }
+                    if model.websiteFallback {
+                        ClipButton(label: "Send from the website instead", tone: .quiet, action: openWebsite)
                     }
                     ClipButton(label: "Start over", tone: .quiet) { model.again() }
                 }
@@ -183,7 +192,15 @@ struct PhotosView: View {
                 }
             }
         }
+        .safari(url: $site)
         .task { model.prepare() }
+    }
+
+    /// The ministry's gallery page, whose own Send works in any browser: the
+    /// website proves itself with reCAPTCHA, not App Attest, so it is the way
+    /// through when this iPhone cannot be vouched for.
+    private func openWebsite() {
+        if let url = model.websiteURL { site = IdentifiableURL(url: url) }
     }
 }
 
@@ -193,6 +210,7 @@ private struct BatchCard: View {
     @ObservedObject var model: PhotosModel
     let change: () -> Void
     let addMore: () -> Void
+    let openWebsite: () -> Void
 
     private let columns = [GridItem(.adaptive(minimum: 92), spacing: 8)]
 
@@ -236,6 +254,9 @@ private struct BatchCard: View {
             .disabled(model.unsent == 0)
 
             if !model.sendingBatch {
+                if model.websiteFallback {
+                    ClipButton(label: "Send from the website instead", tone: .quiet, action: openWebsite)
+                }
                 if model.room > 0 {
                     ClipButton(label: "Add more photos", tone: .quiet, action: addMore)
                 }
@@ -632,6 +653,13 @@ final class PhotosModel: ObservableObject {
     /// of those have gone.
     @Published private(set) var queued = 0
     @Published private(set) var sentSoFar = 0
+    /// Set when the clip itself could not be vouched for, which no retry here
+    /// fixes; the screens then offer the website, which can.
+    @Published private(set) var websiteFallback = false
+
+    var websiteURL: URL? {
+        destination.map { ClipConfig.page("/events/\($0.programId)") }
+    }
     /// Kept after a failure so "Try sending again" does not need a new photo.
     private(set) var lastImage: UIImage?
     private var started = false
@@ -681,6 +709,7 @@ final class PhotosModel: ObservableObject {
     }
 
     func again() {
+        websiteFallback = false
         lastImage = nil
         batch = []
         notice = nil
@@ -705,6 +734,7 @@ final class PhotosModel: ObservableObject {
                 lastImage = nil
                 state = .sent(1)
             } catch {
+                if case UploadClient.Failure.unattested = error { websiteFallback = true }
                 state = .failed(
                     (error as? LocalizedError)?.errorDescription
                         ?? "Something went wrong while sending. Please try again."
@@ -835,6 +865,7 @@ final class PhotosModel: ObservableObject {
                      * its own round trip to Apple. So it stops, and says why.
                      */
                     if case .unattested = failure {
+                        websiteFallback = true
                         stoppedFor = message
                         break
                     }

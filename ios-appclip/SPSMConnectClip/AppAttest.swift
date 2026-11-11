@@ -47,6 +47,20 @@ enum AppAttest {
     /// exact mismatch that made this unanswerable before.
     static let clipAppId = "1:778458603931:ios:598803aa980e55ff79813e"
 
+    /// The full app's Firebase app id, `GOOGLE_APP_ID` in the app target's
+    /// `GoogleService-Info.plist`, tried second.
+    ///
+    /// A TestFlight build of the clip, signed as `org.spsm.connect.Clip` and
+    /// attesting in production, was refused under `clipAppId` with Firebase's
+    /// one uninformative sentence. Every byte of the request matches Firebase's
+    /// own SDK, so what is left is the identity Apple attests a clip under —
+    /// and if that is the parent's, only the parent's registration accepts
+    /// it. So the clip asks the clip's first and the parent's second, with a
+    /// fresh challenge and key for each, and reports both if both refuse. The
+    /// Function verifies a token from any app in the project, so either one
+    /// is as good as the other there.
+    static let parentAppId = "1:778458603931:ios:6812ba9d30447bb579813e"
+
     enum Failure: Error {
         /// `DCAppAttestService.isSupported` is false in this process. Fatal to
         /// the feature: no configuration changes it.
@@ -67,6 +81,26 @@ enum AppAttest {
 
         if let cached = await cache.current() { return cached }
 
+        var refusals: [String] = []
+        for (label, appId) in [("clip", clipAppId), ("app", parentAppId)] {
+            do {
+                let (token, ttl) = try await attempt(appId: appId)
+                await cache.store(token, for: ttl)
+                return token
+            } catch Failure.refused(let why) where why.hasPrefix(refusedPrefix) {
+                // Firebase looked and said no; the other registration may not.
+                refusals.append("\(label): \(why.dropFirst(refusedPrefix.count))")
+            }
+        }
+        throw Failure.refused("Firebase refused the attestation. " + refusals.joined(separator: " "))
+    }
+
+    /// The opening of the one refusal worth trying the other app id for.
+    private static let refusedPrefix = "Firebase refused the attestation. "
+
+    /// One full round against one Firebase app: key, challenge, attestation,
+    /// exchange.
+    private static func attempt(appId: String) async throws -> (token: String, ttl: TimeInterval) {
         let service = DCAppAttestService.shared
 
         /*
@@ -92,7 +126,7 @@ enum AppAttest {
          * as Firebase's own SDK does. Hashing the base64 text instead gives a
          * hash Firebase never computes, and it refuses the attestation.
          */
-        let challenge = try await requestChallenge()
+        let challenge = try await requestChallenge(appId: appId)
         guard let challengeBytes = Data(base64Encoded: challenge) else {
             throw Failure.refused("Firebase sent a challenge that could not be read.")
         }
@@ -105,9 +139,7 @@ enum AppAttest {
             throw Failure.refused("Apple would not vouch for this iPhone. (\(error.localizedDescription))")
         }
 
-        let (token, ttl) = try await exchange(keyId: keyId, attestation: attestation, challenge: challenge)
-        await cache.store(token, for: ttl)
-        return token
+        return try await exchange(appId: appId, keyId: keyId, attestation: attestation, challenge: challenge)
     }
 
     private static let cache = TokenCache()
@@ -139,13 +171,13 @@ enum AppAttest {
         struct AppCheckToken: Decodable { let token: String; let ttl: String? }
     }
 
-    private static var base: String {
-        "https://firebaseappcheck.googleapis.com/v1/projects/\(ClipConfig.firebaseProjectId)/apps/\(clipAppId)"
+    private static func base(_ appId: String) -> String {
+        "https://firebaseappcheck.googleapis.com/v1/projects/\(ClipConfig.firebaseProjectId)/apps/\(appId)"
     }
 
-    private static func requestChallenge() async throws -> String {
+    private static func requestChallenge(appId: String) async throws -> String {
         var request = URLRequest(
-            url: URL(string: "\(base):generateAppAttestChallenge?key=\(ClipConfig.firebaseApiKey)")!
+            url: URL(string: "\(base(appId)):generateAppAttestChallenge?key=\(ClipConfig.firebaseApiKey)")!
         )
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -159,12 +191,13 @@ enum AppAttest {
     }
 
     private static func exchange(
+        appId: String,
         keyId: String,
         attestation: Data,
         challenge: String
     ) async throws -> (token: String, ttl: TimeInterval) {
         var request = URLRequest(
-            url: URL(string: "\(base):exchangeAppAttestAttestation?key=\(ClipConfig.firebaseApiKey)")!
+            url: URL(string: "\(base(appId)):exchangeAppAttestAttestation?key=\(ClipConfig.firebaseApiKey)")!
         )
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -186,12 +219,18 @@ enum AppAttest {
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             /*
-             * The bundle-id mismatch lands here if the Firebase app registered
-             * for `clipAppId` is not the clip's own bundle. Worth quoting the
-             * body: it is the only place that says which of the two disagreed.
+             * Firebase's refusal is one sentence, "App attestation failed.",
+             * whatever the reason. So the clip reads its own attestation and
+             * says which of the two usual causes it is — the environment
+             * Apple attested in, and whose identity — in a short code the
+             * office can read off the screen. Neither is secret: both are in
+             * the signed binary for anybody who looks.
              */
-            let body = String(data: data, encoding: .utf8) ?? ""
-            throw Failure.refused("Firebase refused the attestation. \(body.prefix(200))")
+            let said = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])
+                .flatMap { $0["error"] as? [String: Any] }?["message"] as? String
+            throw Failure.refused(
+                "\(refusedPrefix)[\(diagnosis(of: attestation)), \((response as? HTTPURLResponse)?.statusCode ?? 0)\(said.map { " \($0)" } ?? "")]"
+            )
         }
 
         let decoded = try JSONDecoder().decode(TokenResponse.self, from: data)
@@ -200,5 +239,59 @@ enum AppAttest {
         }
         let seconds = issued.ttl.flatMap { TimeInterval($0.replacingOccurrences(of: "s", with: "")) } ?? 3600
         return (issued.token, seconds)
+    }
+
+    /// The team that signs both binaries. `DEVELOPMENT_TEAM` in the project.
+    private static let teamId = "5ZRM8X66TN"
+
+    /// "production / clip", "development / app", … — what Apple attested.
+    ///
+    /// The attestation is CBOR; `authData` inside it begins with the SHA-256 of
+    /// the App ID Apple attested for (32 bytes), a flags byte, a four-byte
+    /// counter, then the 16-byte AAGUID, which is `appattest` padded with
+    /// zeros in production and `appattestdevelop` in development. No CBOR
+    /// library for two fields: the key is found by its bytes, and anything
+    /// that does not parse says so rather than guessing.
+    static func diagnosis(of attestation: Data) -> String {
+        let bytes = [UInt8](attestation)
+        let key: [UInt8] = [0x68] + Array("authData".utf8)
+        guard let at = bytes.indices.first(where: { i in
+            i + key.count <= bytes.count && Array(bytes[i..<(i + key.count)]) == key
+        }) else { return "unreadable" }
+
+        var cursor = at + key.count
+        guard cursor < bytes.count else { return "unreadable" }
+        let header = bytes[cursor]
+        cursor += 1
+        switch header {
+        case 0x58: cursor += 1
+        case 0x59: cursor += 2
+        case 0x40...0x57: break
+        default: return "unreadable"
+        }
+        guard cursor + 53 <= bytes.count else { return "unreadable" }
+
+        let rpIdHash = Data(bytes[cursor..<(cursor + 32)])
+        let aaguid = Data(bytes[(cursor + 37)..<(cursor + 53)])
+
+        let environment: String
+        if aaguid == Data("appattestdevelop".utf8) {
+            environment = "development"
+        } else if aaguid == Data("appattest".utf8) + Data(repeating: 0, count: 7) {
+            environment = "production"
+        } else {
+            environment = "unknown-env"
+        }
+
+        func hash(_ id: String) -> Data { Data(SHA256.hash(data: Data(id.utf8))) }
+        let bundle = Bundle.main.bundleIdentifier ?? ""
+        let identity: String
+        switch rpIdHash {
+        case hash("\(teamId).org.spsm.connect.Clip"): identity = "clip"
+        case hash("\(teamId).org.spsm.connect"): identity = "app"
+        case hash("\(teamId).\(bundle)"): identity = bundle
+        default: identity = "other-id"
+        }
+        return "\(environment) / \(identity)"
     }
 }
