@@ -18,12 +18,15 @@ import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { Pressable, View } from 'react-native';
 import {
+  CAMP_FORM_SLUG,
+  DEFAULT_FORMS_PAGE_CONFIG,
   NO_PAYMENT,
   ORDINATION_FORM_SLUG,
   builtInForms,
   toFormSlug,
   type FormDefinition,
   type FormDraft,
+  type FormsPageConfig,
 } from '@spsm/shared';
 
 import { Problem } from '@/components/Fields';
@@ -39,7 +42,7 @@ import { siteUrl } from '@/about/media';
 import { useTheme } from '@/theme/ThemeProvider';
 
 import { ManagedForms } from './admin/ManagedForms';
-import { formImageUrl, watchPublishedForms } from './data';
+import { formImageUrl, watchFormsPageConfig, watchPublishedForms } from './data';
 import { writeForm } from './adminData';
 
 export interface HubCard {
@@ -51,6 +54,21 @@ export interface HubCard {
   image: string | null;
   /** Where pressing it goes: a route in this app, or somebody else's website. */
   href: { kind: 'route'; path: string } | { kind: 'external'; url: string };
+  /**
+   * Its place on the hub. A form's own `order`; for the camp and the
+   * nomination, `campOrder` / `ordinationOrder` from `config/forms`.
+   *
+   * Carried on the card, as the website's hub carries it, because the two
+   * route cards have to be sorted in among the forms rather than appended —
+   * appending them left the nomination at the bottom however far up the
+   * office had dragged it.
+   */
+  order: number;
+}
+
+/** `sortForms`'s rule, for cards: `order`, then title. */
+function byOrder(a: HubCard, b: HubCard): number {
+  return a.order - b.order || a.title.localeCompare(b.title);
 }
 
 /**
@@ -62,8 +80,8 @@ export interface HubCard {
  * express. It has a screen of its own — `forms/summer-camp` — and the card is
  * assembled beside it, which is where a consequence of a route existing belongs.
  */
-const CAMP_CARD: HubCard = {
-  slug: 'summer-camp',
+export const CAMP_CARD: HubCard = {
+  slug: CAMP_FORM_SLUG,
   title: 'Serve at summer camp',
   blurb:
     'Sign up to serve — the days you can come, which half of the camp, and what ' +
@@ -71,6 +89,8 @@ const CAMP_CARD: HubCard = {
   icon: 'people',
   image: siteUrl('/img/stock-camp-500.webp'),
   href: { kind: 'route', path: '/forms/summer-camp' },
+  // Replaced by `campOrder` wherever the settings have been read.
+  order: DEFAULT_FORMS_PAGE_CONFIG.campOrder,
 };
 
 /**
@@ -89,7 +109,7 @@ const SHOW_CAMP = true;
  * one a few times a year and a card leading to "nothing is open" the rest of
  * the time is noise.
  */
-const ORDINATION_CARD: HubCard = {
+export const ORDINATION_CARD: HubCard = {
   slug: ORDINATION_FORM_SLUG,
   title: 'Nomination for ordination',
   blurb:
@@ -98,6 +118,8 @@ const ORDINATION_CARD: HubCard = {
   icon: 'file',
   image: null,
   href: { kind: 'route', path: '/forms/ordination' },
+  // Replaced by `ordinationOrder` wherever the settings have been read.
+  order: DEFAULT_FORMS_PAGE_CONFIG.ordinationOrder,
 };
 
 function builtInCards(): HubCard[] {
@@ -146,11 +168,15 @@ export function FormsHub() {
    */
   const campOpen = useCampSignUpOpen();
   const ordinationsOpen = useOrdinationsOpen();
+  const [config, setConfig] = useState<FormsPageConfig>(DEFAULT_FORMS_PAGE_CONFIG);
+  useEffect(() => watchFormsPageConfig(setConfig), []);
+  // Sorted in at the positions the office dragged them to, as the website's
+  // hub does — never appended.
   const visible = [
     ...cards,
-    ...(SHOW_CAMP && campOpen ? [CAMP_CARD] : []),
-    ...(ordinationsOpen ? [ORDINATION_CARD] : []),
-  ];
+    ...(SHOW_CAMP && campOpen ? [{ ...CAMP_CARD, order: config.campOrder }] : []),
+    ...(ordinationsOpen ? [{ ...ORDINATION_CARD, order: config.ordinationOrder }] : []),
+  ].sort(byOrder);
 
   /*
    * Not a security boundary — `firestore.rules` is, and it reads the grant
@@ -336,6 +362,7 @@ export function toCard(form: FormDefinition): HubCard {
     href: external
       ? { kind: 'external', url: form.externalUrl as string }
       : { kind: 'route', path: `/forms/${form.slug}` },
+    order: form.order,
   };
 }
 

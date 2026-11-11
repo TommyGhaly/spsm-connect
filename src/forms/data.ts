@@ -164,6 +164,31 @@ export async function readFormsPageConfig(): Promise<FormsPageConfig> {
   }
 }
 
+/**
+ * `readFormsPageConfig`, live — for the hub, which sorts the camp and the
+ * nomination in by `campOrder` and `ordinationOrder`.
+ *
+ * Live for the reason `watchPublishedForms` is: the office drags those two in
+ * the manage mode on this same screen, and the parishioner's list should be in
+ * the new order the moment it closes rather than on the next launch.
+ *
+ * A failed read lands on the defaults, as `readFormsPageConfig`'s does.
+ */
+export function watchFormsPageConfig(onConfig: (config: FormsPageConfig) => void): () => void {
+  return onSnapshot(
+    doc(getFirestore(), COLLECTIONS.config, CONFIG_DOC_FORMS),
+    (snapshot) => {
+      onConfig(
+        snapshot.exists() ? parseFormsPageConfig(snapshot.data()) : { ...DEFAULT_FORMS_PAGE_CONFIG },
+      );
+    },
+    (error) => {
+      console.warn('[forms] could not watch the forms settings; using the built-in defaults', error);
+      onConfig({ ...DEFAULT_FORMS_PAGE_CONFIG });
+    },
+  );
+}
+
 /* -------------------------------------------------------------------------- */
 /* Submitting                                                                  */
 /* -------------------------------------------------------------------------- */

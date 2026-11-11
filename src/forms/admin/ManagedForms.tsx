@@ -54,8 +54,10 @@ import { Reorder } from '@/components/Reorder';
 import { Button, Card } from '@/components/Surface';
 import { Body, Heading, Label, Micro, Small } from '@/components/Type';
 import { useTheme } from '@/theme/ThemeProvider';
+import { useCampSignUpOpen } from '@/camp/useCampConfig';
+import { useOrdinationsOpen } from '@/ordination/data';
 
-import { CardMedia, toCard } from '../FormsHub';
+import { CAMP_CARD, CardMedia, ORDINATION_CARD, toCard, type HubCard } from '../FormsHub';
 import { readAllForms, readFormsPageConfig, type WithId } from '../data';
 import {
   deleteForm,
@@ -106,6 +108,96 @@ function isTapDestination(form: WithId<FormDefinition>, config: FormsPageConfig)
   return form.published && form.slug === config.nfcFormSlug;
 }
 
+/**
+ * One row of the managed list: a `forms` document, or one of the two cards the
+ * hub draws from a route of its own — the summer camp and the nomination for
+ * ordination.
+ *
+ * The website's `campRow` / `ordinationRow`, and here for the same reason:
+ * neither has a document in `forms`, but both are on the hub, both can be
+ * dragged, and both can be where the tag opens (`CAMP_FORM_SLUG` and
+ * `ORDINATION_FORM_SLUG` exist so `config/forms` can name them). Leaving them
+ * off this list made a tag pointed at the nomination look stale — the warning
+ * said a tap opened the vehicle registration while it was opening the
+ * nomination — with no box anywhere to tick it back.
+ *
+ * A union rather than a made-up `FormDefinition`, because a route row has no
+ * kind, no questions, no submissions and nothing to delete, and every control
+ * below that reads those fields should not have to be careful around a fake.
+ */
+type Row =
+  | { kind: 'form'; form: WithId<FormDefinition> }
+  | {
+      kind: 'route';
+      card: HubCard;
+      order: number;
+      /** What the row's meta line says in place of a form's kind. */
+      meta: string;
+      /** The sentence drawn where Published and Accepting submissions would be. */
+      note: string;
+    };
+
+function rowKey(row: Row): string {
+  return row.kind === 'form' ? row.form.id : row.card.slug;
+}
+
+function rowOrder(row: Row): number {
+  return row.kind === 'form' ? row.form.order : row.order;
+}
+
+function rowTitle(row: Row): string {
+  return row.kind === 'form' ? row.form.title : row.card.title;
+}
+
+/**
+ * The forms, the camp and the nomination, in one list sorted the way the
+ * website's admin sorts them: `order`, then title.
+ *
+ * A route row is listed only while it is open — the same test the hub uses to
+ * draw its card. Opening and closing them belongs to the camp and ordination
+ * admins, not to this list, so a closed one is nobody's business here. This
+ * departs from the website, which lists both always.
+ */
+function withRouteRows(
+  forms: readonly WithId<FormDefinition>[],
+  config: FormsPageConfig,
+  open: { camp: boolean; ordination: boolean },
+): Row[] {
+  const rows: Row[] = [
+    ...forms.map((form): Row => ({ kind: 'form', form })),
+    ...(open.camp
+      ? [
+          {
+            kind: 'route',
+            card: CAMP_CARD,
+            order: config.campOrder,
+            meta: 'the camp’s own sign-up',
+            note: 'Shown while the camp is taking sign-ups. Open and close it under Run summer camp.',
+          } satisfies Row,
+        ]
+      : []),
+    ...(open.ordination
+      ? [
+          {
+            kind: 'route',
+            card: ORDINATION_CARD,
+            order: config.ordinationOrder,
+            meta: 'the Ordinations screen’s own form',
+            note: 'Shown while an ordination is taking nominations. Open and close it under Ordinations.',
+          } satisfies Row,
+        ]
+      : []),
+  ];
+  return rows.sort((a, b) => rowOrder(a) - rowOrder(b) || rowTitle(a).localeCompare(rowTitle(b)));
+}
+
+/** Whether a tap on the tag opens this row — a route row is always published. */
+function isRowTapDestination(row: Row, config: FormsPageConfig): boolean {
+  return row.kind === 'form'
+    ? isTapDestination(row.form, config)
+    : row.card.slug === config.nfcFormSlug;
+}
+
 export function ManagedForms({
   managing,
   onManaging,
@@ -143,6 +235,25 @@ export function ManagedForms({
    * registration, what the tag in the car park has always opened.
    */
   const [config, setConfig] = useState<FormsPageConfig>(DEFAULT_FORMS_PAGE_CONFIG);
+
+  const campOpen = useCampSignUpOpen();
+  const ordinationOpen = useOrdinationsOpen();
+
+  /** The forms with the camp and the nomination sorted in, while open — see `Row`. */
+  const rows =
+    forms === null
+      ? null
+      : withRouteRows(forms, config, { camp: campOpen, ordination: ordinationOpen });
+
+  /**
+   * The camp or the nomination, when the tag points at one that is closed and
+   * so has no row to carry the tick. Not the stale-setting warning: the tag
+   * still opens that screen, it is just not taking answers right now.
+   */
+  const closedDestination = [
+    { card: CAMP_CARD, open: campOpen },
+    { card: ORDINATION_CARD, open: ordinationOpen },
+  ].find(({ card, open }) => !open && card.slug === config.nfcFormSlug)?.card;
 
   const refresh = useCallback(async () => {
     try {
@@ -188,18 +299,55 @@ export function ManagedForms({
    * the write landed.
    */
   async function move(from: number, to: number) {
-    if (!forms) return;
+    if (!rows) return;
 
-    const next = [...forms];
+    const next = [...rows];
     const [row] = next.splice(from, 1);
     if (!row) return;
     next.splice(to, 0, row);
 
-    setForms(next);
-    await setFormOrder(
-      next.map((form) => form.id),
-      new Map(next.map((form) => [form.id, form.order])),
+    /*
+     * The whole list is numbered 10, 20, 30 … as one sequence, and the two
+     * route rows' numbers go to `config/forms` instead of a document — the
+     * website's `commit`. Their slots are left in the sequence rather than
+     * closed up, so a form does not jump past the camp because the camp is
+     * stored somewhere else.
+     */
+    const numbered = next.map((entry, index) => ({ entry, order: (index + 1) * 10 }));
+    const orderOf = (slug: string) =>
+      numbered.find(({ entry }) => entry.kind === 'route' && entry.card.slug === slug)?.order;
+    const campOrder = orderOf(CAMP_CARD.slug);
+    const ordinationOrder = orderOf(ORDINATION_CARD.slug);
+    const settings: Partial<Pick<FormsPageConfig, 'campOrder' | 'ordinationOrder'>> = {};
+    // Only what moved: a drag elsewhere in the list should not rewrite a
+    // settings document to say what it already said.
+    if (campOrder !== undefined && campOrder !== config.campOrder) settings.campOrder = campOrder;
+    if (ordinationOrder !== undefined && ordinationOrder !== config.ordinationOrder) {
+      settings.ordinationOrder = ordinationOrder;
+    }
+
+    // Optimistic, as before: the rows take their new numbers now, so the list
+    // re-sorts into the order the drag just left it in.
+    setForms(
+      numbered.flatMap(({ entry, order }) =>
+        entry.kind === 'form' ? [{ ...entry.form, order }] : [],
+      ),
     );
+    setConfig((previous) => ({ ...previous, ...settings }));
+
+    try {
+      await Promise.all([
+        setFormOrder(
+          numbered.flatMap(({ entry, order }) =>
+            entry.kind === 'form' ? [{ id: entry.form.id, order }] : [],
+          ),
+          new Map((forms ?? []).map((form) => [form.id, form.order])),
+        ),
+        Object.keys(settings).length > 0 ? setFormsPageConfig(settings) : Promise.resolve(),
+      ]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'The new order was refused.');
+    }
     await refresh();
   }
 
@@ -297,7 +445,12 @@ export function ManagedForms({
             that reads as a bug rather than as a setting gone stale behind a
             rename.
           */}
-          {forms !== null && !forms.some((form) => isTapDestination(form, config)) ? (
+          {rows !== null && closedDestination ? (
+            <Problem>
+              The NFC tag is set to open “{closedDestination.title}”, which is closed right now.
+              Tick a form below to point the tag somewhere else.
+            </Problem>
+          ) : rows !== null && !rows.some((row) => isRowTapDestination(row, config)) ? (
             <Problem>
               The NFC tag is set to open {config.nfcFormSlug}, which is not a published form
               any more. Until somebody ticks a box below, a tap opens the vehicle
@@ -312,138 +465,154 @@ export function ManagedForms({
             // it, and a Delete button under a dragging finger is the last thing
             // this list should offer.
             onDragStart={() => setConfirming(null)}
-            rows={(forms ?? []).map((form) => ({
-              key: form.id,
-              label: form.title,
-              content: (
-                <Card gap={theme.space.sm}>
-                  {/*
-                    The parishioner's own card, pressable, going to the builder.
-                    Unpublished forms are drawn exactly like published ones —
-                    the Published tick below is what says which is which, and
-                    dimming the card would make the thing you came to publish
-                    the hardest thing on the page to look at.
-                  */}
-                  <ManagedPlate
-                    form={form}
-                    onPress={() => router.push(`/forms/admin/${form.id}` as never)}
-                  />
+            rows={(rows ?? []).map((row) => {
+              if (row.kind === 'route') {
+                return {
+                  key: rowKey(row),
+                  label: rowTitle(row),
+                  content: (
+                    <RouteRowCard
+                      row={row}
+                      isDestination={isRowTapDestination(row, config)}
+                      onPointTag={() => void pointTagAt(row.card.slug)}
+                    />
+                  ),
+                };
+              }
+              const form = row.form;
+              return {
+                key: form.id,
+                label: form.title,
+                content: (
+                  <Card gap={theme.space.sm}>
+                    {/*
+                      The parishioner's own card, pressable, going to the builder.
+                      Unpublished forms are drawn exactly like published ones —
+                      the Published tick below is what says which is which, and
+                      dimming the card would make the thing you came to publish
+                      the hardest thing on the page to look at.
+                    */}
+                    <ManagedPlate
+                      form={form}
+                      onPress={() => router.push(`/forms/admin/${form.id}` as never)}
+                    />
 
-                  <Check
-                    label="Published"
-                    checked={form.published}
-                    disabled={isPermanent(form)}
-                    hint={
-                      isPermanent(form)
-                        ? 'Always on — the church’s own links and the car park tags use it.'
-                        : undefined
-                    }
-                    onChange={(next) => void flag(form.id, { published: next })}
-                  />
-                  <Check
-                    label="Accepting submissions"
-                    checked={form.open}
-                    onChange={(next) => void flag(form.id, { open: next })}
-                  />
-
-                  {/*
-                    A tick and not a radio, which is the website's decision and
-                    its words: a radio is *for* one-of-many and is deliberately
-                    not what this is. A radio group has to be one group — one
-                    name, one set of inputs — and these are scattered one per
-                    row through a list whose rows can be dragged past each
-                    other. The boxes above this one are tickboxes, and a circle
-                    among them would read as a different kind of answer to the
-                    same kind of question.
-                  */}
-                  <Check
-                    label="Opens from the NFC tag"
-                    checked={isTapDestination(form, config)}
-                    /*
-                     * A form nobody can see is not somewhere to send a tap:
-                     * `formSubmit` answers 404 to an unpublished form, so the
-                     * tag would open a page that refuses every submission with
-                     * nothing on it to say why.
-                     */
-                    disabled={!form.published}
-                    hint={
-                      !form.published
-                        ? 'Publish it first — a tap has to land on something that accepts answers.'
-                        : isTapDestination(form, config)
-                          ? 'Tick another form to move it.'
+                    <Check
+                      label="Published"
+                      checked={form.published}
+                      disabled={isPermanent(form)}
+                      hint={
+                        isPermanent(form)
+                          ? 'Always on — the church’s own links and the car park tags use it.'
                           : undefined
-                    }
-                    onChange={(next) => {
+                      }
+                      onChange={(next) => void flag(form.id, { published: next })}
+                    />
+                    <Check
+                      label="Accepting submissions"
+                      checked={form.open}
+                      onChange={(next) => void flag(form.id, { open: next })}
+                    />
+
+                    {/*
+                      A tick and not a radio, which is the website's decision and
+                      its words: a radio is *for* one-of-many and is deliberately
+                      not what this is. A radio group has to be one group — one
+                      name, one set of inputs — and these are scattered one per
+                      row through a list whose rows can be dragged past each
+                      other. The boxes above this one are tickboxes, and a circle
+                      among them would read as a different kind of answer to the
+                      same kind of question.
+                    */}
+                    <Check
+                      label="Opens from the NFC tag"
+                      checked={isTapDestination(form, config)}
                       /*
-                       * Unticking is not an edit, it is an empty tag. The only
-                       * way out of being the destination is for another form to
-                       * become it, so the box does not come off — and it cannot
-                       * be left looking off either, because the next read draws
-                       * the stored answer.
+                       * A form nobody can see is not somewhere to send a tap:
+                       * `formSubmit` answers 404 to an unpublished form, so the
+                       * tag would open a page that refuses every submission with
+                       * nothing on it to say why.
                        */
-                      if (!next) return;
-                      void pointTagAt(form.slug);
-                    }}
-                  />
+                      disabled={!form.published}
+                      hint={
+                        !form.published
+                          ? 'Publish it first — a tap has to land on something that accepts answers.'
+                          : isTapDestination(form, config)
+                            ? 'Tick another form to move it.'
+                            : undefined
+                      }
+                      onChange={(next) => {
+                        /*
+                         * Unticking is not an edit, it is an empty tag. The only
+                         * way out of being the destination is for another form to
+                         * become it, so the box does not come off — and it cannot
+                         * be left looking off either, because the next read draws
+                         * the stored answer.
+                         */
+                        if (!next) return;
+                        void pointTagAt(form.slug);
+                      }}
+                    />
 
-                  <View style={{ flexDirection: 'row', gap: theme.space.sm }}>
-                    {keepsNoSubmissions(form.kind) ? null : (
-                      <View style={{ flex: 1 }}>
-                        <Button
-                          label="Submissions"
-                          tone="quiet"
-                          onPress={() =>
-                            router.push(`/forms/admin/submissions?formId=${form.id}` as never)
-                          }
-                        />
-                      </View>
-                    )}
-                    {isPermanent(form) ? null : (
-                      <View style={{ flex: 1 }}>
-                        <Button
-                          label="Delete…"
-                          tone="danger"
-                          onPress={() => setConfirming(form.id)}
-                        />
-                      </View>
-                    )}
-                  </View>
-
-                  {/*
-                    The confirmation is inline rather than an alert, and it says
-                    what survives: a submission is a record of something that
-                    happened, and somebody reaching for Delete usually wants
-                    Unpublish.
-                  */}
-                  {armed === form.id ? (
-                    <Card gap={theme.space.sm}>
-                      <Label>DELETE {form.title.toUpperCase()}?</Label>
-                      <Small color={theme.color.inkSoft}>
-                        The form and its questions go for good. Anything already sent in
-                        through it stays — and will still be listed under this title. To take
-                        it off the Forms tab and keep it, untick Published instead.
-                      </Small>
-                      <View style={{ flexDirection: 'row', gap: theme.space.sm }}>
+                    <View style={{ flexDirection: 'row', gap: theme.space.sm }}>
+                      {keepsNoSubmissions(form.kind) ? null : (
                         <View style={{ flex: 1 }}>
                           <Button
-                            label="Delete for good"
-                            tone="danger"
-                            onPress={() => void destroy(form.id)}
-                          />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Button
-                            label="Keep it"
+                            label="Submissions"
                             tone="quiet"
-                            onPress={() => setConfirming(null)}
+                            onPress={() =>
+                              router.push(`/forms/admin/submissions?formId=${form.id}` as never)
+                            }
                           />
                         </View>
-                      </View>
-                    </Card>
-                  ) : null}
-                </Card>
-              ),
-            }))}
+                      )}
+                      {isPermanent(form) ? null : (
+                        <View style={{ flex: 1 }}>
+                          <Button
+                            label="Delete…"
+                            tone="danger"
+                            onPress={() => setConfirming(form.id)}
+                          />
+                        </View>
+                      )}
+                    </View>
+
+                    {/*
+                      The confirmation is inline rather than an alert, and it says
+                      what survives: a submission is a record of something that
+                      happened, and somebody reaching for Delete usually wants
+                      Unpublish.
+                    */}
+                    {armed === form.id ? (
+                      <Card gap={theme.space.sm}>
+                        <Label>DELETE {form.title.toUpperCase()}?</Label>
+                        <Small color={theme.color.inkSoft}>
+                          The form and its questions go for good. Anything already sent in
+                          through it stays — and will still be listed under this title. To take
+                          it off the Forms tab and keep it, untick Published instead.
+                        </Small>
+                        <View style={{ flexDirection: 'row', gap: theme.space.sm }}>
+                          <View style={{ flex: 1 }}>
+                            <Button
+                              label="Delete for good"
+                              tone="danger"
+                              onPress={() => void destroy(form.id)}
+                            />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Button
+                              label="Keep it"
+                              tone="quiet"
+                              onPress={() => setConfirming(null)}
+                            />
+                          </View>
+                        </View>
+                      </Card>
+                    ) : null}
+                  </Card>
+                ),
+              };
+            })}
           />
 
           <Small color={theme.color.inkFaint}>
@@ -497,5 +666,56 @@ function ManagedPlate({
         </Micro>
       </View>
     </Pressable>
+  );
+}
+
+/**
+ * The camp's or the nomination's row: the parishioner's plate, a sentence where
+ * Published and Accepting submissions would be, and the tag box.
+ *
+ * The website's route row. Not pressable — there is no form document behind it
+ * for the builder to open, and a plate that looks like the others and does
+ * nothing is worse than one that plainly is not a control. Whether it is on
+ * the hub is its own screen's decision (Run summer camp, Ordinations), so a
+ * switch here would be a second, disagreeing one; the sentence says where the
+ * real one is.
+ *
+ * The tag box is offered because that one *is* this list's question: pointing
+ * the tag at the nomination while it runs is the reason the row is here.
+ */
+function RouteRowCard({
+  row,
+  isDestination,
+  onPointTag,
+}: {
+  row: Extract<Row, { kind: 'route' }>;
+  isDestination: boolean;
+  onPointTag: () => void;
+}) {
+  const theme = useTheme();
+
+  return (
+    <Card gap={theme.space.sm}>
+      <View style={{ gap: theme.space.xs }}>
+        <CardMedia card={row.card} />
+        <View style={{ gap: 2, paddingTop: theme.space.xs }}>
+          <Heading>{row.card.title}</Heading>
+          <Micro color={theme.color.inkFaint}>{`/forms/${row.card.slug} · ${row.meta}`}</Micro>
+        </View>
+      </View>
+
+      <Small color={theme.color.inkSoft}>{row.note}</Small>
+
+      <Check
+        label="Opens from the NFC tag"
+        checked={isDestination}
+        hint={isDestination ? 'Tick another form to move it.' : undefined}
+        // As on a form's row: unticking would be an empty tag, so the only way
+        // off is another row becoming the destination.
+        onChange={(next) => {
+          if (next) onPointTag();
+        }}
+      />
+    </Card>
   );
 }

@@ -125,10 +125,16 @@ export async function deleteForm(id: string): Promise<void> {
  * nothing on screen. So a reorder assigns 10, 20, 30 … down the list, with gaps
  * of ten for a future insert, and only the documents whose number actually
  * changed are written.
+ *
+ * The caller numbers the list, not this, because the camp and the nomination
+ * share the sequence without being documents: their slots are numbered too and
+ * written to `config/forms` instead (see `ManagedForms`'s `move`).
  */
-export async function setFormOrder(ids: string[], current: Map<string, number>): Promise<void> {
-  const writes = ids
-    .map((id, index) => ({ id, order: (index + 1) * 10 }))
+export async function setFormOrder(
+  positions: readonly { id: string; order: number }[],
+  current: Map<string, number>,
+): Promise<void> {
+  const writes = positions
     .filter((entry) => current.get(entry.id) !== entry.order)
     .map((entry) => setFormFlags(entry.id, { order: entry.order }));
 
@@ -152,7 +158,8 @@ export async function setFormFlags(
 /* -------------------------------------------------------------------------- */
 
 /**
- * Change the hub's own settings — the tap destination, the camp's position.
+ * Change the hub’s own settings — the tap destination, the camp’s and the
+ * nomination’s positions.
  *
  * The write half of `readFormsPageConfig` in `data.ts`, and a port of the
  * website's `setFormsPageConfig` down to the `merge`.
@@ -168,7 +175,7 @@ export async function setFormFlags(
  * signer's own uid on both branches.
  */
 export async function setFormsPageConfig(
-  patch: Partial<Pick<FormsPageConfig, 'nfcFormSlug' | 'campOrder'>>,
+  patch: Partial<Pick<FormsPageConfig, 'nfcFormSlug' | 'campOrder' | 'ordinationOrder'>>,
 ): Promise<void> {
   await setDoc(
     doc(getFirestore(), COLLECTIONS.config, CONFIG_DOC_FORMS),
