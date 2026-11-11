@@ -44,10 +44,30 @@ struct ClipScreen<Content: View>: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .background(Ink.paper)
+            /*
+             * The forms' phone, number and multi-line fields have no return
+             * key that closes the keyboard, and a keyboard left up covers the
+             * Submit button. Dragging the body down tucks it away, and the
+             * Done above the keys does the same for whoever does not think to
+             * drag.
+             */
+            .scrollDismissesKeyboard(.interactively)
 
             if let bar { bar }
         }
         .background(Ink.paper)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    UIApplication.shared.sendAction(
+                        #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil
+                    )
+                }
+                .font(Face.body.weight(.semibold))
+                .foregroundStyle(Ink.accent)
+            }
+        }
         /*
          * An App Clip is presented as a sheet the system sizes, and it is not
          * full height. Ignoring the bottom safe area lets the body run to the
