@@ -76,7 +76,7 @@ const CARDS = [
   { slug: 'welcome', lines: ['Welcome'] },
   { slug: 'plans', lines: ['Our', 'Plans'] },
   { slug: 'bookstore', lines: ['Book-', 'store'] },
-  { slug: 'forms', lines: ['Parish', 'Forms'] },
+  { slug: 'forms', lines: ['Church', 'Forms'] },
   { slug: 'photos', lines: ['Photo-', 'graphs'] },
   /*
    * Taksis's, not this app's: uploaded against Taksis's own App Clip
