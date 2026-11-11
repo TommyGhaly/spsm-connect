@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 import UIKit
 
 /// Sending one photograph to the church's galleries.
@@ -167,13 +168,39 @@ enum UploadClient {
         return Array(a.id.utf16).lexicographicallyPrecedes(b.id.utf16)
     }
 
-    /// Anonymous sign-in, over the Auth REST API.
+    /// Anonymous sign-in, over the Auth REST API — once per visit.
     ///
-    /// A clip gets a fresh anonymous user on nearly every invocation, because
-    /// its storage does not survive. That makes the per-uid daily cap close to
-    /// useless for clip traffic and is not a problem: `galleryUploadUrl` also
-    /// caps per hashed IP, which is the limit that actually holds here.
+    /// The website signs in once and sends a whole batch on that one session,
+    /// so `DAILY_LIMIT_PER_UID` counts a person's photographs together. This
+    /// used to sign up afresh for every photograph, which with several picked
+    /// at once would have minted an anonymous account per picture and made the
+    /// per-uid cap meaningless. The token is kept in memory until shortly
+    /// before Firebase's hour runs out; a clip's storage does not survive
+    /// anyway, so a new visit is a new session, as a new browser tab is.
     private static func idToken() async throws -> String {
+        if let cached = await session.current() { return cached }
+        let fresh = try await signUp()
+        await session.store(fresh.token, for: fresh.ttl)
+        return fresh.token
+    }
+
+    private static let session = SessionCache()
+
+    private actor SessionCache {
+        private var token: String?
+        private var until = Date.distantPast
+
+        func current() -> String? { Date() < until ? token : nil }
+
+        func store(_ token: String, for ttl: TimeInterval) {
+            self.token = token
+            until = Date().addingTimeInterval(max(0, ttl - 300))
+        }
+
+        func clear() { token = nil }
+    }
+
+    private static func signUp() async throws -> (token: String, ttl: TimeInterval) {
         var request = URLRequest(
             url: URL(string: "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=\(ClipConfig.firebaseApiKey)")!
         )
@@ -188,7 +215,9 @@ enum UploadClient {
         else {
             throw Failure.refused("The church's sign-in could not be reached.")
         }
-        return token
+        // `expiresIn` is a string of seconds, "3600".
+        let ttl = (json["expiresIn"] as? String).flatMap(TimeInterval.init) ?? 3600
+        return (token, ttl)
     }
 
     private struct Reservation: Decodable {
@@ -257,9 +286,24 @@ enum UploadClient {
         }
         guard (200..<300).contains(http.statusCode) else {
             if http.statusCode == 401 {
+                // Either half may be the one refused, so neither is kept: the
+                // next try signs in and attests afresh.
+                await session.clear()
+                await AppAttest.forget()
                 throw Failure.unattested(
                     "The church wouldn’t accept a photo from the preview. The free SPSM Connect app can send it."
                 )
+            }
+            /*
+             * Every refusal `galleryUploadUrl` makes carries a sentence written
+             * to be read — "This gallery has stopped taking photographs", the
+             * two daily caps, the size bound — and the website shows it as
+             * sent. So does this. Only a 5xx, or a body with nothing in it,
+             * falls back to the clip's own words.
+             */
+            let said = (try? JSONSerialization.jsonObject(with: body) as? [String: Any])?["error"] as? String
+            if (400..<500).contains(http.statusCode), let said, !said.isEmpty {
+                throw Failure.refused(said)
             }
             if http.statusCode == 429 {
                 throw Failure.refused("A lot of photos have come from here today. Please try again tomorrow.")
@@ -298,6 +342,30 @@ enum UploadClient {
 
         onProgress(1)
         return reservation.mediaId
+    }
+
+    /// A photograph from the camera roll, decoded no larger than it will be
+    /// sent, upright.
+    ///
+    /// ImageIO rather than `UIImage(data:)`, because sixty 48-megapixel HEICs
+    /// decoded in full is how a clip gets killed for memory: this asks for the
+    /// picture at `maxEdge` and never holds the full-size bitmap. The
+    /// transform flag applies the orientation tag, as the redraw in `resized`
+    /// does for the camera's own photographs, and nothing of the source's
+    /// metadata survives into the `CGImage`.
+    static func image(from data: Data, maxEdge: CGFloat = 3840) -> UIImage? {
+        let options = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let source = CGImageSourceCreateWithData(data as CFData, options) else { return nil }
+        let thumbnail: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxEdge,
+        ]
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbnail as CFDictionary) else {
+            return nil
+        }
+        return UIImage(cgImage: image)
     }
 
     /// The app's ladder: `upload/condense.ts`, rung for rung.

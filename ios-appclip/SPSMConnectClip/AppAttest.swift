@@ -41,10 +41,11 @@ import Foundation
 enum AppAttest {
     /// The Firebase app id for the **clip's** bundle identifier.
     ///
-    /// Empty until somebody registers `org.spsm.connect.Clip` as a second iOS
-    /// app in the Firebase console. Deliberately not the parent's id — using
-    /// that is the exact mismatch that made this unanswerable before.
-    static let clipAppId = ""
+    /// "SPSM Connect Clip" in `spsm-database`, registered 2026-11-11 for
+    /// `org.spsm.connect.Clip` on team 5ZRM8X66TN, with App Attest as its App
+    /// Check provider. Deliberately not the parent's id — using that is the
+    /// exact mismatch that made this unanswerable before.
+    static let clipAppId = "1:778458603931:ios:598803aa980e55ff79813e"
 
     enum Failure: Error {
         /// `DCAppAttestService.isSupported` is false in this process. Fatal to
@@ -56,48 +57,86 @@ enum AppAttest {
         case refused(String)
     }
 
-    private static let keyDefaultsName = "spsm.clip.appattest.keyId"
-
     /// An App Check token, or a reason there is none.
+    ///
+    /// Reused for as long as Firebase says it is good, so a second photograph
+    /// in the same visit costs no attestation at all.
     static func token() async throws -> String {
         guard DCAppAttestService.shared.isSupported else { throw Failure.unsupported }
         guard !clipAppId.isEmpty else { throw Failure.notConfigured }
 
+        if let cached = await cache.current() { return cached }
+
         let service = DCAppAttestService.shared
-        let keyId = try await keyIdentifier(service)
+
+        /*
+         * A fresh key every time, never one remembered from an earlier visit.
+         * Apple attests a key once: a second `attestKey` on the same id is
+         * refused, so the old remembered key made every visit after the first
+         * fail here. Generating one is local and cheap; the clip has no
+         * assertion flow that would make keeping one worth anything.
+         */
+        let keyId: String
+        do {
+            keyId = try await service.generateKey()
+        } catch {
+            throw Failure.refused("This iPhone could not make a key. (\(error.localizedDescription))")
+        }
 
         /*
          * Firebase issues the challenge. Attesting against a nonce this app
          * chose would prove nothing — the point of the challenge is that the
          * server picked it, so a captured attestation cannot be replayed.
+         *
+         * The challenge arrives base64-encoded, and the hash is of its *bytes*,
+         * as Firebase's own SDK does. Hashing the base64 text instead gives a
+         * hash Firebase never computes, and it refuses the attestation.
          */
         let challenge = try await requestChallenge()
-        let hash = Data(SHA256.hash(data: Data(challenge.utf8)))
-        let attestation = try await service.attestKey(keyId, clientDataHash: hash)
+        guard let challengeBytes = Data(base64Encoded: challenge) else {
+            throw Failure.refused("Firebase sent a challenge that could not be read.")
+        }
+        let hash = Data(SHA256.hash(data: challengeBytes))
 
-        return try await exchange(keyId: keyId, attestation: attestation, challenge: challenge)
+        let attestation: Data
+        do {
+            attestation = try await service.attestKey(keyId, clientDataHash: hash)
+        } catch {
+            throw Failure.refused("Apple would not vouch for this iPhone. (\(error.localizedDescription))")
+        }
+
+        let (token, ttl) = try await exchange(keyId: keyId, attestation: attestation, challenge: challenge)
+        await cache.store(token, for: ttl)
+        return token
     }
 
-    /// The key, generated once and remembered.
-    ///
-    /// `UserDefaults` rather than the keychain, and only because a clip's
-    /// storage is cleared by iOS on its own schedule anyway — there is nothing
-    /// here worth protecting beyond the process, and a keychain item that
-    /// outlives the clip would be litter on the device.
-    private static func keyIdentifier(_ service: DCAppAttestService) async throws -> String {
-        if let existing = UserDefaults.standard.string(forKey: keyDefaultsName) {
-            return existing
+    private static let cache = TokenCache()
+
+    /// Drop the kept token, after the Function refused it.
+    static func forget() async { await cache.clear() }
+
+    /// The last token and when to stop trusting it — five minutes before
+    /// Firebase does, so a token never expires between the reservation and
+    /// the Function's check of it.
+    private actor TokenCache {
+        private var token: String?
+        private var until = Date.distantPast
+
+        func current() -> String? { Date() < until ? token : nil }
+
+        func store(_ token: String, for ttl: TimeInterval) {
+            self.token = token
+            until = Date().addingTimeInterval(max(0, ttl - 300))
         }
-        let generated = try await service.generateKey()
-        UserDefaults.standard.set(generated, forKey: keyDefaultsName)
-        return generated
+
+        func clear() { token = nil }
     }
 
     private struct ChallengeResponse: Decodable { let challenge: String }
     private struct TokenResponse: Decodable {
-        let attestationToken: AppCheckToken?
         let appCheckToken: AppCheckToken?
-        struct AppCheckToken: Decodable { let token: String }
+        /// `ttl` is a protobuf duration, "3600s".
+        struct AppCheckToken: Decodable { let token: String; let ttl: String? }
     }
 
     private static var base: String {
@@ -119,14 +158,26 @@ enum AppAttest {
         return try JSONDecoder().decode(ChallengeResponse.self, from: data).challenge
     }
 
-    private static func exchange(keyId: String, attestation: Data, challenge: String) async throws -> String {
+    private static func exchange(
+        keyId: String,
+        attestation: Data,
+        challenge: String
+    ) async throws -> (token: String, ttl: TimeInterval) {
         var request = URLRequest(
             url: URL(string: "\(base):exchangeAppAttestAttestation?key=\(ClipConfig.firebaseApiKey)")!
         )
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        /*
+         * Exactly the three fields the request message has. `artifact` was here
+         * once; it belongs to the *response*, and Google's API front end
+         * refuses a body with a field it does not know ("Unknown name"), so
+         * its presence alone failed every exchange.
+         *
+         * `challenge` goes back as Firebase sent it, base64; `keyId` is already
+         * base64 from `generateKey`.
+         */
         request.httpBody = try JSONSerialization.data(withJSONObject: [
-            "artifact": "",
             "challenge": challenge,
             "keyId": keyId,
             "attestationStatement": attestation.base64EncodedString(),
@@ -144,9 +195,10 @@ enum AppAttest {
         }
 
         let decoded = try JSONDecoder().decode(TokenResponse.self, from: data)
-        guard let token = (decoded.appCheckToken ?? decoded.attestationToken)?.token else {
+        guard let issued = decoded.appCheckToken else {
             throw Failure.refused("Firebase returned no App Check token.")
         }
-        return token
+        let seconds = issued.ttl.flatMap { TimeInterval($0.replacingOccurrences(of: "s", with: "")) } ?? 3600
+        return (issued.token, seconds)
     }
 }
