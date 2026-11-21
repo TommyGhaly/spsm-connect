@@ -6,6 +6,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["expo", "start", "--port", "8082"],
       "port": 8082
+    },
+    {
+      "name": "nfc-stickers",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8765", "--bind", "127.0.0.1", "--directory", "store/nfc-stickers"],
+      "port": 8765
     }
   ]
 }
