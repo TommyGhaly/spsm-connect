@@ -918,6 +918,23 @@ const config: ExpoConfig = {
         granularPermissions: [],
       },
     ],
+    /*
+     * NFC, for the superadmin's sticker programmer at /nfc.
+     *
+     * `TAG` only. The plugin's default also adds `NDEF`, which App Store
+     * Connect rejects as an invalid value for this entitlement. The sticker
+     * programmer sends raw NTAG commands and never uses an NDEF session.
+     * On Android the library declares `android.hardware.nfc` as not
+     * required, so phones without NFC still see the app in Play.
+     */
+    [
+      'react-native-nfc-manager',
+      {
+        nfcPermission:
+          'SPSM Connect uses NFC so church staff can program the church’s NFC stickers.',
+        includeNdefEntitlement: false,
+      },
+    ],
   ],
 
   experiments: {

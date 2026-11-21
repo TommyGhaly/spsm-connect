@@ -852,6 +852,8 @@ function Account({ go }: { go: (href: Href) => void }) {
             <>
               <Hairline />
               <Action label="Areas" icon="people" onPress={() => go('/access' as Path)} />
+              <Hairline />
+              <Action label="NFC tags" icon="pencil" onPress={() => go('/nfc' as Path)} />
             </>
           ) : null}
           <Hairline />

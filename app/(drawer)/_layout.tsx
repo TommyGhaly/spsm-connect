@@ -141,6 +141,7 @@ export default function DrawerLayout() {
         <Drawer.Screen name="apps" options={{ title: 'Our apps' }} />
         <Drawer.Screen name="notifications" options={{ title: 'Notifications' }} />
         <Drawer.Screen name="privacy" options={{ title: 'Privacy' }} />
+        <Drawer.Screen name="nfc" options={{ title: 'NFC tags' }} />
       </Drawer>
     </BulletinProvider>
   );
