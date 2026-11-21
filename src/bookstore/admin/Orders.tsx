@@ -79,6 +79,13 @@ export function Orders() {
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [failed, setFailed] = useState<string | null>(null);
   const [refunding, setRefunding] = useState<OrderRow | null>(null);
+  /*
+   * Orders this screen has sent a refund for, so the card says so at once. The
+   * reload after a refund also brings back the `refund` record the Function
+   * writes, but until it lands the card would still offer Refund — and Square
+   * takes days, so on the website somebody pressed it again.
+   */
+  const [requested, setRequested] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -158,7 +165,7 @@ export function Orders() {
     setBusy((current) => new Set(current).add(order.id));
     try {
       const { setFulfillment } = await import('./adminData');
-      await setFulfillment(order.id, to);
+      const stamped = await setFulfillment(order.id, to);
       /*
        * Patched locally rather than re-reading the collection.
        *
@@ -171,10 +178,23 @@ export function Orders() {
       setLoaded((rows) =>
         rows === null
           ? rows
-          : rows.map((row) => (row.id === order.id ? { ...row, fulfillment: to } : row)),
+          : rows.map((row) =>
+              row.id === order.id ? { ...row, ...stamped, fulfillment: to } : row,
+            ),
       );
     } catch (cause) {
-      setFailed(cause instanceof Error ? cause.message : 'That change was refused.');
+      const message = cause instanceof Error ? cause.message : '';
+      /*
+       * A refusal from the rules here is nearly always an old build: the rules
+       * now require a name on every step, and a copy of the app from before it
+       * sent one is refused. The raw "permission-denied" says nothing a
+       * volunteer can act on.
+       */
+      setFailed(
+        message.includes('permission-denied') || message.includes('insufficient permissions')
+          ? 'That change was refused. This app may be out of date: update it and try again.'
+          : message || 'That change was refused.',
+      );
     } finally {
       setBusy((current) => {
         const next = new Set(current);
@@ -253,6 +273,7 @@ export function Orders() {
           <OrderCard
             order={item}
             busy={busy.has(item.id)}
+            justRefunded={requested.has(item.id)}
             canRefund={canEdit}
             onAdvance={(to) => void advance(item, to)}
             onRefund={() => setRefunding(item)}
@@ -268,6 +289,8 @@ export function Orders() {
           order={refunding}
           onClose={() => setRefunding(null)}
           onDone={() => {
+            const id = refunding.id;
+            setRequested((was) => new Set(was).add(id));
             setRefunding(null);
             /* Re-read here, unlike the fulfilment writes: a refund's `status`
                is set by Square's webhook rather than by us, so the local copy
@@ -283,12 +306,14 @@ export function Orders() {
 function OrderCard({
   order,
   busy,
+  justRefunded,
   canRefund,
   onAdvance,
   onRefund,
 }: {
   order: OrderRow;
   busy: boolean;
+  justRefunded: boolean;
   canRefund: boolean;
   onAdvance: (to: FulfillmentStatus) => void;
   onRefund: () => void;
@@ -298,6 +323,15 @@ function OrderCard({
   const placed = toDate(order.createdAt);
   const name = [order.buyerFirstName, order.buyerLastName].filter(Boolean).join(' ');
   const refunded = order.status === 'refunded';
+  /*
+   * Sent to Square, not finished. The Function records who asked and why the
+   * moment Square accepts it, but `status` only becomes `refunded` when the
+   * webhook says the money has gone back — often days later. In between the
+   * order is still `paid`, and without this the card looked untouched.
+   */
+  const refundPending = order.status === 'paid' && (justRefunded || Boolean(order.refund));
+  const requestedAt = order.refund ? toDate(order.refund.refundedAt) : null;
+  const requestedBy = order.refund?.refundedByEmail;
   const units = (order.lineItems ?? []).reduce((sum, line) => sum + (line.quantity || 0), 0);
 
   /*
@@ -359,7 +393,7 @@ function OrderCard({
             </Micro>
           </View>
 
-          <StateTag order={order} />
+          <StateTag order={order} refundPending={refundPending} />
         </View>
 
         <View style={{ gap: 2 }}>
@@ -419,7 +453,18 @@ function OrderCard({
         </Micro>
 
         {order.refund?.reason ? (
-          <Micro color={theme.color.inkSoft}>Refunded: {order.refund.reason}</Micro>
+          <Micro color={theme.color.inkSoft}>
+            {refunded ? 'Refunded' : 'Refund reason'}: {order.refund.reason}
+          </Micro>
+        ) : null}
+
+        {/* Who did each step. Nothing at all on orders from before it was
+            recorded, rather than a "by unknown" on every old card. */}
+        {order.fulfillment !== 'unfulfilled' ? (
+          <StepBy label={order.shipping ? 'Packed' : 'Put aside'} stamp={order.readiedBy} />
+        ) : null}
+        {order.fulfillment === 'collected' ? (
+          <StepBy label={order.shipping ? 'Posted' : 'Handed over'} stamp={order.fulfilledBy} />
         ) : null}
 
         {actionable ? (
@@ -456,7 +501,20 @@ function OrderCard({
               </>
             ) : null}
 
-            {canRefund ? (
+            {/* Shown to the treasurer too: they cannot refund, but they are the
+                one most likely to wonder why a refunded order still says paid. */}
+            {refundPending ? (
+              <View style={{ flexBasis: '100%' }} accessibilityRole="text">
+                <Micro color={theme.color.inkSoft}>
+                  Refund sent to Square
+                  {requestedAt
+                    ? ` ${requestedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                    : ''}
+                  {requestedBy ? ` by ${requestedBy}` : ''}. It shows as refunded once Square
+                  finishes, usually within a few days. No need to press it again.
+                </Micro>
+              </View>
+            ) : canRefund ? (
               <View style={{ flex: 1, minWidth: 100 }}>
                 <Button label="Refund" tone="danger" onPress={onRefund} disabled={busy} />
               </View>
@@ -468,8 +526,23 @@ function OrderCard({
   );
 }
 
+/** "Put aside by Jane Smith on Nov 15" — nothing at all when it wasn't recorded. */
+function StepBy({ label, stamp }: { label: string; stamp: OrderRow['fulfilledBy'] }) {
+  const theme = useTheme();
+  const who = stamp?.name || stamp?.email;
+  if (!stamp || !who) return null;
+  const at = toDate(stamp.at);
+
+  return (
+    <Micro color={theme.color.inkSoft}>
+      {label} by <Micro color={theme.color.ink}>{who}</Micro>
+      {at ? ` on ${at.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}
+    </Micro>
+  );
+}
+
 /** The one-word state, said plainly. */
-function StateTag({ order }: { order: OrderRow }) {
+function StateTag({ order, refundPending }: { order: OrderRow; refundPending: boolean }) {
   const theme = useTheme();
 
   const say = (label: string, tone: 'off' | 'wait' | 'done' | 'ready' | 'todo') => {
@@ -503,6 +576,7 @@ function StateTag({ order }: { order: OrderRow }) {
   };
 
   if (order.status === 'refunded') return say('Refunded', 'off');
+  if (refundPending) return say('Refund pending', 'wait');
   if (order.status === 'failed') return say('Payment failed', 'off');
   if (order.status === 'canceled') return say('Cancelled', 'off');
   if (order.status === 'pending') return say('Payment pending', 'wait');

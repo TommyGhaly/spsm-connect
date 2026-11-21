@@ -108,16 +108,34 @@ export async function listOrders(): Promise<OrderRow[]> {
 /**
  * Move an order along: unfulfilled → ready → collected.
  *
- * The only field a client may change on an order. `firestore.rules` enforces
- * that with a `hasOnly` on the affected keys, so a write that tried to carry
- * `status` or `total` alongside would be refused entirely rather than partially
- * applied.
+ * The only field a client may change on an order, along with who did each
+ * step: `readiedBy` on the step to `ready`, `fulfilledBy` on `collected`.
+ * `firestore.rules` enforces that with a `hasOnly` on the affected keys, so a
+ * write that tried to carry `status` or `total` alongside would be refused
+ * entirely rather than partially applied.
+ *
+ * The stamps are not optional. The rule refuses a step to `ready` without
+ * `readiedBy` and a step to `collected` without `fulfilledBy` — the website's
+ * fix for an order handed over with no name on it — so a build of this app
+ * that left them off would have every press refused.
+ *
+ * Returns the stamp fields as the card should now show them, so the screen can
+ * patch its row without a re-read. `at` there is the phone's clock; the stored
+ * one is the server's, and they differ by the length of the round trip.
  */
 export async function setFulfillment(
   orderId: string,
   fulfillment: FulfillmentStatus,
-): Promise<void> {
-  const uid = uidOrThrow();
+): Promise<Partial<Pick<Order, 'readiedBy' | 'fulfilledBy'>>> {
+  const user = getAuth().currentUser;
+  if (!user) throw new Error('Your session has expired. Sign in again.');
+  const uid = user.uid;
+
+  const name = (user.displayName ?? '').slice(0, 200);
+  const email = (user.email ?? '').slice(0, 320);
+  // The rule pins `uid` to the caller and `at` to request.time, so this is a
+  // name nobody can write on somebody else's behalf.
+  const stamp = { uid, name, email, at: serverTimestamp() };
 
   await updateDoc(doc(getFirestore(), COLLECTIONS.orders, orderId), {
     fulfillment,
@@ -125,7 +143,16 @@ export async function setFulfillment(
     // The rule requires this to equal the caller's uid, so a write cannot be
     // attributed to somebody else.
     updatedBy: uid,
+    // Who put it aside, and who handed it over. Undo clears the first.
+    ...(fulfillment === 'ready' ? { readiedBy: stamp } : {}),
+    ...(fulfillment === 'unfulfilled' ? { readiedBy: null } : {}),
+    ...(fulfillment === 'collected' ? { fulfilledBy: stamp } : {}),
   });
+
+  const local = { uid, name, email, at: new Date() };
+  if (fulfillment === 'ready') return { readiedBy: local };
+  if (fulfillment === 'unfulfilled') return { readiedBy: null };
+  return { fulfilledBy: local };
 }
 
 /**
