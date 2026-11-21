@@ -225,7 +225,7 @@ for (const [name, value, variable] of [
 const config: ExpoConfig = {
   name: IS_PRODUCTION ? 'SPSM Connect' : 'SPSM Connect (dev)',
   slug: 'spsm-connect',
-  version: '1.0.4',
+  version: '1.0.5',
   orientation: 'default',
   icon: './assets/icon.png',
   scheme: 'spsmconnect',
@@ -681,7 +681,21 @@ const config: ExpoConfig = {
          * the @react-native-firebase/app plugin above, which is what makes
          * static possible at all on RNFB 26.
          */
-        ios: { useFrameworks: 'static' },
+        ios: {
+          useFrameworks: 'static',
+          /*
+           * The UIScene lifecycle. Required, not optional: an app built with
+           * the iOS 27 SDK that still uses the old app-delegate window traps at
+           * launch in `_UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption`,
+           * before any JS runs — which is how 1.0.5 (1) died on every open on
+           * iOS 27.2. Expo's SDK 57 opt-in (expo@57.0.23+): it drops the window
+           * setup from AppDelegate and adds a UIApplicationSceneManifest
+           * pointing at Expo's EXExpoAppSceneDelegate. SDK 58 does this by
+           * default, so this line goes when the app moves to it.
+           * See https://github.com/expo/fyi/blob/main/ios-scene-lifecycle.md
+           */
+          enableSceneSupport: true,
+        },
         /*
          * 28 — Android 9, 2018 — and it is Square's floor rather than a
          * preference. `react-native-square-in-app-payments` pulls in
