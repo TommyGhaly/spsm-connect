@@ -1,0 +1,293 @@
+<!doctype html>
+<!--
+  NFC sticker print sheets for Pony Packaging HB-C006 (3" round, 6 per US Letter sheet).
+
+  Open this file in a browser, choose how many of each sticker you want, then print
+  at 100% scale ("Actual size", margins "None"). The artwork is read from bleed/<slug>.png
+  next to this file. Each one is 3.158" square, so a sheet fed slightly off still prints to the edge.
+
+  The geometry comes from the HB-C006.doc table: 3" cells, a 1.25" column gutter,
+  a 0.375" row gutter, which centers to 0.625" margins all round on 8.5" x 11".
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NFC Sticker Sheets</title>
+<style>
+  :root {
+    --maroon: #6b1a14;
+    --ink: #1d1a19;
+    --faint: #6f6865;
+    --line: #ddd6d2;
+    --bg: #f6f3f1;
+    --card: #ffffff;
+    --warn: #b3261e;
+    --ok: #2e6b3a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+  }
+  .layout { display: grid; grid-template-columns: 380px 1fr; min-height: 100vh; }
+  aside {
+    background: var(--card);
+    border-right: 1px solid var(--line);
+    padding: 20px;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  }
+  h1 { font-size: 19px; margin: 0 0 4px; color: var(--maroon); }
+  .sub { color: var(--faint); font-size: 13px; margin: 0 0 18px; }
+  .stock {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 14px;
+  }
+  .stock label { font-weight: 600; flex: 1; }
+  input[type=number] {
+    width: 64px; padding: 6px 8px; font: inherit; text-align: center;
+    border: 1px solid var(--line); border-radius: 8px;
+  }
+  .status { font-size: 13px; margin: 0 0 14px; padding: 8px 12px; border-radius: 8px; background: var(--bg); }
+  .status.over { color: var(--warn); background: #fbe9e7; }
+  .status.done { color: var(--ok); background: #e8f3ea; }
+  .clips { list-style: none; margin: 0 0 14px; padding: 0; }
+  .clip {
+    display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 10px;
+    padding: 8px 0; border-bottom: 1px solid var(--line);
+  }
+  .clip img { width: 44px; height: 44px; border-radius: 50%; }
+  .clip .name { font-weight: 600; }
+  .clip .url { color: var(--faint); font-size: 12px; }
+  .step { display: flex; align-items: center; gap: 4px; }
+  .step button {
+    width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--card); font-size: 17px; cursor: pointer; color: var(--maroon);
+  }
+  .step input { width: 48px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .btn {
+    padding: 9px 14px; border-radius: 9px; border: 1px solid var(--line);
+    background: var(--card); font: inherit; cursor: pointer;
+  }
+  .btn.primary { background: var(--maroon); color: #fff; border-color: var(--maroon); font-weight: 600; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .opt { display: flex; gap: 8px; align-items: center; font-size: 13px; margin: 6px 0; color: var(--faint); }
+  .hint { font-size: 12px; color: var(--faint); margin-top: 14px; }
+
+  main { padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 24px; }
+  .empty { color: var(--faint); margin-top: 80px; }
+  .sheet-wrap { --scale: .62; width: calc(8.5in * var(--scale)); height: calc(11in * var(--scale)); }
+  .sheet-label { font-size: 12px; color: var(--faint); margin-bottom: 6px; }
+
+  /* One printed page. Positions are in inches, so the browser's print engine
+     lays them out at real size. */
+  .sheet {
+    position: relative; width: 8.5in; height: 11in; background: #fff;
+    overflow: hidden;
+    transform: scale(var(--scale)); transform-origin: top left;
+    box-shadow: 0 2px 10px rgba(0,0,0,.12);
+  }
+  .slot {
+    position: absolute; width: 3in; height: 3in;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .slot img {
+    /* 3.158" art with bleed, centered over the 3" die cut. */
+    width: 3.158in; height: 3.158in; flex: none;
+    clip-path: circle(50%);
+  }
+  .slot.blank { outline: 1px dashed #ccc; outline-offset: -1px; border-radius: 50%; }
+  .test .slot img { display: none; }
+  .test .slot { outline: 1px solid #000; outline-offset: -1px; border-radius: 50%; }
+  .test .slot::after { content: "+"; font: 28px/1 sans-serif; }
+
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; }
+    aside { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+    .sheet-wrap { --scale: .4; }
+  }
+
+  @page { size: letter; margin: 0; }
+  @media print {
+    body { background: #fff; }
+    aside, .sheet-label, .empty { display: none !important; }
+    .layout { display: block; }
+    main { padding: 0; gap: 0; display: block; }
+    .sheet-wrap { width: auto; height: auto; }
+    .sheet { transform: none; box-shadow: none; break-after: page; }
+    .sheet-wrap:last-child .sheet { break-after: auto; }
+    .slot.blank { outline: 0; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside>
+    <h1>NFC sticker sheets</h1>
+    <p class="sub">Pony Packaging HB-C006 · 3″ round · 6 per sheet</p>
+
+    <div class="stock">
+      <label for="stock">Labels I have left</label>
+      <input id="stock" type="number" min="0" step="1" value="0">
+    </div>
+    <p class="status" id="status"></p>
+
+    <ul class="clips" id="clips"></ul>
+
+    <div class="row">
+      <button class="btn" id="split">Split evenly</button>
+      <button class="btn" id="fill">Fill last sheet</button>
+      <button class="btn" id="clear">Clear</button>
+    </div>
+    <label class="opt"><input type="checkbox" id="test"> Test print: outlines only, no art</label>
+    <div class="row" style="margin-top:12px">
+      <button class="btn primary" id="print">Print</button>
+    </div>
+    <p class="hint">
+      In the print dialog choose <b>Scale 100%</b> (Actual size), <b>Margins: None</b>,
+      and turn off headers and footers. First run a test print on plain paper and hold it
+      against a label sheet up to a window to check the circles line up.
+      Split evenly only checks the clips that are ticked.
+    </p>
+  </aside>
+  <main id="sheets"></main>
+</div>
+
+<script>
+  // Same order and titles as the app's NFC programmer (src/clip/experiences.ts,
+  // then Taksis's register-vehicle).
+  const CLIPS = [
+    { slug: 'give', title: 'Give' },
+    { slug: 'schedule', title: 'This Week' },
+    { slug: 'apps', title: 'The Church’s Apps' },
+    { slug: 'welcome', title: 'Welcome' },
+    { slug: 'plans', title: 'Our Expansion Plans' },
+    { slug: 'bookstore', title: 'The Bookstore' },
+    { slug: 'forms', title: 'Church Forms' },
+    { slug: 'photos', title: 'Send a Photograph' },
+    { slug: 'register-vehicle', title: 'Register Car (Taksis)' },
+  ];
+
+  // HB-C006: two columns, three rows. Top-left corner of each 3" circle, in inches.
+  const PER_SHEET = 6;
+  const COLS = [0.625, 0.625 + 3 + 1.25];
+  const ROWS = [0.625, 0.625 + 3 + 0.375, 0.625 + 2 * (3 + 0.375)];
+
+  const KEY = 'spsm-nfc-print-v1';
+  let state = { stock: 0, qty: {}, picked: {} };
+  try { Object.assign(state, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+
+  const $ = (id) => document.getElementById(id);
+  const qty = (slug) => Math.max(0, state.qty[slug] | 0);
+  const total = () => CLIPS.reduce((n, c) => n + qty(c.slug), 0);
+
+  function renderList() {
+    $('clips').innerHTML = CLIPS.map((c) => `
+      <li class="clip">
+        <img src="${c.slug}.png" alt="">
+        <div>
+          <label class="name"><input type="checkbox" data-pick="${c.slug}" ${state.picked[c.slug] !== false ? 'checked' : ''}> ${c.title}</label>
+          <div class="url">spsmwayland.org/c/${c.slug}</div>
+        </div>
+        <div class="step">
+          <button data-dec="${c.slug}" aria-label="One fewer ${c.title}">−</button>
+          <input type="number" min="0" step="1" data-qty="${c.slug}" value="${qty(c.slug)}">
+          <button data-inc="${c.slug}" aria-label="One more ${c.title}">+</button>
+        </div>
+      </li>`).join('');
+  }
+
+  function update() {
+    const n = total();
+    const sheets = Math.ceil(n / PER_SHEET);
+    const left = state.stock - n;
+    const s = $('status');
+    s.className = 'status';
+    if (!state.stock) {
+      s.textContent = `${n} sticker${n === 1 ? '' : 's'} on ${sheets} sheet${sheets === 1 ? '' : 's'}. Enter how many labels you have to check against it.`;
+    } else if (left < 0) {
+      s.className = 'status over';
+      s.textContent = `${n} chosen, but you have ${state.stock}. That is ${-left} too many.`;
+    } else {
+      if (left === 0) s.className = 'status done';
+      s.textContent = `${n} of ${state.stock} labels used, ${left} left · ${sheets} sheet${sheets === 1 ? '' : 's'}` +
+        (n % PER_SHEET ? ` (${PER_SHEET - (n % PER_SHEET)} blank on the last)` : '');
+    }
+    document.querySelectorAll('[data-qty]').forEach((el) => {
+      if (document.activeElement !== el) el.value = qty(el.dataset.qty);
+    });
+    $('print').disabled = n === 0;
+    $('fill').disabled = n === 0 || n % PER_SHEET === 0;
+    renderSheets();
+    save();
+  }
+
+  function renderSheets() {
+    const labels = CLIPS.flatMap((c) => Array(qty(c.slug)).fill(c.slug));
+    const main = $('sheets');
+    if (!labels.length) { main.innerHTML = '<p class="empty">Choose some stickers to see the sheets.</p>'; return; }
+    const sheets = [];
+    for (let i = 0; i < labels.length; i += PER_SHEET) sheets.push(labels.slice(i, i + PER_SHEET));
+    const slotsOf = (page) => Array.from({ length: PER_SHEET }, (_, i) => {
+      const slug = page[i];
+      const x = COLS[i % 2], y = ROWS[Math.floor(i / 2)];
+      return `<div class="slot ${slug ? '' : 'blank'}" style="left:${x}in;top:${y}in">${slug ? `<img src="bleed/${slug}.png" alt="">` : ''}</div>`;
+    }).join('');
+    main.innerHTML = sheets.map((page, i) => `
+      <div>
+        <div class="sheet-label">Sheet ${i + 1} of ${sheets.length}</div>
+        <div class="sheet-wrap"><div class="sheet ${$('test').checked ? 'test' : ''}">${slotsOf(page)}</div></div>
+      </div>`).join('');
+  }
+
+  const pickedSlugs = () => CLIPS.map((c) => c.slug).filter((s) => state.picked[s] !== false);
+
+  $('clips').addEventListener('click', (e) => {
+    const inc = e.target.dataset.inc, dec = e.target.dataset.dec;
+    if (inc) state.qty[inc] = qty(inc) + 1;
+    if (dec) state.qty[dec] = Math.max(0, qty(dec) - 1);
+    if (inc || dec) update();
+  });
+  $('clips').addEventListener('input', (e) => {
+    const t = e.target;
+    if (t.dataset.qty) { state.qty[t.dataset.qty] = Math.max(0, parseInt(t.value, 10) || 0); update(); }
+  });
+  $('clips').addEventListener('change', (e) => {
+    const t = e.target;
+    if (t.dataset.pick) { state.picked[t.dataset.pick] = t.checked; save(); }
+  });
+  $('stock').value = state.stock || '';
+  $('stock').addEventListener('input', (e) => { state.stock = Math.max(0, parseInt(e.target.value, 10) || 0); update(); });
+
+  // Share the stock across the ticked clips; any remainder goes to the first ones in the list.
+  $('split').addEventListener('click', () => {
+    const slugs = pickedSlugs();
+    if (!slugs.length) return alert('Tick at least one clip to split between.');
+    if (!state.stock) return alert('Enter how many labels you have left first.');
+    const base = Math.floor(state.stock / slugs.length), extra = state.stock % slugs.length;
+    CLIPS.forEach((c) => { state.qty[c.slug] = 0; });
+    slugs.forEach((s, i) => { state.qty[s] = base + (i < extra ? 1 : 0); });
+    update();
+  });
+  // Top up the ticked clips one at a time until the last sheet has no blanks.
+  $('fill').addEventListener('click', () => {
+    const slugs = pickedSlugs();
+    if (!slugs.length) return alert('Tick at least one clip to fill with.');
+    let i = 0;
+    while (total() % PER_SHEET) { const s = slugs[i++ % slugs.length]; state.qty[s] = qty(s) + 1; }
+    update();
+  });
+  $('clear').addEventListener('click', () => { state.qty = {}; update(); });
+  $('test').addEventListener('change', renderSheets);
+  $('print').addEventListener('click', () => window.print());
+
+  renderList();
+  update();
+</script>
+</body>
+</html>
