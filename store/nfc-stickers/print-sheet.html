@@ -98,9 +98,11 @@
     display: flex; align-items: center; justify-content: center;
   }
   .slot img {
-    /* 3" + 4.5mm each side, centered over the 3" die cut. */
+    /* 3" + 4.5mm each side, centered over the 3" die cut. Printed as the
+       whole square, not trimmed to a circle, so the corners carry background
+       too and a sheet fed off at an angle still lands on picture. The squares
+       stop 0.5mm short of the row below, so neighbours never overlap. */
     width: calc(3in + 9mm); height: calc(3in + 9mm); flex: none;
-    clip-path: circle(50%);
   }
   .slot.blank { outline: 1px dashed #ccc; outline-offset: -1px; border-radius: 50%; }
   .test .slot img { display: none; }
