@@ -283,7 +283,7 @@ export function ServantSignUp() {
       {errors.length > 0 ? <Problem>{errors.join('\n')}</Problem> : null}
 
       {/* ------------------------------------------------------------------ */}
-      <Label>ABOUT YOU</Label>
+      <Label>About you</Label>
 
       <Field
         label="Your name"
@@ -338,7 +338,7 @@ export function ServantSignUp() {
       />
 
       {/* ------------------------------------------------------------------ */}
-      <Label>EMERGENCY CONTACT</Label>
+      <Label>Emergency contact</Label>
 
       <Field
         label="Contact name"
@@ -361,7 +361,7 @@ export function ServantSignUp() {
       />
 
       {/* ------------------------------------------------------------------ */}
-      <Label>WHERE YOU WOULD LIKE TO BE</Label>
+      <Label>Where you would like to be</Label>
 
       {CAMP_SECTIONS.map((section) => {
         const grades = campGradesForSection(section);
@@ -408,7 +408,7 @@ export function ServantSignUp() {
       </Small>
 
       {/* ------------------------------------------------------------------ */}
-      <Label>WHICH WEEKS YOU ARE COMING</Label>
+      <Label>Which weeks you are coming</Label>
       <Small color={theme.color.inkSoft}>
         Tick a week and you have the whole of it; untick any day you cannot make.
       </Small>
@@ -421,7 +421,7 @@ export function ServantSignUp() {
       />
 
       {/* ------------------------------------------------------------------ */}
-      <Label>WHAT YOU WOULD LIKE TO DO</Label>
+      <Label>What you would like to do</Label>
       <Small color={theme.color.inkSoft}>
         Tap as many as you like. The camp decides in the end, but it does read this.
       </Small>
@@ -445,7 +445,7 @@ export function ServantSignUp() {
       {/* ------------------------------------------------------------------ */}
       {waiverInForce ? (
         <>
-          <Label>BEFORE YOU SEND THIS</Label>
+          <Label>Before you send this</Label>
 
           <Card gap={theme.space.sm}>
             {config.waiverText.split(/\n{2,}/).map((paragraph, index) => (
@@ -508,7 +508,7 @@ export function ServantSignUp() {
       {/* ------------------------------------------------------------------ */}
       {chargeCents > 0 ? (
         <View style={{ gap: theme.space.sm }}>
-          <Label>PAYMENT</Label>
+          <Label>Payment</Label>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
             <Body color={theme.color.inkSoft}>{chargeLabel}</Body>
             <Heading>{money(chargeCents)}</Heading>

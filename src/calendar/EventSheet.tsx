@@ -104,20 +104,7 @@ export function EventSheet({
       }
     >
 
-      {occurrence.imageUrl ? (
-        <Image
-          source={{ uri: occurrence.imageUrl }}
-          accessibilityElementsHidden
-          importantForAccessibility="no-hide-descendants"
-          contentFit="cover"
-          style={{
-            width: '100%',
-            height: 160,
-            borderRadius: theme.radius.md,
-            backgroundColor: theme.color.paperSunken,
-          }}
-        />
-      ) : null}
+      {occurrence.imageUrl ? <Picture key={occurrence.imageUrl} url={occurrence.imageUrl} /> : null}
 
       <View style={{ gap: theme.space.sm }}>
         {/*
@@ -194,7 +181,7 @@ function Fact({ term, detail }: { term: string; detail: string }) {
 
   return (
     <View style={{ gap: theme.space.xs }}>
-      <Label>{term.toUpperCase()}</Label>
+      <Label>{term}</Label>
       <Body color={theme.color.inkSoft}>{detail}</Body>
     </View>
   );
@@ -206,7 +193,7 @@ function ContactFact({ contact }: { contact: string }) {
 
   return (
     <View style={{ gap: theme.space.xs }}>
-      <Label>CONTACT</Label>
+      <Label>Contact</Label>
       {phone ? (
         <Pressable
           onPress={() => void Linking.openURL(`tel:${phone.replace(/[^\d+]/g, '')}`)}
@@ -392,4 +379,49 @@ function sourceName(source: CalendarOccurrence['source']): string {
   if (source === 'bulletin') return 'the weekly bulletin';
   if (source === 'feature') return "the event's own page";
   return 'the church calendar in Breeze';
+}
+
+/**
+ * The event's picture, whole — the website's `.sched-dialog__image`: full
+ * width, never taller than 18rem, `object-fit: contain`, a hairline round it.
+ *
+ * Sized to the picture's own shape once it has loaded, because the sheet's
+ * images are every shape there is — a 250×524 icon and a 304×166 banner in the
+ * same week. A fixed 160-point strip cropped them all into a letterbox and cut
+ * the icons off at the waist. Until the size is known it holds a 4:3 frame,
+ * which is near enough the middle of what turns up that the sheet barely moves.
+ *
+ * Keyed on the URL by the caller, so moving to another event does not briefly
+ * draw the new picture in the old one's shape.
+ */
+function Picture({ url }: { url: string }) {
+  const theme = useTheme();
+  const [ratio, setRatio] = useState(4 / 3);
+  const [broken, setBroken] = useState(false);
+  if (broken) return null;
+
+  return (
+    <Image
+      source={{ uri: url }}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      onLoad={({ source }) => {
+        if (source.width > 0 && source.height > 0) setRatio(source.width / source.height);
+      }}
+      onError={() => setBroken(true)}
+      contentFit="contain"
+      style={{
+        width: '100%',
+        aspectRatio: ratio,
+        maxHeight: 288,
+        // A tall picture meets the height cap first and the frame narrows to
+        // its width; centred, rather than left hanging against one edge.
+        alignSelf: 'center',
+        borderRadius: theme.radius.md,
+        borderWidth: 1,
+        borderColor: theme.color.rule,
+        backgroundColor: theme.color.paperSunken,
+      }}
+    />
+  );
 }

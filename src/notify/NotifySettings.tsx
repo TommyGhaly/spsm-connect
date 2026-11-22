@@ -379,7 +379,7 @@ export function NotifySettings() {
         {reminders.enabled ? (
           <View style={{ gap: theme.space.sm, marginTop: theme.space.xs }}>
             <View>
-              <Label>WHICH EVENTS</Label>
+              <Label>Which events</Label>
               {OCCURRENCE_KINDS.map((kind) => (
                 <Check
                   key={kind}

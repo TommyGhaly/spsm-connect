@@ -242,12 +242,12 @@ export function LevelDetailsSheet({
         {problem ? <Problem>{problem}</Problem> : null}
 
         <View style={{ gap: theme.space.xs }}>
-          <Label>{parts.toUpperCase()}</Label>
+          <Label>{parts}</Label>
           <Button label={`Add something inside this`} tone="quiet" onPress={() => setAdding(true)} />
         </View>
 
         <View style={{ gap: theme.space.xs }}>
-          <Label>REMOVE</Label>
+          <Label>Remove</Label>
           <Micro color={theme.color.inkSoft}>
             The photographs filed here are not deleted — they move up to the ministry, where they
             can be filed again. Anything nested inside this has to be removed first.

@@ -221,7 +221,7 @@ export function AddEntry({
           typing the thing in, so asking is both more accurate and less work.
         */}
         <View style={{ gap: theme.space.xs }}>
-          <Label>KIND</Label>
+          <Label>Kind</Label>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.xs }}>
             {SCHEDULE_KINDS.map((kind) => {
               const on = draft.kind === kind;

@@ -97,7 +97,7 @@ export default function ClipLanding() {
 
   return (
     <Screen>
-      <Label>NOT IN THIS VERSION</Label>
+      <Label>Not in this version</Label>
       <Body>
         That tag points at something this version of SPSM Connect does not have
         yet. Updating the app from the App Store or Google Play should sort it.

@@ -310,11 +310,19 @@ function Thumb({ url }: { url: string }) {
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       onError={() => setBroken(true)}
-      contentFit="cover"
+      /*
+       * The whole picture, letterboxed, rather than a square crop. The sheet's
+       * images are any shape — most are tall icons, some are wide banners — and
+       * a crop showed a saint's knees or the middle third of a flyer. The box
+       * stays square so the rows still line up.
+       */
+      contentFit="contain"
       style={{
         width: 44,
         height: 44,
         borderRadius: theme.radius.sm,
+        borderWidth: 1,
+        borderColor: theme.color.rule,
         backgroundColor: theme.color.paperSunken,
       }}
     />

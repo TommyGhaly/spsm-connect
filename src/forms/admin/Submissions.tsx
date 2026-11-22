@@ -340,7 +340,7 @@ function SubmissionCard({
 
           {answers.map(([key, answer]) => (
             <View key={key} style={{ gap: 2 }}>
-              <Label>{labelFor(form, key).toUpperCase()}</Label>
+              <Label>{labelFor(form, key)}</Label>
               {isFormUploadPath(answer) ? (
                 <SubmittedPhoto path={answer} />
               ) : (
@@ -357,7 +357,7 @@ function SubmissionCard({
 
           {confirming ? (
             <Card gap={theme.space.sm}>
-              <Label>DELETE THIS SUBMISSION?</Label>
+              <Label>Delete this submission?</Label>
               <Small color={theme.color.inkSoft}>
                 This destroys it for good — there is no undo and no copy kept.
                 {row.paymentId ? ' A payment was taken against this record.' : ''} To take it

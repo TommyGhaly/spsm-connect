@@ -237,7 +237,7 @@ export function CampProblem({ error }: { error: string }) {
         gap: 2,
       }}
     >
-      <Label color={theme.color.accentStrong}>THAT DID NOT WORK</Label>
+      <Label color={theme.color.accentStrong}>That did not work</Label>
       <Micro color={theme.color.accentStrong}>{error}</Micro>
     </View>
   );

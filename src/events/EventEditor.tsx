@@ -590,7 +590,7 @@ function Fold({
         })}
       >
         <View style={{ flex: 1, gap: 2, paddingVertical: theme.space.xs }}>
-          <Label>{title.toUpperCase()}</Label>
+          <Label>{title}</Label>
           <Micro color={theme.color.inkSoft}>{value}</Micro>
         </View>
         <View style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }}>

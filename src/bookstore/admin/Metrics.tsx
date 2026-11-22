@@ -556,7 +556,7 @@ function Tile({ label, value, note }: { label: string; value: string; note: stri
         backgroundColor: theme.color.paperRaised,
       }}
     >
-      <Micro color={theme.color.inkFaint}>{label.toUpperCase()}</Micro>
+      <Micro color={theme.color.inkFaint}>{label}</Micro>
       <Heading>{value}</Heading>
       <Micro color={theme.color.inkSoft}>{note}</Micro>
     </View>

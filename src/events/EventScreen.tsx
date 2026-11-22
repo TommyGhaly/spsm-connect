@@ -217,7 +217,7 @@ function Article({ event }: { event: EventDoc }) {
       */}
       {meetingUrl ? (
         <View style={{ gap: theme.space.xs }}>
-          <Label>JOINING ONLINE</Label>
+          <Label>Joining online</Label>
           <Button
             label="Open the meeting link"
             tone="quiet"
@@ -249,7 +249,7 @@ function EditOffer({ onPress }: { onPress: () => void }) {
     <Card gap={theme.space.sm}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.sm }}>
         <View style={{ flex: 1 }}>
-          <Label>PARISH CALENDAR</Label>
+          <Label>Parish calendar</Label>
         </View>
         <Button label="Edit this page" tone="quiet" onPress={onPress} />
       </View>

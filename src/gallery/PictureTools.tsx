@@ -203,7 +203,7 @@ export function PictureSheet({
       header={
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ flex: 1 }}>
-            <Label>THIS PHOTOGRAPH</Label>
+            <Label>This photograph</Label>
           </View>
           <Close onPress={onClose} what="this photograph" />
         </View>

@@ -388,9 +388,11 @@ function LevelView({ level, onChanged }: { level: Level; onChanged: () => void }
           id: child.id,
           label: child.title,
           href: `/events/${program.slug}/${slugs.join('/')}` as Href,
-          // The spread `summariseChildren` takes across the child's subtree,
-          // not its single `cover`: the tile cycles, and opens on a random one.
-          covers: summary?.covers ?? [],
+          // Every photograph `summariseChildren` clears in the child's subtree,
+          // not its single `cover` and not a fixed handful: the tile shuffles
+          // the whole pool and cycles through it, so it wanders the event the
+          // way the website's `useRandomDraw` tiles do (Website 08a8909).
+          covers: summary?.pool ?? [],
           note: shelfNote({
             children: summary?.children ?? 0,
             photos: summary?.photos ?? 0,

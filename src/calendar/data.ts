@@ -122,9 +122,21 @@ export interface BulletinRead {
   notices: BulletinNotice[];
   /** As the editor typed it: "August 3, 2026". Empty when the sheet omits it. */
   weekLabel: string;
+  /**
+   * The first and last day the sheet covers, `YYYY-MM-DD`, or empty strings
+   * when there is no sheet.
+   *
+   * This is what lets the calendar open on *the bulletin's* week rather than
+   * the calendar week — the website's homepage shows whichever bulletin is
+   * active, and staff routinely put next week's up before this one is over.
+   * Taken from `days` only: a multi-day event can run past the sheet's own
+   * week, and that is not the week the sheet is about.
+   */
+  from: string;
+  to: string;
 }
 
-const NO_BULLETIN: BulletinRead = { occurrences: [], notices: [], weekLabel: '' };
+const NO_BULLETIN: BulletinRead = { occurrences: [], notices: [], weekLabel: '', from: '', to: '' };
 
 /**
  * This week's bulletin: the services on it, and the notices beside them.
@@ -154,11 +166,21 @@ export async function getBulletin(): Promise<BulletinRead> {
       occurrences: occurrencesOfBulletin(bulletin),
       notices: noticesOf(bulletin.announcements),
       weekLabel: typeof bulletin.weekLabel === 'string' ? bulletin.weekLabel : '',
+      ...spanOf(bulletin.days),
     };
   } catch (error) {
     console.warn('[calendar] the bulletin could not be read; carrying on without it:', error);
     return NO_BULLETIN;
   }
+}
+
+/** The earliest and latest well-formed date among the sheet's days. */
+function spanOf(days: readonly { date?: unknown }[]): { from: string; to: string } {
+  const dates = days
+    .map((day) => day.date)
+    .filter((date): date is string => typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date))
+    .sort();
+  return { from: dates[0] ?? '', to: dates[dates.length - 1] ?? '' };
 }
 
 /**

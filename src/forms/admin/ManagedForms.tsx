@@ -585,7 +585,7 @@ export function ManagedForms({
                     */}
                     {armed === form.id ? (
                       <Card gap={theme.space.sm}>
-                        <Label>DELETE {form.title.toUpperCase()}?</Label>
+                        <Label>Delete {form.title}?</Label>
                         <Small color={theme.color.inkSoft}>
                           The form and its questions go for good. Anything already sent in
                           through it stays — and will still be listed under this title. To take

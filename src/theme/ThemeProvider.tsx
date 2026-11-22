@@ -159,7 +159,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const resolved = useMemo(() => {
     const platform = Platform.OS === 'ios' ? 'ios' : 'android';
-    return resolveForScreen(tokens ?? DEFAULT_THEME, platform, width);
+    const theme = resolveForScreen(tokens ?? DEFAULT_THEME, platform, width);
+    /*
+     * The app sets every role in the platform's own face — San Francisco on
+     * iOS, Roboto on Android — whatever `config/theme` names for the website.
+     *
+     * The church's serif is right for a web page and wrong inside a native
+     * shell: next to the system's own tab bar, sheets and alerts it read as a
+     * themed template rather than an app built for the phone. Colours and
+     * sizes still come from the church's theme; only the family is the app's.
+     */
+    const system = theme.fontFamily.ui;
+    return { ...theme, fontFamily: { body: system, ui: system, display: system } };
   }, [tokens, width]);
 
   /*

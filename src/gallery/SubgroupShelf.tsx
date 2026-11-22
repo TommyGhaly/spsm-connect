@@ -60,8 +60,9 @@ export interface ShelfItem {
   /** Where pressing it goes. */
   href: Href;
   /**
-   * Up to eight photographs spread across its subtree, for the tile to cycle
-   * through — `summariseChildren`'s `covers`. Empty for a part with none.
+   * Every photograph in its subtree the tile may show — `summariseChildren`'s
+   * `pool`, uncapped. `Crossfade` draws only two at a time, so the size is a
+   * question of how long before the tile repeats. Empty for a part with none.
    */
   covers: readonly MediaRow[];
   /** A count, or a state — "6", "3 inside", "empty". Never an action. */

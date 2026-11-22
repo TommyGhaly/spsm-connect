@@ -163,7 +163,7 @@ export function GroupsBoard() {
 
       {nothingArranged ? (
         <Card gap={theme.space.xs}>
-          <Label>NOTHING ARRANGED YET</Label>
+          <Label>Nothing arranged yet</Label>
           <Body color={theme.color.inkSoft}>
             {weeks.length === 0
               ? `Nobody has been put into a group for ${season || 'this season'}. The board is arranged at /admin/camp/groups on the church website.`
@@ -178,7 +178,7 @@ export function GroupsBoard() {
 
           {board.stations.length > 0 ? (
             <>
-              <Label>ACTIVITIES</Label>
+              <Label>Activities</Label>
               {board.stations.map((station) => (
                 <Station key={station.id} station={station} resolved={resolved} />
               ))}
@@ -190,7 +190,7 @@ export function GroupsBoard() {
       )}
 
       <Card gap={theme.space.xs}>
-        <Label>ARRANGED ON THE WEBSITE</Label>
+        <Label>Arranged on the website</Label>
         <Body color={theme.color.inkSoft}>
           This is the arrangement as it stands, and it updates as somebody changes it.
           Moving a child between crews, naming a leader and renaming a group are all done
@@ -502,7 +502,7 @@ function Unplaced({ resolved, week }: { resolved: ResolvedAllocation; week: numb
         accessibilityState={{ expanded: open }}
         style={{ minHeight: 44, justifyContent: 'center' }}
       >
-        <Label>NOT IN A GROUP YET</Label>
+        <Label>Not in a group yet</Label>
         <Small color={theme.color.inkSoft}>
           {children.length} {children.length === 1 ? 'child' : 'children'}
           {servants.length > 0

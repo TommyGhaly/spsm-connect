@@ -110,7 +110,7 @@ export function DayGrid({
 
       {weeks < 1 ? (
         <>
-          <Label>NOT SET UP YET</Label>
+          <Label>Not set up yet</Label>
           <Small color={theme.color.inkSoft}>
             The camp has not published its weeks. Ring the church office to say you would
             like to serve.

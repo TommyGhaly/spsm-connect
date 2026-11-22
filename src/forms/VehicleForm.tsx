@@ -107,7 +107,7 @@ export function VehicleForm({ slug, confirmation }: { slug: string; confirmation
     <View style={{ gap: theme.space.md }}>
       {status.kind === 'failed' ? <Problem>{status.errors.join('\n')}</Problem> : null}
 
-      <Label>THE VEHICLE</Label>
+      <Label>The vehicle</Label>
 
       <Field
         label="License plate"
@@ -143,7 +143,7 @@ export function VehicleForm({ slug, confirmation }: { slug: string; confirmation
         whole job of this field on a phone in a car park.
       */}
       <View style={{ gap: theme.space.xs }}>
-        <Label>COLOR</Label>
+        <Label>Color</Label>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.xs }}>
           {TAKSIS_COLORS.map((colour) => {
             const on = input.color === colour.value;
@@ -184,7 +184,7 @@ export function VehicleForm({ slug, confirmation }: { slug: string; confirmation
         </View>
       </View>
 
-      <Label>DRIVERS</Label>
+      <Label>Drivers</Label>
 
       {input.drivers.map((driver, index) => (
         <Card key={index} gap={theme.space.sm}>

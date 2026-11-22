@@ -15,7 +15,6 @@
  */
 import type { ReactNode } from 'react';
 import { Text, type TextProps } from 'react-native';
-import { letterSpacingPoints } from '@spsm/shared';
 
 import { lineHeightFor } from '@/theme/tokens';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -28,13 +27,13 @@ type Role = 'display' | 'title' | 'heading' | 'subheading' | 'lede' | 'body' | '
  * one place, the way the website's stylesheet has it.
  */
 const ROLES = {
-  display: { family: 'display', leading: 'tight' },
-  title: { family: 'display', leading: 'tight' },
-  heading: { family: 'display', leading: 'snug' },
-  subheading: { family: 'ui', leading: 'snug' },
-  lede: { family: 'body', leading: 'relaxed' },
-  body: { family: 'body', leading: 'normal' },
-  small: { family: 'ui', leading: 'normal' },
+  display: { family: 'display', leading: 'tight', weight: '700' },
+  title: { family: 'display', leading: 'tight', weight: '700' },
+  heading: { family: 'display', leading: 'snug', weight: '600' },
+  subheading: { family: 'ui', leading: 'snug', weight: '600' },
+  lede: { family: 'body', leading: 'normal', weight: '400' },
+  body: { family: 'body', leading: 'normal', weight: '400' },
+  small: { family: 'ui', leading: 'normal', weight: '400' },
   /*
    * `tight`, alone among the small roles, because the only thing set at this
    * size is a counter — one or two characters that will never wrap. Leading is
@@ -46,8 +45,22 @@ const ROLES = {
    * genuinely prose. It computes its own leading below rather than going
    * through this table.
    */
-  micro: { family: 'ui', leading: 'tight' },
-} as const satisfies Record<Role, { family: 'body' | 'ui' | 'display'; leading: 'tight' | 'snug' | 'normal' | 'relaxed' }>;
+  micro: { family: 'ui', leading: 'tight', weight: '400' },
+} as const satisfies Record<
+  Role,
+  {
+    family: 'body' | 'ui' | 'display';
+    leading: 'tight' | 'snug' | 'normal' | 'relaxed';
+    /*
+     * The system sans carries hierarchy by weight, not by face. The serif this
+     * app used to set its headings in was distinct at regular weight; San
+     * Francisco and Roboto at regular weight make a heading look like large
+     * body text, so the heading roles are set semibold and bold the way the
+     * platforms' own large titles and section titles are.
+     */
+    weight: '400' | '600' | '700';
+  }
+>;
 
 export interface TypeProps extends Omit<TextProps, 'style'> {
   children: ReactNode;
@@ -60,7 +73,7 @@ export interface TypeProps extends Omit<TextProps, 'style'> {
 function make(role: Role) {
   return function Styled({ children, color, align, ...rest }: TypeProps) {
     const theme = useTheme();
-    const { family, leading } = ROLES[role];
+    const { family, leading, weight } = ROLES[role];
 
     return (
       <Text
@@ -69,6 +82,7 @@ function make(role: Role) {
           color: color ?? theme.color.ink,
           fontFamily: theme.fontFamily[family],
           fontSize: theme.fontSize[role],
+          fontWeight: weight,
           lineHeight: lineHeightFor(theme, role, leading),
           textAlign: align,
         }}
@@ -98,13 +112,13 @@ export const Small = make('small');
 export const Micro = make('micro');
 
 /**
- * The uppercase label above a card or a section — "FROM @SPSM/SHARED",
- * "AWAITING APPROVAL".
+ * The short header above a card or a section — "Awaiting approval", "Drivers".
  *
- * Its own component rather than a `micro` variant because it is the one place
- * in the app that opens letter-spacing, and uppercase micro text without the
- * `wide` tracking is a smudge. Callers should pass already-uppercase text;
- * `textTransform` is applied here so they cannot forget.
+ * Set the way iOS and Android set their own section headers: the small size,
+ * semibold, in the muted ink, in sentence case. It used to be uppercase and
+ * tracked out, which is the eyebrow every generated landing page puts over
+ * every block; in a native app it read as a template rather than as the phone.
+ * Callers pass sentence-case text and it is drawn as given.
  */
 export function Label({ children, color, align, ...rest }: TypeProps) {
   const theme = useTheme();
@@ -113,12 +127,11 @@ export function Label({ children, color, align, ...rest }: TypeProps) {
     <Text
       {...rest}
       style={{
-        color: color ?? theme.color.inkFaint,
+        color: color ?? theme.color.inkSoft,
         fontFamily: theme.fontFamily.ui,
-        fontSize: theme.fontSize.micro,
-        lineHeight: lineHeightFor(theme, 'micro', 'normal'),
-        letterSpacing: letterSpacingPoints(theme.letterSpacingEm.wide, theme.fontSize.micro),
-        textTransform: 'uppercase',
+        fontSize: theme.fontSize.small,
+        fontWeight: '600',
+        lineHeight: lineHeightFor(theme, 'small', 'snug'),
         textAlign: align,
       }}
     >

@@ -1,5 +1,5 @@
 /**
- * This week's bulletin, read once for the whole app.
+ * The active bulletin, read for the whole app and re-read while it is open.
  *
  * It used to be state inside `CalendarScreen`, which was right while the
  * calendar was the only thing that wanted it. It is not any more: the
@@ -23,6 +23,7 @@
  * notices, it mounts this the way `ClipRoot` already mounts `SessionProvider`.
  */
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { AppState } from 'react-native';
 
 import { getBulletin, type BulletinRead } from './data';
 
@@ -36,7 +37,20 @@ const NO_BULLETIN: BulletinRead = Object.freeze({
   occurrences: [],
   notices: [],
   weekLabel: '',
+  from: '',
+  to: '',
 });
+
+/**
+ * How often to re-ask while the app is in front — the website's `POLL_MS`.
+ *
+ * Staff make a different bulletin active in the announcements app, and the
+ * website's homepage notices within a minute; an app left open on the calendar
+ * should not keep showing last week's sheet until it is relaunched. The CDN in
+ * front of `/api/bulletin` holds an answer for thirty seconds, so this is
+ * mostly a read of a cached copy, not of the other Firebase project.
+ */
+const POLL_MS = 60_000;
 
 const BulletinContext = createContext<BulletinRead>(NO_BULLETIN);
 
@@ -45,13 +59,50 @@ export function BulletinProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let live = true;
-    // `getBulletin` never rejects — it warns and returns an empty read — so
-    // there is deliberately no catch here to write a second one.
-    void getBulletin().then((next) => {
-      if (live) setBulletin(next);
+    /*
+     * What was last put on screen, as JSON, so an unchanged answer — nearly
+     * every poll — does not hand `CalendarScreen` a new object and re-run its
+     * merge once a minute for nothing.
+     */
+    let shown = '';
+
+    /*
+     * `getBulletin` never rejects — it warns and returns an empty read — so
+     * there is deliberately no catch here to write a second one.
+     *
+     * Like the website's `useActiveBulletin`, a failed or empty read after a
+     * good one leaves the good one on screen: a sheet a few days old still says
+     * when the Liturgy is, and a calendar that empties itself mid-visit does not.
+     */
+    const check = () => {
+      void getBulletin().then((next) => {
+        if (!live) return;
+        if (next.from === '' && shown !== '') return;
+        const json = JSON.stringify(next);
+        if (json === shown) return;
+        shown = json;
+        setBulletin(next);
+      });
+    };
+
+    check();
+
+    // Only while the app is in front — a phone in a pocket should not spend the
+    // night re-reading the parish's schedule.
+    const timer = setInterval(() => {
+      if (AppState.currentState === 'active') check();
+    }, POLL_MS);
+
+    // Coming back to the app is when the sheet is most likely to have changed,
+    // so it is checked at once rather than at the end of the interval.
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') check();
     });
+
     return () => {
       live = false;
+      clearInterval(timer);
+      subscription.remove();
     };
   }, []);
 

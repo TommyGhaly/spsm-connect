@@ -37,13 +37,38 @@ const WINDOW_MS = NFC_VISIT_WINDOW_MINUTES * 60_000;
 
 let current: { attribution: NfcAttribution; lastActive: number } | null = null;
 
+/**
+ * How long to wait before the one second attempt. Long enough for a phone
+ * walking out of a basement to find a signal, short enough that the app is
+ * almost certainly still open.
+ */
+const RETRY_MS = 5_000;
+
+/**
+ * Send one event, and once more if the first did not arrive.
+ *
+ * Only a network failure or a server error earns the retry. A 4xx is the
+ * server refusing the event — malformed, or rate-limited — and sending it again
+ * would be refused again. A retry cannot double-count: the server keeps the
+ * first `(visit, action)` and drops repeats, so a first attempt that landed
+ * but whose answer was lost costs nothing.
+ */
 function post(attribution: NfcAttribution, action: NfcClientAction): void {
-  void fetch(apiUrl('/api/nfc/event'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...attribution, action }),
-  }).catch(() => {
-    /* Offline, or the server said no. Nothing to tell anybody. */
+  const body = JSON.stringify({ ...attribution, action });
+  const send = () =>
+    fetch(apiUrl('/api/nfc/event'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+    }).then(
+      (response) => response.status < 500,
+      () => false,
+    );
+  void send().then((arrived) => {
+    if (arrived) return;
+    setTimeout(() => {
+      void send();
+    }, RETRY_MS);
   });
 }
 

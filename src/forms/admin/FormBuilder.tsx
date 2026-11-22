@@ -181,7 +181,7 @@ export function FormBuilder({ id }: { id: string }) {
       */}
       {problems.length > 0 ? (
         <Card>
-          <Label>WORTH CHECKING BEFORE YOU PUBLISH</Label>
+          <Label>Worth checking before you publish</Label>
           {problems.map((problem) => (
             <Small key={problem} color={theme.color.inkSoft}>
               {`• ${problem}`}
@@ -254,7 +254,7 @@ function Settings({
 
   return (
     <View style={{ gap: theme.space.md }}>
-      <Label>THE FORM</Label>
+      <Label>The form</Label>
 
       <Field
         label="Title"
@@ -362,7 +362,7 @@ function Settings({
         />
       ) : null}
 
-      <Label>AFTER IT IS SENT</Label>
+      <Label>After it is sent</Label>
 
       <Field
         label="Confirmation shown on screen"
@@ -396,7 +396,7 @@ function Settings({
         hint="Comma separated. Empty means nobody is emailed when one arrives."
       />
 
-      <Label>PAYMENT</Label>
+      <Label>Payment</Label>
 
       <Check
         label="This form takes a payment"
@@ -484,7 +484,7 @@ function FieldList({
 
   return (
     <View style={{ gap: theme.space.sm }}>
-      <Label>QUESTIONS</Label>
+      <Label>Questions</Label>
 
       {draft.fields.length === 0 ? (
         <Body color={theme.color.inkSoft}>No questions yet.</Body>
@@ -674,7 +674,7 @@ function OptionsEditor({
 
   return (
     <View style={{ gap: theme.space.sm }}>
-      <Label>OPTIONS</Label>
+      <Label>Options</Label>
 
       {field.options.map((option, index) => (
         <View

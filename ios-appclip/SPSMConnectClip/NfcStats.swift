@@ -24,13 +24,20 @@ enum NfcStats {
 
     @MainActor private static var attribution: [String: String]?
 
-    /// The invocation arrived. Mints the visit and reports the scan, once.
+    /// The invocation arrived. Mints the visit and reports the scan.
     ///
     /// iOS can deliver the same user activity again when the clip comes back
-    /// to the foreground, so a second call for a visit already in force is a
-    /// no-op rather than a second tap.
+    /// to the foreground, so a second call for the tag already in force is a
+    /// no-op rather than a second tap. A *different* tag is a new tap — the
+    /// clip was still alive when somebody tapped the next sticker along — and
+    /// gets its own visit, so what they do now is credited to the tag they
+    /// just tapped and not to the first one.
+    ///
+    /// The cost is that tapping the same tag twice while the clip is still
+    /// open counts once. From iOS's side the two are indistinguishable from a
+    /// redelivery, and undercounting a repeat is the safer of the two errors.
     @MainActor static func start(_ destination: ClipDestination) {
-        guard attribution == nil else { return }
+        guard attribution?["slug"] != destination.rawValue else { return }
         var bytes = [UInt8](repeating: 0, count: 8)
         guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else { return }
         let visit = bytes.map { String(format: "%02x", $0) }.joined()
@@ -61,6 +68,20 @@ enum NfcStats {
         request.timeoutInterval = 10
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try? JSONSerialization.data(withJSONObject: payload)
-        Task.detached { _ = try? await URLSession.shared.data(for: request) }
+        Task.detached {
+            if await arrived(request) { return }
+            // Once more, for a phone that was between signals. The server keeps
+            // the first (visit, action) and drops repeats, so a first attempt
+            // that landed but whose answer was lost cannot count twice.
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            _ = await arrived(request)
+        }
+    }
+
+    /// True unless the network failed or the server did. A 4xx is a refusal —
+    /// malformed or rate-limited — and sending it again would be refused again.
+    private static func arrived(_ request: URLRequest) async -> Bool {
+        guard let (_, response) = try? await URLSession.shared.data(for: request) else { return false }
+        return ((response as? HTTPURLResponse)?.statusCode ?? 500) < 500
     }
 }

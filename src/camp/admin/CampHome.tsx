@@ -53,7 +53,7 @@ export function CampHome() {
       <SignUpSwitch open={config.servantSignUp} uid={uid} />
 
       <Card gap={theme.space.xs}>
-        <Label>WHEN CAMP RUNS</Label>
+        <Label>When camp runs</Label>
         {config.weeks < 1 ? (
           <Body color={theme.color.inkSoft}>
             The camp has not published its weeks yet.
@@ -84,7 +84,7 @@ export function CampHome() {
       </Card>
 
       <Card gap={theme.space.xs}>
-        <Label>THE REST IS ON THE WEBSITE</Label>
+        <Label>The rest is on the website</Label>
         <Body color={theme.color.inkSoft}>
           The season, the week dates, the fee, the waiver and the roles a servant may ask
           for are all set at /admin/camp on the church website, and so is accepting a
@@ -159,7 +159,7 @@ function SignUpSwitch({ open, uid }: { open: boolean; uid: string | null }) {
   return (
     <Card gap={theme.space.sm}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.sm }}>
-        <Label>SERVANT SIGN-UPS</Label>
+        <Label>Servant sign-ups</Label>
         <View style={{ flex: 1 }} />
         {state === 'idle' ? null : (
           <Micro

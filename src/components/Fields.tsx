@@ -424,7 +424,7 @@ export function Field({
       {marks ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.sm }}>
           <View style={{ flex: 1 }}>
-            <Label>{required ? `${label.toUpperCase()} *` : label.toUpperCase()}</Label>
+            <Label>{required ? `${label} *` : label}</Label>
           </View>
           <View
             accessibilityRole="toolbar"
@@ -436,7 +436,7 @@ export function Field({
           </View>
         </View>
       ) : (
-        <Label>{required ? `${label.toUpperCase()} *` : label.toUpperCase()}</Label>
+        <Label>{required ? `${label} *` : label}</Label>
       )}
       <TextInput
         value={value}
@@ -718,7 +718,7 @@ export function Choice({
       style={{ gap: theme.space.xs }}
     >
       {labelHidden ? null : (
-        <Label>{required ? `${label.toUpperCase()} *` : label.toUpperCase()}</Label>
+        <Label>{required ? `${label} *` : label}</Label>
       )}
 
       <View style={{ gap: theme.space.xs }}>
@@ -828,7 +828,7 @@ export function Picker({
 
   return (
     <View style={{ gap: theme.space.xs, flex: 1 }}>
-      <Label>{required ? `${label.toUpperCase()} *` : label.toUpperCase()}</Label>
+      <Label>{required ? `${label} *` : label}</Label>
 
       <Pressable
         onPress={() => setOpen(true)}
@@ -868,7 +868,7 @@ export function Picker({
         header={
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View style={{ flex: 1 }}>
-              <Label>{label.toUpperCase()}</Label>
+              <Label>{label}</Label>
             </View>
             <Close onPress={() => setOpen(false)} what={label} />
           </View>

@@ -286,7 +286,7 @@ export function FormRenderer({
           // announced rather than only redrawn.
           accessibilityLiveRegion="polite"
         >
-          <Label>TOTAL</Label>
+          <Label>Total</Label>
           <Heading>{money(total)}</Heading>
         </View>
       ) : null}

@@ -112,19 +112,19 @@ export function ContactScreen() {
         keyboardDismissMode="on-drag"
       >
         <Band ground={ground()}>
-          <Head eyebrow="WAYLAND, MASSACHUSETTS" title="Our church" />
+          <Head eyebrow="Wayland, Massachusetts" title="Our church" />
           <ContactDetails church={church} />
           <ChurchMap church={church} onPageScroll={setScrollable} />
         </Band>
 
         <Band ground={ground()}>
-          <Head eyebrow="THE OFFICE" title="Write to the church office" />
+          <Head eyebrow="The office" title="Write to the church office" />
           <ContactForm church={church} />
         </Band>
 
         {notes !== '' && (
           <Band ground={ground()}>
-            <Head eyebrow="BEFORE YOU COME" title="Visiting" />
+            <Head eyebrow="Before you come" title="Visiting" />
             {/*
               `notes` is markdown on the website, where a full renderer reads it.
               Here it goes through `Rich`, which is three forms and no parser —
@@ -141,7 +141,7 @@ export function ContactScreen() {
         )}
 
         <Band ground={ground()}>
-          <Head eyebrow="EVERY WEEK" title="Regular services" />
+          <Head eyebrow="Every week" title="Regular services" />
           <ServiceTimes services={church.serviceTimes} />
         </Band>
       </ScrollView>

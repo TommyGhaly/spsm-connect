@@ -48,12 +48,7 @@ function Points({ points, ground }: { points: readonly Point[]; ground: Ground }
       {points.map((point) => (
         <View
           key={point.term}
-          style={{
-            borderLeftWidth: 2,
-            borderLeftColor: theme.color.gold,
-            paddingLeft: theme.space.md,
-            gap: 2,
-          }}
+          style={{ gap: 2 }}
         >
           <Label color={theme.color.accent}>{point.term}</Label>
           <Rich color={inkOn(ground, theme)}>{point.detail}</Rich>

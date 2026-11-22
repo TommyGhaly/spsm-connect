@@ -7,10 +7,10 @@
  * theme once rather than guessed at on forty screens.
  */
 import { createContext, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, View, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Small } from './Type';
+import { Subheading } from './Type';
 import { useTheme } from '@/theme/ThemeProvider';
 
 /**
@@ -186,10 +186,12 @@ export function Card({ children, gap }: { children: ReactNode; gap?: number }) {
   return (
     <View
       style={{
+        // A grouped-list section, the way Settings draws one on iOS and a
+        // filled card is drawn on Android: lifted by its fill alone, with no
+        // outline. The outline on every block is what made the app look like
+        // a generated dashboard.
         backgroundColor: theme.color.paperRaised,
-        borderColor: theme.color.rule,
-        borderWidth: 1,
-        borderRadius: theme.radius.md,
+        borderRadius: theme.radius.lg,
         padding: theme.space.md,
         gap: gap ?? theme.space.xs,
       }}
@@ -246,7 +248,8 @@ export function Button({
             : 'transparent',
         borderColor: filled ? 'transparent' : edge,
         borderWidth: filled ? 0 : 1,
-        borderRadius: theme.radius.sm,
+        // iOS's filled buttons are rounded rectangles; Material 3's are pills.
+        borderRadius: Platform.OS === 'android' ? theme.radius.full : theme.radius.md + 4,
         paddingVertical: theme.space.sm,
         paddingHorizontal: theme.space.md,
         opacity: inert ? 0.5 : 1,
@@ -259,7 +262,7 @@ export function Button({
       })}
     >
       {busy ? <ActivityIndicator color={text} /> : null}
-      <Small color={text}>{label}</Small>
+      <Subheading color={text}>{label}</Subheading>
     </Pressable>
   );
 }

@@ -329,7 +329,7 @@ export function ProgramDetailsSheet({
               sheets read the same way at every depth.
             */}
             <View style={{ gap: theme.space.xs }}>
-              <Label>{parts.toUpperCase()}</Label>
+              <Label>{parts}</Label>
               <Button
                 label="Add something inside this"
                 tone="quiet"
@@ -352,7 +352,7 @@ export function ProgramDetailsSheet({
         */}
         {mayRemove ? (
           <View style={{ gap: theme.space.xs }}>
-            <Label>REMOVE</Label>
+            <Label>Remove</Label>
             <Micro color={theme.color.inkSoft}>
               Its gatherings have to be removed first, on the website. The photographs are not
               deleted — they become the church&rsquo;s, and any ministry can take them in from

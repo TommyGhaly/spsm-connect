@@ -57,17 +57,22 @@ import { Pressable, View } from 'react-native';
 import {
   ACCOUNT_SUBJECT_VALUE,
   PARISH_TIME_ZONE,
+  addDays,
   applyCalendarDetails,
+  daysBetween,
   groupByDay,
   kindOf,
   mergeCalendarSources,
   rangeFor,
+  spanLabel,
   step,
   todayIn,
+  weekdayOf,
   type CalendarDetail,
   type CalendarOccurrence,
   type CalendarView,
   type OccurrenceKind,
+  type ViewRange,
 } from '@spsm/shared';
 
 import { Button, Card, Screen } from '@/components/Surface';
@@ -118,7 +123,49 @@ export function CalendarScreen({
   const [anchor, setAnchor] = useState(() => todayIn(PARISH_TIME_ZONE));
   const today = useMemo(() => todayIn(PARISH_TIME_ZONE), []);
 
-  const range = useMemo(() => rangeFor(view, anchor), [view, anchor]);
+  /*
+   * The bulletin is read by a provider rather than by this screen, because the
+   * announcements bell is header chrome on every tab now and five screens
+   * firing their own `/api/bulletin` would be five reads of another Firebase
+   * project for one document that changes weekly. Its default is an empty
+   * bulletin rather than a throw — see `BulletinProvider`.
+   *
+   * Read up here, ahead of the range, because it decides which week opens.
+   */
+  const bulletin = useBulletin();
+
+  /*
+   * Open on the bulletin's week, not the calendar's — the website's homepage
+   * shows whichever bulletin is active, and staff put next week's sheet up
+   * before this week is out. Sticking to today's week meant a Sunday reader saw
+   * one day of the new sheet and six of nothing.
+   *
+   * The screen follows the active sheet until the reader steps or presses
+   * Today; after that the week is theirs, and a poll that finds a newer sheet
+   * does not yank it out from under them. Today itself is kept when it is on
+   * the sheet, so the wheel still lands on today mid-week.
+   *
+   * Adjusted during render, like the picked day below — an effect would draw
+   * one frame of the calendar week before jumping.
+   */
+  const [following, setFollowing] = useState(true);
+  const [followedTo, setFollowedTo] = useState('');
+  if (following && bulletin.from !== '' && followedTo !== bulletin.from) {
+    setFollowedTo(bulletin.from);
+    setAnchor(today >= bulletin.from && today <= bulletin.to ? today : bulletin.from);
+  }
+
+  /*
+   * Weeks start on the bulletin's first weekday, so the sheet fills one week
+   * exactly instead of straddling two, whatever day staff start it on. The
+   * shared `weekdayOf` counts from Monday (`WEEK_STARTS_ON`), so 0 here — no
+   * sheet — is the shared `weekRange`'s Monday-first week, as before.
+   */
+  const weekStartsOn = bulletin.from === '' ? 0 : weekdayOf(bulletin.from);
+  const range = useMemo(
+    () => (view === 'week' ? weekStartingOn(anchor, weekStartsOn) : rangeFor(view, anchor)),
+    [view, anchor, weekStartsOn],
+  );
 
   /**
    * Bumped by the Today button, so the wheel re-centres even when the week did
@@ -195,15 +242,6 @@ export function CalendarScreen({
 
   /* ---- the three quiet sources ------------------------------------------- */
 
-  /*
-   * The bulletin is read by a provider rather than by this screen, because the
-   * announcements bell is header chrome on every tab now and five screens
-   * firing their own `/api/bulletin` would be five reads of another Firebase
-   * project for one document that changes weekly. Its default is an empty
-   * bulletin rather than a throw, so the App Clip can still render this screen
-   * without mounting the provider — see `BulletinProvider`.
-   */
-  const bulletin = useBulletin();
   const [features, setFeatures] = useState<CalendarOccurrence[]>([]);
   const [layers, setLayers] = useState<{
     entries: CalendarOccurrence[];
@@ -325,7 +363,10 @@ export function CalendarScreen({
   }, [byDay]);
 
   const goto = useCallback(
-    (delta: number) => setAnchor((at) => step(view, at, delta)),
+    (delta: number) => {
+      setFollowing(false);
+      setAnchor((at) => step(view, at, delta));
+    },
     [view],
   );
 
@@ -432,6 +473,7 @@ export function CalendarScreen({
             view={view}
             onStep={goto}
             onToday={() => {
+              setFollowing(false);
               setAnchor(today);
               setRecentre((count) => count + 1);
             }}
@@ -726,4 +768,14 @@ function SignInOffer({ onOpenPage }: { onOpenPage?: (href: string) => void }) {
       ) : null}
     </View>
   );
+}
+
+/**
+ * The seven days containing `anchor`, starting on weekday `startsOn` (0 =
+ * Sunday) — the shared `weekRange` with a movable first day.
+ */
+function weekStartingOn(anchor: string, startsOn: number): ViewRange {
+  const from = addDays(anchor, -((weekdayOf(anchor) - startsOn + 7) % 7));
+  const to = addDays(from, 6);
+  return { from, to, days: daysBetween(from, to), label: spanLabel(from, to) };
 }

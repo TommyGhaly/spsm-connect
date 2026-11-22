@@ -568,12 +568,7 @@ export function Spine({
       {moments.map((moment, at) => (
         <View
           key={`${at}-${moment.when}`}
-          style={{
-            borderLeftWidth: 2,
-            borderLeftColor: theme.color.gold,
-            paddingLeft: theme.space.md,
-            gap: 2,
-          }}
+          style={{ gap: 2 }}
         >
           <Label color={theme.color.accent}>
             {textOf(slots, slotPrefix && `${slotPrefix}-${at}-${parts[0]}`, moment.when)}

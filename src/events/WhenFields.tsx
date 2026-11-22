@@ -168,7 +168,7 @@ export function WhenFields({
           {/* Shortcuts rather than a control: the end time is a real field
               above, and these only fill it in. */}
           <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: theme.space.xs }}>
-            <Label>LASTS</Label>
+            <Label>Lasts</Label>
             {DURATIONS.map(([label, minutes]) => (
               <Chip
                 key={minutes}

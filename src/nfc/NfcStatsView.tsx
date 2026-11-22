@@ -251,7 +251,7 @@ function Tile({ label, value, note }: { label: string; value: number | string; n
         backgroundColor: theme.color.paperRaised,
       }}
     >
-      <Micro color={theme.color.inkFaint}>{label.toUpperCase()}</Micro>
+      <Micro color={theme.color.inkFaint}>{label}</Micro>
       <Heading>{typeof value === 'number' ? value.toLocaleString('en-US') : value}</Heading>
       {note ? <Micro color={theme.color.inkSoft}>{note}</Micro> : null}
     </View>

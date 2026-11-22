@@ -267,7 +267,7 @@ function ReviewDeck({
       header={
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ flex: 1 }}>
-            <Label>WAITING FOR APPROVAL</Label>
+            <Label>Waiting for approval</Label>
             {queue.length > 0 ? (
               <Micro color={theme.color.inkFaint}>
                 {queue.length === 1 ? 'One left' : `${queue.length} left`}

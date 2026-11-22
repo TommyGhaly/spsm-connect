@@ -51,7 +51,7 @@ export function ContactDetails({ church }: { church: ParishConfig }) {
       {address !== '' && (
         <Row
           icon="pin"
-          label="ADDRESS"
+          label="Address"
           onPress={() => void Linking.openURL(googleMapsUrl(church))}
           hint="Opens the map"
         >
@@ -64,7 +64,7 @@ export function ContactDetails({ church }: { church: ParishConfig }) {
       {church.phone !== '' && (
         <Row
           icon="phone"
-          label="PHONE"
+          label="Phone"
           onPress={() => void Linking.openURL(dialUrl(church.phone))}
           hint="Calls the church office"
         >
@@ -75,7 +75,7 @@ export function ContactDetails({ church }: { church: ParishConfig }) {
       {church.email !== '' && (
         <Row
           icon="mail"
-          label="EMAIL"
+          label="Email"
           onPress={() => void Linking.openURL(mailUrl(church.email))}
           hint="Opens a new message"
         >
@@ -84,7 +84,7 @@ export function ContactDetails({ church }: { church: ParishConfig }) {
       )}
 
       {church.officeHours !== '' && (
-        <Row icon="clock" label="OFFICE HOURS">
+        <Row icon="clock" label="Office hours">
           <Body>{church.officeHours}</Body>
         </Row>
       )}

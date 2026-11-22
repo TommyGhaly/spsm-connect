@@ -174,7 +174,7 @@ export function NominationScreen() {
       ) : null}
 
       {/* ------------------------------------------------------------------ */}
-      <Label>WHICH RANK</Label>
+      <Label>Which rank</Label>
       <Picker
         label="Rank"
         value={draft.rank}
@@ -194,7 +194,7 @@ export function NominationScreen() {
       {rank && info ? (
         <>
           {/* -------------------------------------------------------------- */}
-          <Label>ABOUT YOU</Label>
+          <Label>About you</Label>
           <Field
             label="Your full name"
             value={nominee.name}
@@ -264,7 +264,7 @@ export function NominationScreen() {
           {/* -------------------------------------------------------------- */}
           {info.minor ? (
             <>
-              <Label>PARENTS</Label>
+              <Label>Parents</Label>
               <Small color={theme.color.inkSoft}>
                 {age !== null && age < 18
                   ? 'At least one parent, since you are under 18.'
@@ -297,7 +297,7 @@ export function NominationScreen() {
           ) : null}
 
           {/* -------------------------------------------------------------- */}
-          <Label>ANYTHING ELSE</Label>
+          <Label>Anything else</Label>
           <Field
             label="Filling this in for your son? Your name"
             value={draft.submittedBy}
