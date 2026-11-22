@@ -41,6 +41,7 @@ import { Body, Heading, Label, Micro, Small } from '@/components/Type';
 import { money } from '@/payments/money';
 import { useTheme } from '@/theme/ThemeProvider';
 
+import { CashSaleSheet } from './CashSale';
 import { useBookstoreAdmin } from './session';
 import type { OrderRow } from './adminData';
 
@@ -79,6 +80,8 @@ export function Orders() {
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [failed, setFailed] = useState<string | null>(null);
   const [refunding, setRefunding] = useState<OrderRow | null>(null);
+  /** The cash-sale sheet. Mounted only while open, so it starts empty each time. */
+  const [selling, setSelling] = useState(false);
   /*
    * Orders this screen has sent a refund for, so the card says so at once. The
    * reload after a refund also brings back the `refund` record the Function
@@ -213,6 +216,9 @@ export function Orders() {
 
   const header = (
     <View style={{ gap: theme.space.md, paddingBottom: theme.space.md }}>
+      {/* Same gate as Refund: the Function behind it is `mayManageOrders`. */}
+      {canEdit ? <Button label="Record a cash sale" tone="quiet" onPress={() => setSelling(true)} /> : null}
+
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.xs }}>
         {FILTERS.map((option) => (
           <Pill
@@ -284,6 +290,19 @@ export function Orders() {
       {/* Mounted only while there is an order to refund, which is what makes
           the reason box empty every time it opens — a sentence typed against
           the order you backed out of must never be sent with the next one. */}
+      {selling ? (
+        <CashSaleSheet
+          onClose={() => setSelling(false)}
+          onDone={() => {
+            setSelling(false);
+            /* The new order is the server's to describe — its id, Square's
+               price, who recorded it — so it is read rather than patched in. */
+            setFilter('done');
+            reload();
+          }}
+        />
+      ) : null}
+
       {refunding ? (
         <RefundSheet
           order={refunding}
@@ -385,7 +404,7 @@ function OrderCard({
                 ? placed.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                 : 'no date'}
               {' · '}
-              {order.shipping ? 'Deliver' : 'Collect'}
+              {order.paymentMethod === 'cash' ? 'Cash at the table' : order.shipping ? 'Deliver' : 'Collect'}
               {' · '}
               {units} {units === 1 ? 'book' : 'books'}
               {' · '}
@@ -460,12 +479,18 @@ function OrderCard({
 
         {/* Who did each step. Nothing at all on orders from before it was
             recorded, rather than a "by unknown" on every old card. */}
-        {order.fulfillment !== 'unfulfilled' ? (
-          <StepBy label={order.shipping ? 'Packed' : 'Put aside'} stamp={order.readiedBy} />
-        ) : null}
-        {order.fulfillment === 'collected' ? (
-          <StepBy label={order.shipping ? 'Posted' : 'Handed over'} stamp={order.fulfilledBy} />
-        ) : null}
+        {order.paymentMethod === 'cash' ? (
+          <StepBy label="Cash sale recorded" stamp={order.recordedBy ?? order.fulfilledBy} />
+        ) : (
+          <>
+            {order.fulfillment !== 'unfulfilled' ? (
+              <StepBy label={order.shipping ? 'Packed' : 'Put aside'} stamp={order.readiedBy} />
+            ) : null}
+            {order.fulfillment === 'collected' ? (
+              <StepBy label={order.shipping ? 'Posted' : 'Handed over'} stamp={order.fulfilledBy} />
+            ) : null}
+          </>
+        )}
 
         {actionable ? (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.sm }}>
@@ -608,10 +633,12 @@ function RefundSheet({
 }) {
   const theme = useTheme();
   const [reason, setReason] = useState('');
-  /* Asked only when there is clothing on the order. Restocking first, because
-     the usual refund is for something never handed over. */
-  const sized = (order.lineItems ?? []).some((line) => line.size);
-  const [restock, setRestock] = useState(true);
+  /* Restocking first, because the usual refund is for something never handed
+     over. Clothing sizes go back on the website's counts; anything Square
+     counts goes back on Square's. A cash sale was handed over, so it starts on
+     keep. */
+  const cash = order.paymentMethod === 'cash';
+  const [restock, setRestock] = useState(!cash);
   const [sending, setSending] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
 
@@ -621,7 +648,7 @@ function RefundSheet({
     setFailed(null);
     try {
       const { refundOrder } = await import('./adminData');
-      await refundOrder(order.id, reason.trim(), sized && restock);
+      await refundOrder(order.id, reason.trim(), restock);
       onDone();
     } catch (cause) {
       setFailed(cause instanceof Error ? cause.message : 'The refund could not be sent.');
@@ -646,8 +673,10 @@ function RefundSheet({
     >
 
       <Body color={theme.color.inkSoft}>
-        The whole order goes back to the card it was paid with, including delivery. The
-        church does not take returns, so this is an exception — say why, and your name is
+        {cash
+          ? 'This was paid in cash, so Square records a cash refund: hand the money back yourself. '
+          : 'The whole order goes back to the card it was paid with, including delivery. '}
+        The church does not take returns, so this is an exception — say why, and your name is
         recorded against it.
       </Body>
 
@@ -660,9 +689,9 @@ function RefundSheet({
         readOnly={sending}
       />
 
-      {sized ? (
+      {(order.lineItems ?? []).length > 0 ? (
         <Choice
-          label="The sizes on this order"
+          label="The items on this order"
           options={[
             { value: 'restock', label: 'Put them back in stock' },
             { value: 'keep', label: 'Keep them counted as sold' },

@@ -168,6 +168,52 @@ export async function refundOrder(orderId: string, reason: string, restock = fal
   await apiPost('/api/square/refund', { orderId, reason, restock });
 }
 
+/** One line of a cash sale: what, how many, and the size for clothing. */
+export interface CashLine {
+  slug: string;
+  quantity: number;
+  size: string | null;
+}
+
+export interface CashSale {
+  lines: CashLine[];
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  /** What the buyer handed over, in cents. Absent means the exact amount. */
+  tenderedCents?: number;
+  /** One per sale, kept across a retry so a double-press records it once. */
+  idempotencyKey: string;
+}
+
+/**
+ * Record a sale paid in cash at the table.
+ *
+ * A Function, like a refund: it creates a real Square order paid with
+ * Square's CASH source, so Square takes its own stock and the takings sit in
+ * its reports beside the card sales, and it takes clothing sizes off the
+ * website's counts in the same transaction checkout uses. A basket the counts
+ * cannot cover is refused with the sentence to show. See functions/src/cashOrder.ts.
+ */
+export async function recordCashSale(
+  sale: CashSale,
+): Promise<{ orderId: string; total: number; change: number }> {
+  return apiPost('/api/square/cash-order', {
+    cart: sale.lines.map((line) => ({
+      slug: line.slug,
+      quantity: line.quantity,
+      ...(line.size ? { size: line.size } : {}),
+    })),
+    firstName: sale.firstName ?? '',
+    lastName: sale.lastName ?? '',
+    email: sale.email ?? '',
+    phone: sale.phone ?? '',
+    ...(sale.tenderedCents !== undefined ? { tenderedCents: sale.tenderedCents } : {}),
+    idempotencyKey: sale.idempotencyKey,
+  });
+}
+
 /* -------------------------------------------------------------------------- */
 /* Figures                                                                     */
 /* -------------------------------------------------------------------------- */
