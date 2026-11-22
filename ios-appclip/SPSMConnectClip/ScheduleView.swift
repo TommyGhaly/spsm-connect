@@ -207,20 +207,21 @@ private struct WeekHeader: View {
 
 private struct DayPip: View {
     let day: ScheduleDay
-    /// The day the wheel is on: ringed, so the tab follows the wheel. Today
-    /// keeps its red disc whichever day is centred, as the website's peek
-    /// keeps its Today flag — otherwise a turned wheel loses where today went.
+    /// The day the wheel is on: a solid red disc with the date in white, so the
+    /// tab follows the wheel in one mark rather than an outline. Today, when
+    /// it is not that day, is its date in bold red — how the phone's own
+    /// Calendar marks it — so a turned wheel never loses where today went and
+    /// the two never look alike.
     let isCentred: Bool
 
     var body: some View {
         VStack(spacing: 5) {
             Text(day.dateNumber)
-                .font(.headline.monospacedDigit())
-                .foregroundStyle(day.isToday ? Ink.inkInverse : Ink.ink)
+                .font(.headline.monospacedDigit().weight(isCentred || day.isToday ? .bold : .semibold))
+                .foregroundStyle(isCentred ? Ink.inkInverse : (day.isToday ? Ink.accent : Ink.ink))
                 .frame(width: 34, height: 34)
-                .background(Circle().fill(day.isToday ? Ink.accent : Color.clear))
-                .padding(3)
-                .overlay(Circle().strokeBorder(isCentred ? Ink.accent : Color.clear, lineWidth: 1.5))
+                .background(Circle().fill(isCentred ? Ink.accent : Color.clear))
+                .animation(.easeOut(duration: 0.15), value: isCentred)
 
             HStack(spacing: 2) {
                 ForEach(Array(day.occurrences.prefix(5).enumerated()), id: \.offset) { _, item in

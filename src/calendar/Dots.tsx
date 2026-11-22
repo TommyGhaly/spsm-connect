@@ -19,7 +19,17 @@ import { useTheme } from '@/theme/ThemeProvider';
 
 import { tintFor } from './kinds';
 
-export function Dots({ entries, max = 8 }: { entries: CalendarOccurrence[]; max?: number }) {
+export function Dots({
+  entries,
+  max = 8,
+  count = true,
+}: {
+  entries: CalendarOccurrence[];
+  max?: number;
+  /** "+2" after the last dot. Off in the week's tabs, where a seventh of the
+   *  screen has no room for it and the dots are a hint, not a tally. */
+  count?: boolean;
+}) {
   const theme = useTheme();
 
   const shown = entries.slice(0, max);
@@ -44,7 +54,7 @@ export function Dots({ entries, max = 8 }: { entries: CalendarOccurrence[]; max?
           }}
         />
       ))}
-      {rest > 0 ? <Micro color={theme.color.inkFaint}>+{rest}</Micro> : null}
+      {count && rest > 0 ? <Micro color={theme.color.inkFaint}>+{rest}</Micro> : null}
     </View>
   );
 }

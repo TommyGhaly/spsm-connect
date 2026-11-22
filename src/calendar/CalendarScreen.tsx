@@ -76,7 +76,7 @@ import {
 } from '@spsm/shared';
 
 import { Button, Card, Screen } from '@/components/Surface';
-import { Body, Heading, Label, Micro, Small } from '@/components/Type';
+import { Body, Label, Micro, Small } from '@/components/Type';
 import { signInWithMicrosoft } from '@/firebase/auth';
 import { mayAdminScreen } from '@/firebase/grants';
 import { useSession } from '@/session/SessionProvider';
@@ -85,8 +85,6 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { AddEntry } from './AddEntry';
 import { useBulletin } from './BulletinProvider';
 import { EventSheet } from './EventSheet';
-import { DaySchedule } from './DaySchedule';
-import { DayWheel } from './DayWheel';
 import { MonthGrid } from './MonthGrid';
 /*
  * The chrome the App Clip's `/c/schedule` draws too — the view switch, the
@@ -94,7 +92,8 @@ import { MonthGrid } from './MonthGrid';
  * It was private to this file until the clip needed it; see `ViewControls.tsx`
  * for why importing this screen instead was not an option.
  */
-import { BusyRule, Legend, Stepper, ViewSwitch, whereLabel } from './ViewControls';
+import { BusyRule, Legend, Stepper, TodayButton, ViewSwitch } from './ViewControls';
+import { WeekDays } from './WeekDays';
 import { getFeatureOccurrences, getSchedule, getStaffLayers, type ScheduleResult } from './data';
 
 export function CalendarScreen({
@@ -168,13 +167,7 @@ export function CalendarScreen({
   );
 
   /**
-   * Bumped by the Today button, so the wheel re-centres even when the week did
-   * not change. See the prop of the same name on `DayWheel`.
-   */
-  const [recentre, setRecentre] = useState(0);
-
-  /**
-   * The day the week view is reading, which the wheel picks and the schedule
+   * The day the week view is reading, which the tabs pick and the card
    * below it renders.
    *
    * Held here rather than inside the wheel because two things need it and they
@@ -410,56 +403,31 @@ export function CalendarScreen({
       gap={theme.space.sm}
       padBottom={fixed ? theme.space.gutter : undefined}
     >
-      <View style={{ gap: theme.space.sm }}>
-        {/*
-          Where this week sits relative to the one the reader is in, and then
-          which week it actually is.
-
-          The eyebrow is the fix for a question the screen could not answer:
-          "September 7–13, 2026" is a fact about a range and says nothing about
-          *now*, so three taps of the forward arrow left the reader holding a
-          date they had to work out for themselves. Today being marked in the
-          wheel only helps on the weeks that contain it — which are exactly the
-          weeks the reader was not lost on.
-
-          The announcements bell used to live in this row; it is header chrome
-          on every tab now — `src/navigation/AnnouncementsButton.tsx`, wired
-          into the tabs' `screenOptions` — which is where a mark that is about
-          the whole week rather than about the calendar belongs.
-        */}
-        <Label color={todayIsHere ? theme.color.accent : theme.color.inkFaint}>
-          {whereLabel(view, range, today)}
-        </Label>
-        {/*
-          `Heading` and not `Title`, alone among this app's screens.
-
-          The week view is laid out to fit the window, so every point the header
-          takes is a point off the day being read — and at `title` the range ran
-          to twenty-eight points of serif for a line nobody has to read twice.
-          The eyebrow above it is what the reader is actually orienting by.
-        */}
-        <Heading>{range.label}</Heading>
-
-        <BusyRule busy={busy} />
-
-        {/*
-          Two groups of controls and nothing in between, which is the whole
-          reason the working state became a rule above rather than the word
-          "Updating…" in the gap. Five separately outlined boxes in one row
-          gave no clue which of them belonged together, and the slack between
-          them was carrying a message.
-        */}
+      {/*
+        Two short rows and nothing else above the week: the view, Today and the
+        add control on one, the range between its arrows on the next. Every
+        point up here is a point off the day being read.
+      */}
+      <View style={{ gap: theme.space.xs }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.sm }}>
           <ViewSwitch view={view} onPick={setView} />
 
           <View style={{ flex: 1 }} />
 
+          <TodayButton
+            view={view}
+            todayIsHere={todayIsHere}
+            onToday={() => {
+              setFollowing(false);
+              setAnchor(today);
+              setPicked(today);
+            }}
+          />
+
           {/*
             The add control sits with the calendar rather than on a screen of
-            its own — the programme's settled pattern, and it earns it here:
-            whoever is adding a service is looking at the week they are adding
-            it to. It defaults to the day in view, so adding something to the
-            week you are reading is one field shorter.
+            its own: whoever is adding a service is looking at the week they are
+            adding it to. It defaults to the day in view.
           */}
           {mayEdit ? (
             <AddEntry
@@ -468,18 +436,11 @@ export function CalendarScreen({
               onAdded={() => setReload((count) => count + 1)}
             />
           ) : null}
-
-          <Stepper
-            view={view}
-            onStep={goto}
-            onToday={() => {
-              setFollowing(false);
-              setAnchor(today);
-              setRecentre((count) => count + 1);
-            }}
-            todayIsHere={todayIsHere}
-          />
         </View>
+
+        <Stepper view={view} label={range.label} onStep={goto} />
+
+        <BusyRule busy={busy} />
       </View>
 
       {deniedNote ? (
@@ -515,35 +476,15 @@ export function CalendarScreen({
       ) : null}
 
       {fixed ? (
-        <>
-          <DayWheel
-            range={range}
-            byDay={byDay}
-            today={today}
-            picked={picked}
-            onPick={setPicked}
-            recentre={recentre}
-          />
-          {/*
-            The rules over and under the day's schedule.
-
-            It scrolls in a fixed band between the wheel and the foot, so a
-            long day meets both edges mid-row. A card sliced off against
-            nothing reads as a card that failed to draw; against a line it
-            reads as a list going on past the edge of its pane, which is what
-            it is. The pair is also what tells the reader there are two
-            scrollable things here and where one ends — the complaint that
-            started all of this was not being able to tell.
-          */}
-          <View style={{ height: 1, backgroundColor: theme.color.rule }} />
-
-          <DaySchedule
-            day={picked}
-            entries={byDay.get(picked) ?? []}
-            loading={busy}
-            onOpen={(occurrence, day) => setOpened({ occurrence, day })}
-          />
-        </>
+        <WeekDays
+          range={range}
+          byDay={byDay}
+          today={today}
+          picked={picked}
+          onPick={setPicked}
+          loading={busy}
+          onOpen={(occurrence, day) => setOpened({ occurrence, day })}
+        />
       ) : (
         <MonthGrid
           range={range}
@@ -554,32 +495,30 @@ export function CalendarScreen({
         />
       )}
 
-      {/* The other half of the pair; see the note on the first. */}
-      {fixed ? <View style={{ height: 1, backgroundColor: theme.color.rule }} /> : null}
-
-      <Legend kinds={kindsShown} showServants={includesServants} />
-
       {/*
-        The servants switch sits at the foot rather than above the calendar.
-
-        It is a control a few dozen people touch once, and above the grid it was
-        the first thing between the stepper and the week — a band explaining a
-        distinction to somebody who had come to find out when the Liturgy is.
-        Down here it is still the first thing a servant looks for, because it is
-        the only outlined thing on the screen.
+        The key and the servants switch on one line at the foot: a few dozen
+        people touch the switch, and everybody else should lose no more than a
+        line to it.
       */}
-      {isServant ? (
-        <ServantSwitch
-          on={askingForServants}
-          included={includesServants}
-          onToggle={() => {
-            setDeniedNote(null);
-            setWantServants((was) => !was);
-          }}
-        />
-      ) : sessionLoading ? null : (
-        <SignInOffer onOpenPage={onOpenPage} />
-      )}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.sm }}>
+        <View style={{ flex: 1 }}>
+          {/* The switch beside it carries the same dashed ring, so a servant
+              does not need it keyed twice. */}
+          <Legend kinds={kindsShown} showServants={includesServants && !isServant} />
+        </View>
+        {isServant ? (
+          <ServantSwitch
+            on={askingForServants}
+            included={includesServants}
+            onToggle={() => {
+              setDeniedNote(null);
+              setWantServants((was) => !was);
+            }}
+          />
+        ) : null}
+      </View>
+
+      {!isServant && !sessionLoading ? <SignInOffer onOpenPage={onOpenPage} /> : null}
 
       <EventSheet
         occurrence={openedNow}
@@ -650,10 +589,10 @@ function ServantSwitch({
         borderColor: on ? theme.color.accent : theme.color.rule,
         borderWidth: 1,
         borderRadius: theme.radius.full,
-        paddingVertical: theme.space.sm,
-        paddingHorizontal: theme.space.md,
-        minHeight: 44,
+        paddingHorizontal: theme.space.sm,
+        height: 30,
       })}
+      hitSlop={7}
     >
       {/* The same dashed ring the key uses for a servants entry, so the switch
           and the thing it switches on are marked alike. */}
@@ -667,9 +606,7 @@ function ServantSwitch({
           borderColor: on ? theme.color.accent : theme.color.inkFaint,
         }}
       />
-      <Small>Servants schedule</Small>
-      <View style={{ flex: 1 }} />
-      <Small color={on ? theme.color.accent : theme.color.inkFaint}>{state}</Small>
+      <Micro color={on ? theme.color.accent : theme.color.inkSoft}>Servants: {state}</Micro>
     </Pressable>
   );
 }
@@ -720,16 +657,22 @@ function SignInOffer({ onOpenPage }: { onOpenPage?: (href: string) => void }) {
   }
 
   return (
-    <View style={{ gap: theme.space.sm }}>
-      <Small color={theme.color.inkSoft}>
-        Serving? Sign in and your rota appears in the calendar above, marked.
-      </Small>
-      <Button
-        label={busy ? 'Opening sign-in…' : 'Sign in with church account'}
-        tone="quiet"
-        onPress={() => void go()}
-        busy={busy}
-      />
+    <View style={{ gap: theme.space.xs }}>
+      {/* One line rather than a sentence and a full-width button: most
+          readers are not servants, and the week is what they came for. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
+        <Micro color={theme.color.inkFaint}>Serving? </Micro>
+        <Pressable
+          onPress={() => void go()}
+          disabled={busy}
+          accessibilityRole="button"
+          hitSlop={8}
+        >
+          <Micro color={theme.color.accent}>
+            {busy ? 'Opening sign-in…' : 'Sign in to see the servants schedule'}
+          </Micro>
+        </Pressable>
+      </View>
       {/*
         The refusal, and only once there has been one.
 

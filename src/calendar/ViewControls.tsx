@@ -16,53 +16,16 @@
  * ---------------------------------------------------------------------------
  */
 import { useEffect, useState } from 'react';
-import { Animated, Pressable, View } from 'react-native';
+import { Animated, Pressable, Text, View } from 'react-native';
 import {
-  rangeFor,
   type CalendarView,
   type OccurrenceKind,
-  type ViewRange,
 } from '@spsm/shared';
 
 import { Micro, Small, Subheading } from '@/components/Type';
 import { useTheme } from '@/theme/ThemeProvider';
 
-import { LEGEND, tintFor, washFor } from './kinds';
-
-/**
- * "THIS WEEK", "NEXT WEEK", "3 WEEKS AGO" — where the range sits relative to now.
- *
- * Counted in whole views rather than in days, because that is the step the
- * arrows take: two presses of forward is "2 weeks ahead" and reads as an
- * undo-able distance, where "14 days ahead" reads as arithmetic somebody did.
- *
- * The month's own count comes off the middle of the range and not its first
- * day, which by definition often belongs to the month before — `monthRange`
- * pads its grid out to whole weeks.
- */
-export function whereLabel(view: CalendarView, range: ViewRange, today: string): string {
-  const home = rangeFor(view, today);
-
-  const monthIndex = (of: ViewRange) => {
-    const mid = of.days[Math.floor(of.days.length / 2)] ?? of.from;
-    return Number(mid.slice(0, 4)) * 12 + Number(mid.slice(5, 7));
-  };
-
-  const away =
-    view === 'week'
-      ? Math.round(
-          (Date.parse(`${range.from}T00:00:00Z`) - Date.parse(`${home.from}T00:00:00Z`)) /
-            (7 * 24 * 60 * 60 * 1000),
-        )
-      : monthIndex(range) - monthIndex(home);
-
-  const unit = view === 'week' ? 'week' : 'month';
-
-  if (away === 0) return `This ${unit}`;
-  if (away === 1) return `Next ${unit}`;
-  if (away === -1) return `Last ${unit}`;
-  return away > 0 ? `${away} ${unit}s ahead` : `${-away} ${unit}s ago`;
-}
+import { LEGEND, tintFor } from './kinds';
 
 /**
  * Week or month.
@@ -110,7 +73,10 @@ export function ViewSwitch({
             accessibilityState={{ selected: on }}
             style={({ pressed }) => ({
               paddingHorizontal: theme.space.md,
-              minHeight: 44,
+              // 34, with the track's 2pt and a hit slop, rather than 44: the
+              // calendar is what this screen is for, and every point of
+              // chrome is a point off the day.
+              height: 34,
               minWidth: 44,
               borderRadius: theme.radius.full,
               alignItems: 'center',
@@ -133,65 +99,45 @@ export function ViewSwitch({
 }
 
 /**
- * Back, today, forward — one control with three parts.
- *
- * These were three separately outlined buttons with four points of air between
- * them, which said they were three unrelated things; they are one thing, and
- * the middle of them is the home position of the other two. Joined, with
- * hairlines where they meet, the group reads as a stepper and takes less width
- * than the boxes did.
- *
- * The arrows are set at `subheading` rather than `small`. A chevron is a shape
- * and not a word: at the size of the label beside it, it is a speck.
+ * The range between its arrows, as the website sets it: what the arrows change
+ * sits where they are, rather than as a heading two rows away.
  */
 export function Stepper({
   view,
+  label,
   onStep,
-  onToday,
-  todayIsHere,
 }: {
   view: CalendarView;
+  /** "November 23–29, 2026". */
+  label: string;
   onStep: (delta: number) => void;
-  onToday: () => void;
-  /**
-   * In the month view, Today has nothing left to do once the month containing
-   * today is on screen. In the week view it stays live even then, and that is
-   * the point: the wheel can be turned two days off today while today is still
-   * in the range, and disabling it would take away the one control that brings
-   * it back.
-   */
-  todayIsHere: boolean;
 }) {
   const theme = useTheme();
 
-  const divider = (
-    <View style={{ width: 1, alignSelf: 'stretch', backgroundColor: theme.color.rule }} />
-  );
-
   return (
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'stretch',
-        backgroundColor: theme.color.paperRaised,
-        borderColor: theme.color.rule,
-        borderWidth: 1,
-        borderRadius: theme.radius.full,
-        overflow: 'hidden',
-      }}
-    >
-      <Step
-        label="‹"
-        big
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.xs }}>
+      <Round
+        glyph="‹"
         hint={view === 'week' ? 'Previous week' : 'Previous month'}
         onPress={() => onStep(-1)}
       />
-      {divider}
-      <Step label="Today" onPress={onToday} disabled={view === 'month' && todayIsHere} />
-      {divider}
-      <Step
-        label="›"
-        big
+      <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.85}
+        accessibilityRole="header"
+        style={{
+          flex: 1,
+          textAlign: 'center',
+          fontSize: 17,
+          fontWeight: '600',
+          color: theme.color.ink,
+        }}
+      >
+        {label}
+      </Text>
+      <Round
+        glyph="›"
         hint={view === 'week' ? 'Next week' : 'Next month'}
         onPress={() => onStep(1)}
       />
@@ -199,41 +145,70 @@ export function Stepper({
   );
 }
 
-/** One part of the stepper. The group draws the edge; this draws the target. */
-function Step({
-  label,
-  hint,
-  big = false,
-  onPress,
-  disabled = false,
+/**
+ * Today, as a pill beside the view switch.
+ *
+ * In the month view it has nothing left to do once the month containing today
+ * is on screen. In the week view it stays live even then: the wheel can sit two
+ * days off today inside today's week, and this is what brings it back.
+ */
+export function TodayButton({
+  view,
+  todayIsHere,
+  onToday,
 }: {
-  label: string;
-  hint?: string;
-  /** A chevron rather than a word, set at the size a chevron needs. */
-  big?: boolean;
-  onPress: () => void;
-  disabled?: boolean;
+  view: CalendarView;
+  todayIsHere: boolean;
+  onToday: () => void;
 }) {
+  const theme = useTheme();
+  const off = view === 'month' && todayIsHere;
+
+  return (
+    <Pressable
+      onPress={onToday}
+      disabled={off}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: off }}
+      hitSlop={6}
+      style={({ pressed }) => ({
+        height: 34,
+        paddingHorizontal: theme.space.md,
+        borderRadius: theme.radius.full,
+        borderWidth: 1,
+        borderColor: theme.color.rule,
+        backgroundColor: pressed ? theme.color.accentSoft : theme.color.paperRaised,
+        justifyContent: 'center',
+        opacity: off ? 0.4 : 1,
+      })}
+    >
+      <Small>Today</Small>
+    </Pressable>
+  );
+}
+
+/** A round arrow button, as the website's. */
+function Round({ glyph, hint, onPress }: { glyph: string; hint: string; onPress: () => void }) {
   const theme = useTheme();
 
   return (
     <Pressable
       onPress={onPress}
-      disabled={disabled}
       accessibilityRole="button"
-      accessibilityLabel={hint ?? label}
-      accessibilityState={{ disabled }}
+      accessibilityLabel={hint}
+      hitSlop={6}
       style={({ pressed }) => ({
-        paddingHorizontal: theme.space.sm,
-        backgroundColor: pressed ? theme.color.accentSoft : 'transparent',
-        opacity: disabled ? 0.4 : 1,
-        minHeight: 44,
-        minWidth: 44,
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        borderWidth: 1,
+        borderColor: theme.color.rule,
+        backgroundColor: pressed ? theme.color.accentSoft : theme.color.paperRaised,
         alignItems: 'center',
         justifyContent: 'center',
       })}
     >
-      {big ? <Subheading>{label}</Subheading> : <Small>{label}</Small>}
+      <Subheading>{glyph}</Subheading>
     </Pressable>
   );
 }
@@ -293,18 +268,14 @@ export function BusyRule({ busy }: { busy: boolean }) {
 }
 
 /**
- * What the colours mean — for the colours that are on the screen.
+ * The key: a dot in the kind's colour and one word beside it, on one line —
+ * the whole phrase is what a screen reader hears. The website spells each one
+ * out across two lines; on a phone that is two lines off the day.
  *
- * Only the kinds present in the range, which is what `kinds` carries; a week
- * with no class in it does not explain gold. `other` is absent whatever is on
- * the calendar, for its own reason: it is the absence of a claim — the
- * classifier could not place the title — and a row reading "Other" invites the
- * reader to look for a meaning that is not there.
- *
- * Chips rather than a line of dots and captions. Each one is filled with the
- * kind's own `washFor`, so the key is a small sample of the tint the reader has
- * just seen behind a time, and the dot on it is the full-strength hue off the
- * bar down the row's edge. Both marks the entry uses, in one object.
+ * Only the kinds actually on screen. "Everything else" is never keyed — it is
+ * the absence of a claim, and a row reading "Other" invites the reader to look
+ * for a meaning that is not there. The servants mark is a dashed ring rather
+ * than a fill, because it sits *on top of* a kind and must not read as a fourth.
  */
 export function Legend({
   kinds,
@@ -316,58 +287,31 @@ export function Legend({
   const theme = useTheme();
 
   const shown = LEGEND.filter(({ kind }) => kinds.has(kind));
-
-  // Nothing on the calendar, or nothing classified. A key to an empty grid is
-  // an explanation of marks that are not there.
   if (shown.length === 0 && !showServants) return null;
 
-  const chip = {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: theme.space.xs,
-    borderRadius: theme.radius.full,
-    paddingVertical: theme.space.xs,
-    paddingHorizontal: theme.space.sm,
-  };
+  const item = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4 };
 
   return (
     <View
-      style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.space.xs }}
+      style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: theme.space.sm, rowGap: 2, flexShrink: 1 }}
       accessibilityRole="summary"
     >
       {shown.map(({ kind, label, short }) => (
-        <View
-          key={kind}
-          style={[chip, { backgroundColor: washFor(kind, theme) }]}
-          /* One word to look at, the whole phrase to listen to. */
-          accessible
-          accessibilityLabel={label}
-        >
+        <View key={kind} style={item} accessible accessibilityLabel={label}>
           <View
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: theme.radius.full,
-              backgroundColor: tintFor(kind, theme),
-            }}
+            style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: tintFor(kind, theme) }}
           />
           <Micro color={theme.color.inkSoft}>{short}</Micro>
         </View>
       ))}
 
       {showServants ? (
-        <View
-          style={[chip, { backgroundColor: theme.color.paperSunken }]}
-          accessible
-          accessibilityLabel="Servants only"
-        >
-          {/* A ring rather than a fill: "servants only" sits *on top of* a
-              kind, so it must not read as a fourth one. */}
+        <View style={item}>
           <View
             style={{
               width: 8,
               height: 8,
-              borderRadius: theme.radius.full,
+              borderRadius: 4,
               borderWidth: 1,
               borderStyle: 'dashed',
               borderColor: theme.color.inkFaint,

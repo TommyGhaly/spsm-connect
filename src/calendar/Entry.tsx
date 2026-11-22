@@ -1,41 +1,24 @@
 /**
  * One thing on one day.
  *
- * The website's `features/calendar/Entry.tsx`, in React Native, and the layout
- * decision it records is the one worth preserving: **the trailing detail is
- * flat, and the end time is not.**
+ * The website's `.sched-entry`, point for point, which is also what the App
+ * Clip's `EntryRow` draws — the reader who tapped the tag in the narthex and
+ * then opened the app should see the same row in both:
  *
- * Location and note run on after the title, dimmed, costing nothing when they
- * are absent — three separate lines made a Saturday with five services 320
- * pixels tall inside a wheel that has to be as tall as the busiest day in the
- * week, and everything scrolled. The end time was flattened along with them and
- * should not have been: "8 AM" alone answers when to arrive and silently drops
- * how long the thing runs, which is the question somebody planning a Saturday
- * is actually asking. So it sits under the start, small, costing one short line
- * on the entries that have one and nothing at all on the rest.
+ * - **A 3pt rule down the left in the kind's colour**, dashed in the faint ink
+ *   for a servants entry (a marking on top of a kind, not a kind of its own).
+ * - **The time in a fixed column, right-aligned**, so a day scans down its
+ *   left edge. The start is semibold in `color-mix(tone 55%, ink)` — the tone at
+ *   full strength fails contrast at this size, gold on cream measured about
+ *   2.9:1 — with "until" and the end beneath it, small and faint, only when
+ *   there is an end that says something the start did not.
+ * - **The title**, in the app's own face like every other screen — the
+ *   church's serif read as pasted on next to the system's tab bar — and
+ *   location, note and contact after it on one faint line each.
+ * - **The bulletin's picture at its own shape** in a fixed box at the end.
  *
- * ---------------------------------------------------------------------------
- * A row on its own ground, and the colour carried in two places.
- *
- * This used to be text on the page with a 3pt rule down its left edge, and the
- * note above that rule argued a wash "puts a tint behind every line of text on
- * the screen". The rule is still here and that argument still holds for the
- * *body*. What changed is the ground underneath: six services on bare paper is
- * six blocks of text separated by four points of air, and the eye has to do the
- * grouping that a container would have done for it. Each entry now sits on
- * `paperRaised` with the church's card radius, so a day reads as a stack of
- * things rather than as a paragraph — and the paper the app is built on is a
- * pale red, so a raised row is a lift rather than a box drawn round the text.
- *
- * The colour then has two jobs and two strengths. The bar down the edge is the
- * hue at full strength, which is what makes a week scannable by kind from
- * across the row. The time chip is the same kind at `washFor` strength, which
- * is the only tint in the system pale enough to put words on — see the note
- * there. The clock itself is `ink` rather than the kind's colour, which is a
- * legibility fix and not a retreat: gold on cream measured about 2.9:1, so the
- * one piece of text every reader is actually hunting for was the least legible
- * thing in the row.
- * ---------------------------------------------------------------------------
+ * Text on the card rather than a card per row: the day card is the ground, and
+ * the rule is what separates one service from the next.
  *
  * ## The whole row is the control here, and on the website only the title is
  *
@@ -47,19 +30,23 @@
  */
 import { Image } from 'expo-image';
 import { useState } from 'react';
-import { Linking, Pressable, View } from 'react-native';
+import { Linking, Pressable, Text, View } from 'react-native';
 import { formatClock, kindOf, type CalendarOccurrence } from '@spsm/shared';
 
-import { Body, Micro, Small } from '@/components/Type';
 import { useTheme } from '@/theme/ThemeProvider';
 
-import { tintFor, washFor } from './kinds';
+import { mix } from './mix';
+import { tintFor } from './kinds';
 
-/** The time column. Wide enough for "11:30 AM" and not a character wider. */
-const WHEN_WIDTH = 76;
+/** The time column: the website's 5rem at phone width. */
+const WHEN_WIDTH = 70;
 
-/** The bar down the left edge, at the width a dashed one still reads as dashed. */
-const BAR = 4;
+/**
+ * The picture's box. Fixed, so the times line up down a day and a tall icon
+ * cannot make its row tall; 48 is no taller than a two-line title, and big
+ * enough that a wide flyer fitted into it still reads as a picture.
+ */
+export const THUMB = 48;
 
 export function Entry({
   occurrence,
@@ -72,16 +59,13 @@ export function Entry({
   // Through `kindOf`, never off `.kind` directly — it is null for everything
   // read from Breeze or the bulletin, where the title is all there is.
   const kind = kindOf(occurrence);
-  const tint = tintFor(kind, theme);
-  const wash = washFor(kind, theme);
+  const tone = tintFor(kind, theme);
+  const timeTone = mix(tone, theme.color.ink, 0.55);
   const servants = occurrence.source === 'servants';
 
-  /*
-   * Location and note, in that order, on the end of the title's line. The
-   * contact keeps its own element so the number stays dialable; the rest is
-   * plain text.
-   */
   const aside = [occurrence.location, occurrence.description].filter((part) => part !== '');
+  const hasEnd =
+    !occurrence.allDay && occurrence.endTime && occurrence.endTime !== occurrence.startTime;
 
   return (
     <Pressable
@@ -90,30 +74,21 @@ export function Entry({
       accessibilityLabel={`${occurrence.title}, ${whenLabel(occurrence)}`}
       style={({ pressed }) => ({
         flexDirection: 'row',
-        borderRadius: theme.radius.md,
-        // Clips the bar to the corner radius, so the colour ends where the card
-        // does instead of squaring off its top-left.
-        overflow: 'hidden',
-        // Held, the row takes its own kind's tint rather than the accent's — a
-        // gathering confirming itself in red said "liturgy" for as long as the
-        // thumb was down. The website does the same on hover.
-        backgroundColor: pressed ? wash : theme.color.paperRaised,
+        // `.sched-entry:hover` — the row's own tone at 7%, enough to say which
+        // one the thumb is on and not enough to be a highlight.
+        backgroundColor: pressed ? mix(tone, theme.color.paperRaised, 0.07) : 'transparent',
+        borderTopRightRadius: theme.radius.sm,
+        borderBottomRightRadius: theme.radius.sm,
       })}
     >
-      {/*
-        Colour by kind, at full strength, on the edge rather than behind the
-        words. Dashed for a servants entry — a marking on top of a kind rather
-        than a kind of its own, so a servants-only liturgy is still red.
-
-        A border rather than a background, for the one reason that matters: a
-        filled view cannot be dashed, and the dash is what carries "servants".
-      */}
+      {/* A border on a zero-width view rather than the row's own left border:
+          that is the one way to get a dashed edge on a single side. */}
       <View
         style={{
           width: 0,
           alignSelf: 'stretch',
-          borderLeftWidth: BAR,
-          borderLeftColor: tint,
+          borderLeftWidth: 3,
+          borderLeftColor: servants ? theme.color.inkFaint : tone,
           borderStyle: servants ? 'dashed' : 'solid',
         }}
       />
@@ -122,51 +97,75 @@ export function Entry({
         style={{
           flex: 1,
           flexDirection: 'row',
+          alignItems: 'flex-start',
           gap: theme.space.sm,
-          padding: theme.space.sm,
+          paddingVertical: 5,
+          paddingLeft: theme.space.sm,
+          paddingRight: 4,
         }}
       >
-        <View style={{ width: WHEN_WIDTH, gap: 2 }}>
-          <When occurrence={occurrence} wash={wash} />
-
-          {/*
-            Only when there is an end, and only when it says something the
-            start did not. Breeze hands back a zero-length entry as an end
-            equal to its start, and "8 AM / until 8 AM" reads as a mistake in
-            the data rather than as an event with no stated finish.
-
-            "to" rather than "until", which is what the row said before: at this
-            width the longer word wraps a two-word line, and the sentence a
-            screen reader is read is built by `whenLabel` and still says until.
-          */}
-          {!occurrence.allDay &&
-          occurrence.endTime &&
-          occurrence.endTime !== occurrence.startTime ? (
-            <Micro color={theme.color.inkFaint} align="center">
-              to {formatClock(occurrence.endTime)}
-            </Micro>
+        <View style={{ width: WHEN_WIDTH, alignItems: 'flex-end', paddingTop: 2 }}>
+          {occurrence.allDay ? (
+            <Text
+              style={{
+                fontSize: theme.fontSize.micro,
+                fontWeight: '600',
+                letterSpacing: 0.8,
+                color: timeTone,
+              }}
+            >
+              ALL DAY
+            </Text>
+          ) : (
+            <Text
+              numberOfLines={1}
+              style={{
+                fontSize: 14,
+                fontWeight: '600',
+                fontVariant: ['tabular-nums'],
+                color: timeTone,
+              }}
+            >
+              {formatClock(occurrence.startTime)}
+            </Text>
+          )}
+          {hasEnd ? (
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              style={{ fontSize: 11, fontVariant: ['tabular-nums'], color: theme.color.inkFaint }}
+            >
+              until {formatClock(occurrence.endTime!)}
+            </Text>
           ) : null}
         </View>
 
         <View style={{ flex: 1, gap: 2 }}>
-          <Body>{occurrence.title}</Body>
+          <Text
+            style={{
+              fontFamily: theme.fontFamily.body,
+              fontSize: 16,
+              lineHeight: 21,
+              color: theme.color.ink,
+            }}
+          >
+            {occurrence.title}
+          </Text>
 
-          {/*
-            Both marks on one line, and only ever one of them in practice — an
-            entry comes from one source. The row is here so that if that ever
-            stops being true they sit beside each other rather than stacking.
-          */}
           {servants || occurrence.source === 'manual' ? (
             <View style={{ flexDirection: 'row', gap: theme.space.xs }}>
-              {servants ? <Tag label="Servants" tone={theme.color.accent} /> : null}
-              {occurrence.source === 'manual' ? (
-                <Tag label="Added" tone={theme.color.inkFaint} />
-              ) : null}
+              {servants ? <Tag label="Servants" /> : null}
+              {occurrence.source === 'manual' ? <Tag label="Added" /> : null}
             </View>
           ) : null}
 
           {aside.length > 0 ? (
-            <Small color={theme.color.inkSoft}>{aside.join(' · ')}</Small>
+            <Text
+              numberOfLines={1}
+              style={{ fontSize: theme.fontSize.micro, color: theme.color.inkFaint }}
+            >
+              {aside.join(' · ')}
+            </Text>
           ) : null}
           {occurrence.contact ? <Contact contact={occurrence.contact} /> : null}
         </View>
@@ -174,49 +173,6 @@ export function Entry({
         {occurrence.imageUrl ? <Thumb url={occurrence.imageUrl} /> : null}
       </View>
     </Pressable>
-  );
-}
-
-/**
- * The start time, on the kind's own tint.
- *
- * Split at the space so the meridiem can be set small: "5:00" is the number
- * somebody is reading off the row and "PM" is a qualifier on it, and at one
- * size they compete for the same glance. `formatClock` always emits the pair
- * with a single space between them, so the split is total — but the fallback
- * prints whatever came back rather than dropping it, because a chip with half a
- * time in it would be worse than an ugly one.
- */
-function When({ occurrence, wash }: { occurrence: CalendarOccurrence; wash: string }) {
-  const theme = useTheme();
-
-  const chip = {
-    backgroundColor: wash,
-    borderRadius: theme.radius.sm,
-    paddingVertical: theme.space.xs,
-    paddingHorizontal: theme.space.xs,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    flexDirection: 'row' as const,
-    gap: 2,
-    minHeight: 34,
-  };
-
-  if (occurrence.allDay) {
-    return (
-      <View style={chip}>
-        <Micro color={theme.color.inkSoft}>All day</Micro>
-      </View>
-    );
-  }
-
-  const [clock, meridiem] = formatClock(occurrence.startTime).split(' ');
-
-  return (
-    <View style={chip}>
-      <Small>{clock}</Small>
-      {meridiem ? <Micro color={theme.color.inkSoft}>{meridiem}</Micro> : null}
-    </View>
   );
 }
 
@@ -231,50 +187,53 @@ function whenLabel(occurrence: CalendarOccurrence): string {
   return `${start}${end}`;
 }
 
-/**
- * "Servants", "Added".
- *
- * Filled at the tone's own soft strength rather than outlined in it. A dashed
- * outline is how this app says *servants only*, on the bar down the edge of
- * this very row — spending it again on a pill six points away said the two
- * marks were related, and they are not: one is a kind of entry and the other is
- * a note about where the row came from.
- */
-function Tag({ label, tone }: { label: string; tone: string }) {
+/** `.sched-entry__tag`: small capitals on a solid azure, as the website's. */
+function Tag({ label }: { label: string }) {
   const theme = useTheme();
 
   return (
     <View
       style={{
         alignSelf: 'flex-start',
-        backgroundColor:
-          tone === theme.color.accent ? theme.color.accentSoft : theme.color.paperSunken,
-        borderRadius: theme.radius.full,
-        paddingHorizontal: theme.space.sm,
+        backgroundColor: theme.color.azure,
+        borderRadius: theme.radius.sm,
+        paddingHorizontal: 6,
         paddingVertical: 1,
       }}
     >
-      <Micro color={tone}>{label}</Micro>
+      <Text
+        style={{
+          fontSize: 10,
+          fontWeight: '600',
+          letterSpacing: 0.6,
+          color: theme.color.inkInverse,
+        }}
+      >
+        {label.toUpperCase()}
+      </Text>
     </View>
   );
 }
 
-/**
- * "Servant Michael · (508) 555-0142", with the number dialable.
- *
- * The bulletin is the only source that carries one, and it is the most useful
- * thing on the sheet: the point of putting a contact on an event is that
- * somebody can reach them — and this is the surface where that is one tap.
- */
+/** "Servant Michael · (774) 573-…", with the number dialable. */
 function Contact({ contact }: { contact: string }) {
   const theme = useTheme();
   const [name, phone] = contact.split(' · ');
+  const faint = { fontSize: theme.fontSize.micro, color: theme.color.inkFaint };
 
-  if (!phone) return <Small color={theme.color.inkSoft}>{contact}</Small>;
+  if (!phone) {
+    return (
+      <Text numberOfLines={1} style={faint}>
+        {contact}
+      </Text>
+    );
+  }
 
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: theme.space.xs }}>
-      <Small color={theme.color.inkSoft}>{name} ·</Small>
+    <View style={{ flexDirection: 'row', alignItems: 'center', minWidth: 0 }}>
+      <Text numberOfLines={1} style={[faint, { flexShrink: 1 }]}>
+        {name} ·{' '}
+      </Text>
       <Pressable
         // Stripped to digits for the dialler, printed as the church wrote it.
         onPress={() => void Linking.openURL(`tel:${phone.replace(/[^\d+]/g, '')}`)}
@@ -282,49 +241,57 @@ function Contact({ contact }: { contact: string }) {
         accessibilityLabel={`Call ${name ?? ''} on ${phone}`}
         hitSlop={theme.space.xs}
       >
-        <Small color={theme.color.accent}>{phone}</Small>
+        <Text numberOfLines={1} style={[faint, { color: theme.color.accent }]}>
+          {phone}
+        </Text>
       </Pressable>
     </View>
   );
 }
 
 /**
- * The bulletin's photograph, or nothing at all if it will not load.
+ * The bulletin's picture, at its own shape, in a fixed box.
  *
- * These are hotlinks into the announcements project's storage bucket — the
- * bulletin is read through and never mirrored, and that applies to its images
- * too. The other project can delete one at any time, and a broken frame with a
- * border on it is an empty grey box that reads as the app having failed rather
- * than as an event with no picture.
+ * `contentFit="contain"` alone would letterbox the picture inside a bordered
+ * square, so the hairline and the corners would trace an invisible box rather
+ * than the picture. Instead the picture is sized from its own aspect ratio once
+ * it loads, and the border sits on it — the website's `.week__thumb img`.
+ *
+ * Nothing at all if it will not load: a grey box reads as the screen having
+ * failed rather than as an entry with no picture.
  */
 function Thumb({ url }: { url: string }) {
   const theme = useTheme();
   const [broken, setBroken] = useState(false);
+  const [ratio, setRatio] = useState<number | null>(null);
   if (broken) return null;
 
+  const width = ratio === null ? THUMB : ratio >= 1 ? THUMB : THUMB * ratio;
+  const height = ratio === null ? THUMB : ratio >= 1 ? THUMB / ratio : THUMB;
+
   return (
-    <Image
-      source={{ uri: url }}
-      // Decoration: the event's name is beside it, and describing the
-      // photograph would have a screen reader read the entry twice.
+    <View
+      style={{ width: THUMB, height: THUMB, alignItems: 'center', justifyContent: 'center' }}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      onError={() => setBroken(true)}
-      /*
-       * The whole picture, letterboxed, rather than a square crop. The sheet's
-       * images are any shape — most are tall icons, some are wide banners — and
-       * a crop showed a saint's knees or the middle third of a flyer. The box
-       * stays square so the rows still line up.
-       */
-      contentFit="contain"
-      style={{
-        width: 44,
-        height: 44,
-        borderRadius: theme.radius.sm,
-        borderWidth: 1,
-        borderColor: theme.color.rule,
-        backgroundColor: theme.color.paperSunken,
-      }}
-    />
+    >
+      <Image
+        source={{ uri: url }}
+        onLoad={(event) => {
+          const { width: w, height: h } = event.source;
+          if (w > 0 && h > 0) setRatio(w / h);
+        }}
+        onError={() => setBroken(true)}
+        contentFit="contain"
+        style={{
+          width,
+          height,
+          borderRadius: 5,
+          borderWidth: 1,
+          borderColor: mix(theme.color.ink, theme.color.paperRaised, 0.12),
+          backgroundColor: ratio === null ? theme.color.paperSunken : 'transparent',
+        }}
+      />
+    </View>
   );
 }
