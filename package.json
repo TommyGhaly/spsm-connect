@@ -28,7 +28,7 @@
     "//clip-tour": "Relaunch the installed Debug App Clip on the booted simulator at each /c/<slug> experience in turn, one per Enter press. `npm run clip-tour -- give forms` for a subset.",
     "clip-tour": "bash scripts/clip-tour.sh",
     "clip-text": "node --experimental-strip-types --no-warnings scripts/make-clip-text.mjs",
-    "//nfc-stickers": "The nine NFC tag stickers (the eight /c/* experiences plus Taksis's /c/register-vehicle), 3-inch circles as SVG and 1200px PNG, into store/nfc-stickers/ with a sheet.png proof, and the printer's files with 2mm bleed into store/nfc-stickers/bleed/.",
+    "//nfc-stickers": "The nine NFC tag stickers (the eight /c/* experiences plus Taksis's /c/register-vehicle), 3-inch circles as SVG and 1200px PNG, into store/nfc-stickers/ with a sheet.png proof, and the printer's files with 2mm bleed into store/nfc-stickers/bleed/, and 4.5mm-bleed copies for home printing with print-sheet.html into store/nfc-stickers/print/.",
     "nfc-stickers": "node scripts/make-nfc-stickers.mjs"
   },
   "dependencies": {

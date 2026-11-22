@@ -35,8 +35,13 @@
  * circle, 1200px (400 dpi at 3 inches), for looking at and for `sheet.png`.
  * `store/nfc-stickers/bleed/` is what goes to the printer: the same art on a
  * square carried `BLEED_MM` past the cut on every side, so a cut that wanders
- * lands on picture rather than on bare stock. `--only <slug>` renders one, which
- * is the loop for working on a scene.
+ * lands on picture rather than on bare stock. `store/nfc-stickers/print/` is the
+ * same again carried `PRINT_BLEED_MM` past the cut, for printing at home onto
+ * Pony Packaging's HB-C006 sheets with `print-sheet.html`: a home printer can
+ * be off by a few millimetres, and 4.5mm is as far as the art can go before it
+ * reaches the next sticker (the rows are 3/8", 9.5mm, apart). The art is never
+ * scaled for it; only the background carries further. `--only <slug>` renders
+ * one, which is the loop for working on a scene.
  *
  * ## Taksis
  *
@@ -62,6 +67,8 @@ const PNG_SIZE = 1200;
 const MM = 1000 / 76.2;
 /** How far the printer's file carries the art past the cut. */
 const BLEED_MM = 2;
+/** How far the home print sheets carry it: half the 9.5mm between HB-C006's rows. */
+const PRINT_BLEED_MM = 4.5;
 const ONLY = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;
 
 /*
@@ -143,14 +150,17 @@ function rim(text, color, c, { radius, size, tracking, bottom = false }) {
 }
 
 /**
- * One sticker. With `bleed`, the canvas grows `BLEED_MM` past the circle on
+ * One sticker. With `bleedMm`, the canvas grows that far past the circle on
  * every side and nothing is clipped to it; without, it is the circle alone.
+ * The art is placed in the same 1000-unit frame either way, so a wider bleed
+ * only shows more of the background, never a bigger or smaller sticker.
  */
-function stickerSvg({ slug, label, fontSize: size_ }, scene, { bleed = false } = {}) {
+function stickerSvg({ slug, label, fontSize: size_ }, scene, { bleedMm = 0 } = {}) {
   const p = PALETTE;
   const size = 1000;
   const c = size / 2;
-  const b = bleed ? BLEED_MM * MM : 0;
+  const bleed = bleedMm > 0;
+  const b = bleedMm * MM;
   const box = `${-b} ${-b} ${size + 2 * b} ${size + 2 * b}`;
   const span = { x: -b, y: -b, w: size + 2 * b };
 
@@ -226,19 +236,24 @@ async function main() {
   const out = join(root, 'store', 'nfc-stickers');
   await mkdir(out, { recursive: true });
 
-  await mkdir(join(out, 'bleed'), { recursive: true });
+  const outputs = [
+    [out, 0],
+    [join(out, 'bleed'), BLEED_MM],
+    [join(out, 'print'), PRINT_BLEED_MM],
+  ];
+  for (const [dir] of outputs) await mkdir(dir, { recursive: true });
 
   const pngs = [];
   for (const sticker of STICKERS.filter((s) => !ONLY || s.slug === ONLY)) {
     const scene = await readScene(sticker.slug);
     if (!scene) console.warn(`  ${sticker.slug}: no scene yet, picture left empty.`);
 
-    for (const [dir, bleed] of [[out, false], [join(out, 'bleed'), true]]) {
+    for (const [dir, bleedMm] of outputs) {
       const svgFile = join(dir, `${sticker.slug}.svg`);
-      await writeFile(svgFile, stickerSvg(sticker, scene, { bleed }));
+      await writeFile(svgFile, stickerSvg(sticker, scene, { bleedMm }));
       const { stdout } = await run('rsvg-convert', [svgFile], { encoding: 'buffer', maxBuffer: 64 * 1024 * 1024 });
       await writeFile(join(dir, `${sticker.slug}.png`), stdout);
-      if (!bleed) pngs.push(stdout);
+      if (!bleedMm) pngs.push(stdout);
     }
     console.log(`  ${sticker.slug.padEnd(17)} https://${ORIGIN}/c/${sticker.slug}`);
   }
@@ -269,7 +284,7 @@ async function main() {
     .png()
     .toFile(join(out, 'sheet.png'));
 
-  console.log(`\nWritten to store/nfc-stickers/ (circles, plus sheet.png) and bleed/ (${BLEED_MM}mm past the cut, for the printer).`);
+  console.log(`\nWritten to store/nfc-stickers/ (circles, plus sheet.png), bleed/ (${BLEED_MM}mm past the cut, for the printer) and print/ (${PRINT_BLEED_MM}mm, for print-sheet.html).`);
 }
 
 await main();

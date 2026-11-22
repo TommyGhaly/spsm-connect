@@ -3,8 +3,11 @@
   NFC sticker print sheets for Pony Packaging HB-C006 (3" round, 6 per US Letter sheet).
 
   Open this file in a browser, choose how many of each sticker you want, then print
-  at 100% scale ("Actual size", margins "None"). The artwork is read from bleed/<slug>.png
-  next to this file. Each one is 3.158" square, so a sheet fed slightly off still prints to the edge.
+  at 100% scale ("Actual size", margins "None"). The artwork is read from print/<slug>.png
+  next to this file (`npm run nfc-stickers` makes it). Each one carries the background 4.5mm
+  past the 3" cut, 3.354" across, so a sheet fed a few millimetres off still prints to the edge.
+  4.5mm is half the 9.5mm between rows, so neighbours never overlap. The art itself is the
+  same size as on Seritag's bleed/ files; only the background reaches further.
 
   The geometry comes from the HB-C006.doc table: 3" cells, a 1.25" column gutter,
   a 0.375" row gutter, which centers to 0.625" margins all round on 8.5" x 11".
@@ -95,8 +98,8 @@
     display: flex; align-items: center; justify-content: center;
   }
   .slot img {
-    /* 3.158" art with bleed, centered over the 3" die cut. */
-    width: 3.158in; height: 3.158in; flex: none;
+    /* 3" + 4.5mm each side, centered over the 3" die cut. */
+    width: calc(3in + 9mm); height: calc(3in + 9mm); flex: none;
     clip-path: circle(50%);
   }
   .slot.blank { outline: 1px dashed #ccc; outline-offset: -1px; border-radius: 50%; }
@@ -236,7 +239,7 @@
     const slotsOf = (page) => Array.from({ length: PER_SHEET }, (_, i) => {
       const slug = page[i];
       const x = COLS[i % 2], y = ROWS[Math.floor(i / 2)];
-      return `<div class="slot ${slug ? '' : 'blank'}" style="left:${x}in;top:${y}in">${slug ? `<img src="bleed/${slug}.png" alt="">` : ''}</div>`;
+      return `<div class="slot ${slug ? '' : 'blank'}" style="left:${x}in;top:${y}in">${slug ? `<img src="print/${slug}.png" alt="">` : ''}</div>`;
     }).join('');
     main.innerHTML = sheets.map((page, i) => `
       <div>

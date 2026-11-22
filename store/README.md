@@ -66,6 +66,11 @@ in `scripts/nfc-scenes/`, one per slug.
 - `sheet.png` — all nine together, for a proof.
 - `bleed/` — **what goes to the printer**: the same art carried 2mm past the cut
   on every side, 1263px square.
+- `print/` — for printing at home onto Pony Packaging HB-C006 sheets (3″ round,
+  6 per Letter sheet): the same art carried 4.5mm past the cut, 1342px square,
+  so a sheet that feeds a few millimetres off still prints to the edge. The art is
+  not scaled; only the background reaches further. Open `print-sheet.html` to
+  choose how many of each and print at 100%.
 
 ```bash
 npm run nfc-stickers
