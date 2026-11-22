@@ -188,6 +188,7 @@ final class Checkout: NSObject, ObservableObject {
         request.shippingMethods = shippingMethods()
         request.paymentSummaryItems = summaryItems()
 
+        NfcStats.report(.checkoutStart)
         let controller = PKPaymentAuthorizationController(paymentRequest: request)
         controller.delegate = self
         self.controller = controller
@@ -458,6 +459,8 @@ final class Checkout: NSObject, ObservableObject {
             "fulfillment": model.shipping ? "ship" : "collect",
             "idempotencyKey": idempotencyKey,
         ]
+        // The tag, so the order's money is credited to it once Square settles.
+        body.merge(NfcStats.body) { mine, _ in mine }
 
         // The signed quote, when posting by a live service. Absent is the flat
         // charge, which is what the Function takes with no token at all.

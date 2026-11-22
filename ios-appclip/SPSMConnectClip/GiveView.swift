@@ -24,6 +24,7 @@ struct GiveView: View {
     var body: some View {
         ClipScreen(destination: .give) {
             GiveHero {
+                NfcStats.report(.giveTap)
                 sheet = IdentifiableURL(url: ClipConfig.givingURL)
             }
 

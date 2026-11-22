@@ -733,6 +733,7 @@ final class PhotosModel: ObservableObject {
                 }
                 lastImage = nil
                 state = .sent(1)
+                NfcStats.report(.photoSent)
             } catch {
                 if case UploadClient.Failure.unattested = error { websiteFallback = true }
                 state = .failed(
@@ -878,6 +879,8 @@ final class PhotosModel: ObservableObject {
 
             // The sent go and the failures stay, with their reasons.
             batch.removeAll { $0.status == .sent }
+
+            if sent > 0 { NfcStats.report(.photoSent) }
 
             if sent == queue.count {
                 state = .sent(sent)

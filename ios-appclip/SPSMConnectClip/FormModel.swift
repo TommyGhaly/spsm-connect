@@ -585,6 +585,8 @@ enum FormsAPI {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         var body: [String: Any] = ["slug": slug, "answers": answers]
         if let cardToken { body["cardToken"] = cardToken }
+        // The tag, so the server counts the form and its payment against it.
+        body.merge(await NfcStats.body) { mine, _ in mine }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
         let data: Data

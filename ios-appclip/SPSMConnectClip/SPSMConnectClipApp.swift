@@ -18,6 +18,9 @@ struct SPSMConnectClipApp: App {
                  */
                 .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
                     destination = ClipRouter.destination(for: activity.webpageURL)
+                    // The tap, for the NFC statistics. Only a real invocation
+                    // counts — the Xcode debug URL above never reaches here.
+                    NfcStats.start(destination)
                 }
         }
     }

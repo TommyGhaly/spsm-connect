@@ -14,7 +14,7 @@
  * sticker with the same id as the last one is waited out instead of being
  * reported, a second later, as "already programmed".
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Alert, Platform, Pressable, Switch, View } from 'react-native';
 import NfcManager, { NfcTech } from 'react-native-nfc-manager';
 
@@ -58,7 +58,11 @@ interface Row {
   at: Date;
 }
 
-export function NfcWriterScreen() {
+/**
+ * `header` is drawn above the programmer — the NFC page's Statistics /
+ * Program switch, which has to sit inside this screen's own scroll view.
+ */
+export function NfcWriterScreen({ header }: { header?: ReactNode } = {}) {
   const theme = useTheme();
   const [supported, setSupported] = useState<boolean | null>(null);
   const [target, setTarget] = useState<Target>(TARGETS[0] ?? REGISTER_CAR);
@@ -168,6 +172,7 @@ export function NfcWriterScreen() {
 
   return (
     <Screen gap={theme.space.md}>
+      {header}
       {/* The rest of the page still draws, so the list can be read from any phone. */}
       {supported === false ? (
         <Card>

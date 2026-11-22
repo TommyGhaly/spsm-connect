@@ -298,6 +298,7 @@ final class FormsScreenModel: ObservableObject {
                     state = .elsewhere(form, url)
                 } else {
                     state = .filling(form)
+                    NfcStats.report(.formOpen)
                 }
             } catch is FormsAPI.OrdinationTagged {
                 state = .ordination

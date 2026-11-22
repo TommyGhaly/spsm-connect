@@ -29,6 +29,7 @@ import { syncDrainTask } from './backgroundDrain';
 import { condense } from './condense';
 import { enqueue } from './queue';
 import { drainQueue } from './uploader';
+import { reportNfc } from '@/nfc/visit';
 
 /** Which node in the gallery tree these are being sent to. */
 export interface SubmissionTargetRef {
@@ -179,6 +180,9 @@ async function queueFiles(
   }
 
   if (queued > 0) {
+    // Queued is sent, as far as the person is concerned: the row is durable and
+    // the drain retries. One step per visit however many. See nfc/visit.ts.
+    reportNfc('photoSent');
     await syncDrainTask();
     /*
      * Not awaited. A drain is a sequence of network round trips and the person

@@ -126,6 +126,7 @@ struct AppsView: View {
                     }
 
                     ConnectCard {
+                        NfcStats.report(.getApp)
                         sheet = IdentifiableURL(url: ClipConfig.appStore)
                     }
                     .id("SPSM Connect")

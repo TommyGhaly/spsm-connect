@@ -1,17 +1,13 @@
 /**
- * /nfc — program the church's NFC stickers. The superadmin's, and unlisted.
+ * /nfc — the church's NFC tags: their statistics, and programming new ones.
  *
- * Reached from one row under Areas in the drawer's account card, which renders
- * for the superadmin only. As with Areas, that is a convenience and the guard is
- * the protection: a typed or restored route draws nothing for anybody else.
+ * Reached from the drawer's account card, which draws the row for the
+ * superadmin and for anybody holding the `nfc` grant. As with Areas, that is a
+ * convenience and the guard is the protection: `NfcScreen` decides which half
+ * a reader sees, and `firestore.rules` decides what any read returns.
  */
-import { SuperadminOnly } from '@/access/Guard';
-import { NfcWriterScreen } from '@/nfc/NfcWriterScreen';
+import { NfcScreen } from '@/nfc/NfcScreen';
 
 export default function Screen() {
-  return (
-    <SuperadminOnly>
-      <NfcWriterScreen />
-    </SuperadminOnly>
-  );
+  return <NfcScreen />;
 }

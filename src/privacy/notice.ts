@@ -109,7 +109,7 @@
 import { Platform } from 'react-native';
 
 /** The date the words below last changed. Updated by hand, and only then. */
-export const UPDATED = '28 September 2026';
+export const UPDATED = '21 November 2026';
 
 /**
  * Whether this notice is being read on an iPhone or iPad.
@@ -155,7 +155,7 @@ export const SECTIONS: readonly PrivacySection[] = [
       IOS
         ? 'It never asks for your location, either. There is no location permission in the app at all.'
         : 'It never asks for your location, either. There is no location permission in the app at all — and on Android it also declines the separate permission that would let it read the place a photograph was taken, so the system removes that from the file before the app ever sees it.',
-      'Two things happen without you doing anything:',
+      'Three things happen without you doing anything:',
     ],
     points: [
       {
@@ -167,6 +167,11 @@ export const SECTIONS: readonly PrivacySection[] = [
         term: 'Bookstore counts',
         detail:
           '**The shop counts which books are looked at** and what is typed into its search box, so the people who order stock know what the church is actually asking for. It counts against a random sixteen-character identifier this installation generates for itself — not a name, not an email address, derived from nothing about you, and readable by no one but the church. The individual records are deleted after ninety days; only the totals are kept, and the identifier is gone when the app is deleted.',
+      },
+      {
+        term: 'NFC tag counts',
+        detail:
+          '**When one of the church’s NFC tags opens the app**, the app counts the tap — which tag, and whether this is an iPhone or an Android phone — and, for the next half hour, whether you went on to open a form, fill a basket, give or pay, and how much a purchase came to. The tap is given a random identifier that is kept only in memory and is gone when the app closes. No name, no account, nothing that identifies your phone, and no location. The App Clip counts a tap the same way. The individual records are deleted after ninety days; only the totals are kept, readable by the people who look after the tags.',
       },
     ],
   },

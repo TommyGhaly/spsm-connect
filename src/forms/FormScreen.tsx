@@ -27,6 +27,7 @@ import {
 
 import { Button, Card, Screen } from '@/components/Surface';
 import { Body, Heading, Lede, Small } from '@/components/Type';
+import { reportNfc } from '@/nfc/visit';
 import { useTheme } from '@/theme/ThemeProvider';
 
 import { FormRenderer } from './FormRenderer';
@@ -60,6 +61,11 @@ export function FormScreen({
 }) {
   const theme = useTheme();
   const [state, setState] = useState<State>({ kind: 'loading' });
+
+  // A step in an NFC visit, when one is in force. See nfc/visit.ts.
+  useEffect(() => {
+    reportNfc('formOpen');
+  }, [slug]);
 
   useEffect(() => {
     let cancelled = false;

@@ -23,6 +23,7 @@ import type { CardDetails } from 'react-native-square-in-app-payments';
 import { Platform } from 'react-native';
 
 import { apiPost } from '@/api/client';
+import { nfcAttribution } from '@/nfc/visit';
 
 /**
  * The SDK, required on first use rather than imported at the top of this file.
@@ -227,6 +228,11 @@ export interface CheckoutResult {
   total: number;
 }
 
+function nfcBody(): { nfc?: ReturnType<typeof nfcAttribution> } {
+  const nfc = nfcAttribution();
+  return nfc ? { nfc } : {};
+}
+
 function charge(nonce: string, details: CheckoutDetails): Promise<CheckoutResult> {
   return apiPost<CheckoutResult>('/api/square/checkout', {
     sourceId: nonce,
@@ -239,6 +245,8 @@ function charge(nonce: string, details: CheckoutDetails): Promise<CheckoutResult
     address: details.address,
     idempotencyKey: details.idempotencyKey,
     ...(details.shippingOptionId ? { shippingOptionId: details.shippingOptionId } : {}),
+    // The tag this basket came from, so the order's money is credited to it.
+    ...nfcBody(),
   });
 }
 

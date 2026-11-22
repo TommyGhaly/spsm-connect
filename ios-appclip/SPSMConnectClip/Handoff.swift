@@ -55,7 +55,8 @@ struct IdentifiableURL: Identifiable {
 /// other offer of the app stays this overlay, which is Apple's own control for
 /// it.
 enum AppOffer {
-    static func present() {
+    @MainActor static func present() {
+        NfcStats.report(.getApp)
         guard
             let scene = UIApplication.shared.connectedScenes
                 .compactMap({ $0 as? UIWindowScene })

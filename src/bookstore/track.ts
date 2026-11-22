@@ -62,6 +62,8 @@ import {
   type BookstoreEventKind,
 } from '@spsm/shared';
 
+import { reportNfc } from '@/nfc/visit';
+
 const VISITOR_KEY = 'spsm.bookstore.visitor';
 
 /**
@@ -148,6 +150,9 @@ export function track(
   kind: BookstoreEventKind,
   subject: { slug?: string | null; term?: string | null; quantity?: number } = {},
 ): void {
+  // The same two moments are steps in an NFC visit, when the shop was opened
+  // from the bookstore tag (or any tag, within the window). See nfc/visit.ts.
+  if (kind === 'cartAdd' || kind === 'checkoutStart') reportNfc(kind);
   void (async () => {
     try {
       const event = normalizeBookstoreEvent({

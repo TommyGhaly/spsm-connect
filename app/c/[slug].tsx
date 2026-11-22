@@ -27,7 +27,7 @@
  * back gesture a blank screen to return to.
  * ---------------------------------------------------------------------------
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator } from 'react-native';
 import { Redirect, useLocalSearchParams, type Href } from 'expo-router';
 
@@ -35,11 +35,25 @@ import { Screen } from '@/components/Surface';
 import { Body, Label } from '@/components/Type';
 import { experience } from '@/clip/experiences';
 import { readFormsPageConfig } from '@/forms/data';
+import { startNfcVisit } from '@/nfc/visit';
 
 export default function ClipLanding() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const meta = experience(slug ?? '');
   const nfcForm = useNfcForm(meta?.slug === 'forms');
+  const counted = useRef(false);
+
+  /*
+   * The tap, counted once per landing — the `app` path in the NFC statistics.
+   * A ref rather than an empty dependency list alone, because the forms row
+   * renders twice (spinner, then redirect) and Fast Refresh re-runs effects.
+   * See `src/nfc/visit.ts`.
+   */
+  useEffect(() => {
+    if (counted.current || !meta) return;
+    counted.current = true;
+    startNfcVisit(meta.slug);
+  }, [meta]);
 
   useEffect(() => {
     if (!meta) {

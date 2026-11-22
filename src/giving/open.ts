@@ -52,6 +52,7 @@ import * as WebBrowser from 'expo-web-browser';
 import type { ResolvedTheme } from '@/theme/tokens';
 
 import { givingUrl } from './config';
+import { reportNfc } from '@/nfc/visit';
 
 /**
  * Open the church's giving form.
@@ -61,6 +62,7 @@ import { givingUrl } from './config';
  * not each be making their own decision about how the form is presented.
  */
 export function openGiving(theme: ResolvedTheme): void {
+  reportNfc('giveTap');
   void WebBrowser.openBrowserAsync(givingUrl(), {
     /*
      * Full screen, which is what the website's own overlay becomes below 32rem

@@ -36,6 +36,7 @@ import {
 
 import { apiUrl, postHeaders } from '@/api/client';
 import { siteUrl } from '@/about/media';
+import { nfcAttribution } from '@/nfc/visit';
 
 export type WithId<T> = T & { id: string };
 
@@ -225,7 +226,9 @@ export async function submitForm(input: {
     response = await fetch(apiUrl('/api/forms/submit'), {
       method: 'POST',
       headers: await postHeaders(),
-      body: JSON.stringify(input),
+      // The tag the form was opened from, if any — the server counts the
+      // submission and its payment against it. See nfc/visit.ts.
+      body: JSON.stringify({ ...input, ...(nfcAttribution() ? { nfc: nfcAttribution() } : {}) }),
     });
   } catch {
     // A network failure, not a rejection — worth saying differently, because

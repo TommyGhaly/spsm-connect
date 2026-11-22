@@ -126,6 +126,8 @@ const SWIFT_FILES = [
   'UploadClient.swift',
   'Shop.swift',
   'Checkout.swift',
+  // The clip's half of the NFC tag statistics — see src/nfc/visit.ts.
+  'NfcStats.swift',
 ];
 
 const RESOURCE_FILES = ['Assets.xcassets'];

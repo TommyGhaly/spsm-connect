@@ -366,6 +366,7 @@ final class ShopModel: ObservableObject {
     func quantity(of product: ShopProduct) -> Int { quantities[product.id] ?? 0 }
 
     func adjust(_ product: ShopProduct, by delta: Int) {
+        if delta > 0 { NfcStats.report(.cartAdd) }
         let next = quantity(of: product) + delta
         /*
          * Bounded by what the parish says it has, when it says anything. A

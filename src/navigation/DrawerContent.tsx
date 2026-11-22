@@ -852,6 +852,16 @@ function Account({ go }: { go: (href: Href) => void }) {
             <>
               <Hairline />
               <Action label="Areas" icon="people" onPress={() => go('/access' as Path)} />
+            </>
+          ) : null}
+          {/*
+            * The NFC page: its statistics are the `nfc` grant's, its sticker
+            * programmer the superadmin's, so the row is for either. Which half
+            * they see is `NfcScreen`'s call, and what any read returns is
+            * `firestore.rules`'.
+            */}
+          {isSuperadmin(grants.claims) || mayAdminScreen(grants, 'nfc') ? (
+            <>
               <Hairline />
               <Action label="NFC tags" icon="pencil" onPress={() => go('/nfc' as Path)} />
             </>
