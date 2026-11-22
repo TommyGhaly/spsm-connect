@@ -40,6 +40,8 @@
  * on a modal would navigate the screen underneath it. They keep the colours and
  * take neither control; see `app/_layout.tsx`.
  */
+import { View } from 'react-native';
+
 import { AnnouncementsButton } from './AnnouncementsButton';
 import { DrawerButton } from './DrawerButton';
 import {
@@ -246,6 +248,16 @@ export function headerSkinStack(theme: ResolvedTheme) {
  * long-press menu, and `HeaderCapsule` sizes ours to match it rather than the
  * other way round.
  *
+ * ## Android needs the plain options as well
+ *
+ * The items API is `@platform ios`. On Android it is dropped without a word, so
+ * a stack that only spoke it drew a bar with *neither* control — the bookstore
+ * and the forms had no menu and no bell there, while the tabs beside them had
+ * both. Every stack option here therefore also sets `headerLeft`/`headerRight`:
+ * iOS ignores them in favour of the items ("Overrides `headerRight`"), and
+ * Android has nothing else. They are not wrapped in `BarSlot`, because the
+ * Android toolbar already insets both edges by its own 16dp.
+ *
  * ## `unstable_`
  *
  * The prefix is expo-router's and it means what it says. It is worth the risk
@@ -257,6 +269,7 @@ export function headerSkinStack(theme: ResolvedTheme) {
 export function headerChromeStack(theme: ResolvedTheme) {
   return {
     ...headerSkinStack(theme),
+    headerRight: () => <AnnouncementsButton />,
     unstable_headerRightItems: () => [
       { type: 'custom' as const, element: <AnnouncementsButton />, hidesSharedBackground: true },
     ],
@@ -265,6 +278,7 @@ export function headerChromeStack(theme: ResolvedTheme) {
 
 /** `headerRoot` for a native stack: the root screen's menu, without UIKit's capsule. */
 export const headerRootStack = {
+  headerLeft: () => <DrawerButton />,
   unstable_headerLeftItems: () => [
     { type: 'custom' as const, element: <DrawerButton />, hidesSharedBackground: true },
   ],
@@ -295,6 +309,12 @@ export const headerRootStack = {
  * The menu is the outer of the two, in the corner it used to have to itself.
  */
 export const headerDeepStack = {
+  headerRight: () => (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <AnnouncementsButton />
+      <DrawerButton />
+    </View>
+  ),
   unstable_headerRightItems: () => [
     { type: 'custom' as const, element: <AnnouncementsButton />, hidesSharedBackground: true },
     { type: 'custom' as const, element: <DrawerButton />, hidesSharedBackground: true },
