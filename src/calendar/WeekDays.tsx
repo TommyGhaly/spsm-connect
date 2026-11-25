@@ -415,7 +415,9 @@ function PeekLine({
         alignItems: 'center',
         gap: theme.space.sm,
         paddingHorizontal: theme.space.md,
-        opacity: 0.6,
+        // A step down from the card rather than a ghost of it: at 0.6 in the
+        // faintest ink the neighbouring days were hard to read at all.
+        opacity: 0.9,
       }}
     >
       <Text
@@ -424,7 +426,7 @@ function PeekLine({
           fontWeight: '600',
           letterSpacing: 0.8,
           fontVariant: ['tabular-nums'],
-          color: isToday ? theme.color.accent : theme.color.inkFaint,
+          color: isToday ? theme.color.accent : theme.color.inkSoft,
         }}
       >
         {parts.weekdayShort.toUpperCase()} {parts.dayOfMonth}
@@ -433,7 +435,7 @@ function PeekLine({
       {entries.length > 0 ? (
         <Dots entries={entries} count={false} />
       ) : (
-        <Text style={{ fontSize: 12, color: theme.color.inkFaint }}>Nothing scheduled</Text>
+        <Text style={{ fontSize: 12, color: theme.color.inkSoft }}>Nothing scheduled</Text>
       )}
     </View>
   );

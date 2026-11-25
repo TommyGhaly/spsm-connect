@@ -513,7 +513,9 @@ private struct DayWheel: View {
                     perspective: 0.35
                 )
                 .scaleEffect(reduceMotion ? 1 : 1 - depth * 0.04)
-                .opacity(max(0.2, 1 - Double(depth) * 0.42))
+                // The neighbours a step down from the card, not a ghost of it:
+                // 0.85 one day out, so their dates read at a glance.
+                .opacity(max(0.3, 1 - Double(depth) * 0.15))
                 .accessibilityHidden(!isCentred)
             }
         }
@@ -521,12 +523,14 @@ private struct DayWheel: View {
         .frame(height: height, alignment: .top)
         .frame(maxWidth: .infinity)
         // Fades out at both ends instead of stopping square: most of what
-        // makes a picker read as a wheel rather than a list in a box.
+        // makes a picker read as a wheel rather than a list in a box. Only
+        // the outer edge of each peek, though — fading across the whole of
+        // it left the neighbouring days too faint to read.
         .mask(LinearGradient(
             stops: [
                 .init(color: .clear, location: 0),
-                .init(color: .black, location: peek / height),
-                .init(color: .black, location: 1 - peek / height),
+                .init(color: .black, location: peek * 0.35 / height),
+                .init(color: .black, location: 1 - peek * 0.35 / height),
                 .init(color: .clear, location: 1),
             ],
             startPoint: .top, endPoint: .bottom
@@ -627,7 +631,7 @@ private struct WheelPeek: View {
             Text("\(day.shortWeekday.uppercased()) \(day.dateNumber)")
                 .font(Face.label.monospacedDigit())
                 .kerning(0.8)
-                .foregroundStyle(day.isToday ? Ink.accent : Ink.inkFaint)
+                .foregroundStyle(day.isToday ? Ink.accent : Ink.inkSoft)
 
             if day.isToday {
                 Text("TODAY")
@@ -642,7 +646,7 @@ private struct WheelPeek: View {
             if day.occurrences.isEmpty {
                 Text("Nothing scheduled")
                     .font(.caption)
-                    .foregroundStyle(Ink.inkFaint)
+                    .foregroundStyle(Ink.inkSoft)
             } else {
                 HStack(spacing: 3) {
                     ForEach(Array(day.occurrences.enumerated()), id: \.offset) { _, item in
