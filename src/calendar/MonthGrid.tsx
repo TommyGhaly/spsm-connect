@@ -2,7 +2,7 @@
  * A month, as a grid you scan by date.
  *
  * ---------------------------------------------------------------------------
- * Quiet by default; the day you ask for, below.
+ * Quiet by default; the day you ask for, in a sheet.
  *
  * The cells carry a date and one coloured dot per entry, and nothing else. That
  * is enough to see that Saturdays are heavy and Wednesdays are empty, and
@@ -14,10 +14,12 @@
  * buried under about four hundred words. On a phone the cells are 48 points
  * wide, so the question does not even arise.
  *
- * Tapping a day opens it in a panel below the grid. That is the website's own
- * narrow-screen behaviour, `DayPanel`, rather than an invention: its wide
+ * Tapping a day raises it as a sheet from the foot of the screen — the website's
+ * own narrow-screen behaviour, `DaySheet`, rather than an invention. Its wide
  * layout opens a whole *week* in the cells on hover, and there is no hover on a
- * touch screen and no room in a 48-point cell to open anything into.
+ * touch screen and no room in a 48-point cell to open anything into. The sheet
+ * replaced a panel under the grid, on both surfaces, because on a phone that
+ * panel was a scroll away from the date that opened it; see `DaySheet.tsx`.
  * ---------------------------------------------------------------------------
  *
  * The website's version is a `<table>`, and argues for it: a month view is
@@ -27,15 +29,15 @@
  * accessibility label instead. That is more verbose and it is the only way the
  * column is recoverable by ear.
  */
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 import { dayParts, type CalendarOccurrence, type ViewRange } from '@spsm/shared';
 
-import { Label, Micro, Small, Subheading } from '@/components/Type';
+import { Label, Micro } from '@/components/Type';
 import { useTheme } from '@/theme/ThemeProvider';
 
+import { DaySheet } from './DaySheet';
 import { Dots } from './Dots';
-import { Entry } from './Entry';
 
 /**
  * Monday first, matching `WEEK_STARTS_ON` in @spsm/shared.
@@ -53,18 +55,25 @@ export function MonthGrid({
   byDay,
   today,
   loading,
+  over,
   onOpen,
 }: {
   range: ViewRange;
   byDay: Map<string, CalendarOccurrence[]>;
   today: string;
-  /** Suppresses "Nothing scheduled" in the panel before the answer lands. */
+  /** Suppresses "Nothing scheduled" in the sheet before the answer lands. */
   loading: boolean;
+  /**
+   * The event sheet. Presented from inside the day sheet while that is up, so
+   * it stacks on top of it — see `DaySheet` for why it cannot be a sibling —
+   * and beside the grid otherwise.
+   */
+  over: ReactNode;
   onOpen: (occurrence: CalendarOccurrence, day: string) => void;
 }) {
   const theme = useTheme();
 
-  /** The day whose entries are listed below the grid, until it is tapped again. */
+  /** The day the sheet is open on, until the sheet is put away. */
   const [picked, setPicked] = useState<string | null>(null);
 
   /*
@@ -115,9 +124,7 @@ export function MonthGrid({
                 inMonth={day.slice(0, 7) === monthKey}
                 isToday={day === today}
                 isPicked={day === picked}
-                // Tapping the day it is already on puts it away again, which is
-                // the only gesture the grid itself offers for closing the panel.
-                onPick={() => setPicked((current) => (current === day ? null : day))}
+                onPick={() => setPicked(day)}
               />
             ))}
           </View>
@@ -125,15 +132,20 @@ export function MonthGrid({
       </View>
 
       {picked ? (
-        <DayPanel
+        <DaySheet
+          days={range.days}
           day={picked}
-          entries={byDay.get(picked) ?? []}
-          isToday={picked === today}
+          byDay={byDay}
+          today={today}
           loading={loading}
+          over={over}
+          onPick={setPicked}
           onShut={() => setPicked(null)}
           onOpen={onOpen}
         />
-      ) : null}
+      ) : (
+        over
+      )}
     </View>
   );
 }
@@ -171,7 +183,7 @@ function DayCell({
    *
    * A filled disc is the convention every calendar on the phone already uses,
    * it is the size of one numeral rather than of a cell, and it leaves the
-   * cell's own background free to say the other thing: which day is open below.
+   * cell's own background free to say the other thing: which day the sheet is on.
    */
   const face = (
     <>
@@ -237,100 +249,11 @@ function DayCell({
       onPress={onPick}
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ expanded: isPicked }}
+      accessibilityHint="Opens the day"
+      accessibilityState={{ selected: isPicked }}
       style={({ pressed }) => [box, pressed ? { backgroundColor: theme.color.paperSunken } : null]}
     >
       {face}
     </Pressable>
-  );
-}
-
-/**
- * One day's entries, listed under the grid.
- *
- * The week view's `Entry` rather than a smaller chip of its own. A chip exists
- * to survive a narrow column — it drops the end time, the location, the note
- * and the contact to do it — and none of that is worth giving up here, where
- * the list has the whole width of the screen. Two renderings of an entry is
- * already one more than ideal; a third, for a panel with room for the real one,
- * would be indefensible.
- *
- * Which is why the panel is a sunken band and not a `Card`. An entry is a
- * raised row, and a card is raised too: on one the other vanished, and the
- * panel read as a page of text where the week view reads as a stack of things.
- * `paperSunken` is the palette's own answer to this — "alternating bands that
- * group sections without drawing a box" — and it does the second job as well,
- * which is to tie the panel to the grid it opened out of.
- */
-function DayPanel({
-  day,
-  entries,
-  isToday,
-  loading,
-  onShut,
-  onOpen,
-}: {
-  day: string;
-  entries: CalendarOccurrence[];
-  isToday: boolean;
-  loading: boolean;
-  onShut: () => void;
-  onOpen: (occurrence: CalendarOccurrence, day: string) => void;
-}) {
-  const theme = useTheme();
-  const parts = dayParts(day);
-
-  return (
-    <View
-      style={{
-        backgroundColor: theme.color.paperSunken,
-        borderRadius: theme.radius.md,
-        padding: theme.space.sm,
-        gap: theme.space.xs,
-      }}
-    >
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: theme.space.xs,
-          paddingHorizontal: theme.space.xs,
-        }}
-      >
-        <Subheading color={isToday ? theme.color.accent : theme.color.ink}>
-          {parts.weekday} {parts.month} {parts.dayOfMonth}
-        </Subheading>
-        <View style={{ flex: 1 }} />
-        {/*
-          A close button, because the other way out is tapping the same date a
-          second time and nothing on the grid says so. The grid keeps that
-          gesture; this is the one anybody finds.
-        */}
-        <Pressable
-          onPress={onShut}
-          accessibilityRole="button"
-          accessibilityLabel={`Close ${parts.weekday} ${parts.month} ${parts.dayOfMonth}`}
-          hitSlop={theme.space.sm}
-        >
-          <Small color={theme.color.inkFaint}>✕</Small>
-        </Pressable>
-      </View>
-
-      {entries.length === 0 ? (
-        loading ? null : (
-          <View style={{ paddingHorizontal: theme.space.xs }}>
-            <Small color={theme.color.inkFaint}>Nothing scheduled</Small>
-          </View>
-        )
-      ) : (
-        entries.map((occurrence) => (
-          <Entry
-            key={`${occurrence.source}:${occurrence.id}`}
-            occurrence={occurrence}
-            onOpen={() => onOpen(occurrence, day)}
-          />
-        ))
-      )}
-    </View>
   );
 }

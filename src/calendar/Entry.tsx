@@ -51,9 +51,16 @@ export const THUMB = 48;
 export function Entry({
   occurrence,
   onOpen,
+  thumb = THUMB,
 }: {
   occurrence: CalendarOccurrence;
   onOpen: () => void;
+  /**
+   * The picture's box. Larger in the month's day sheet, which has the full
+   * width and no neighbouring day to keep level with — the website's
+   * `.sched-daysheet .sched-entry__thumb`.
+   */
+  thumb?: number;
 }) {
   const theme = useTheme();
   // Through `kindOf`, never off `.kind` directly — it is null for everything
@@ -170,7 +177,7 @@ export function Entry({
           {occurrence.contact ? <Contact contact={occurrence.contact} /> : null}
         </View>
 
-        {occurrence.imageUrl ? <Thumb url={occurrence.imageUrl} /> : null}
+        {occurrence.imageUrl ? <Thumb url={occurrence.imageUrl} box={thumb} /> : null}
       </View>
     </Pressable>
   );
@@ -260,18 +267,18 @@ function Contact({ contact }: { contact: string }) {
  * Nothing at all if it will not load: a grey box reads as the screen having
  * failed rather than as an entry with no picture.
  */
-function Thumb({ url }: { url: string }) {
+function Thumb({ url, box }: { url: string; box: number }) {
   const theme = useTheme();
   const [broken, setBroken] = useState(false);
   const [ratio, setRatio] = useState<number | null>(null);
   if (broken) return null;
 
-  const width = ratio === null ? THUMB : ratio >= 1 ? THUMB : THUMB * ratio;
-  const height = ratio === null ? THUMB : ratio >= 1 ? THUMB / ratio : THUMB;
+  const width = ratio === null ? box : ratio >= 1 ? box : box * ratio;
+  const height = ratio === null ? box : ratio >= 1 ? box / ratio : box;
 
   return (
     <View
-      style={{ width: THUMB, height: THUMB, alignItems: 'center', justifyContent: 'center' }}
+      style={{ width: box, height: box, alignItems: 'center', justifyContent: 'center' }}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >

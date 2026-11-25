@@ -14,9 +14,9 @@
  * in, and it is what somebody standing in the narthex on a Tuesday wants.
  *
  * The month is still here, one tap away, and it is a real month rather than a
- * shrunken table — dots by kind in the cells, and the day you tap opened in
- * full below the grid. That is the website's own narrow-screen behaviour
- * (`MonthView`'s `DayPanel`), not an invention for this app.
+ * shrunken table — dots by kind in the cells, and the day you tap raised as a
+ * sheet with its week along the top. That is the website's own narrow-screen
+ * behaviour (`MonthView`'s `DaySheet`), not an invention for this app.
  * ---------------------------------------------------------------------------
  *
  * ## What is shared, and what is not
@@ -392,10 +392,27 @@ export function CalendarScreen({
    * in whatever height is left, the key and the switch at the foot — so the
    * only things that scroll are the wheel and the list, side by side in
    * separate parts of the screen. The month has nothing in it that scrolls of
-   * its own: a grid is a grid, and the day panel it opens is as long as the day
-   * is, so the page is the right thing to move.
+   * its own: a grid is a grid, and the day it opens is a sheet over it, so the
+   * page is the right thing to move.
    */
   const fixed = view === 'week';
+
+  /*
+   * The event sheet, built once and placed by the view: beside the week, and
+   * handed to the month so it can present it from inside its day sheet, on top
+   * of it, the way the website stacks `EventDialog` over the day.
+   */
+  const eventSheet = (
+    <EventSheet
+      occurrence={openedNow}
+      day={opened?.day ?? null}
+      detail={openedNow ? (layers.details.get(openedNow.id) ?? null) : null}
+      mayEdit={mayEdit}
+      onOpenPage={onOpenPage}
+      onClose={() => setOpened(null)}
+      onChanged={() => setReload((count) => count + 1)}
+    />
+  );
 
   return (
     <Screen
@@ -491,6 +508,7 @@ export function CalendarScreen({
           byDay={byDay}
           today={today}
           loading={busy}
+          over={eventSheet}
           onOpen={(occurrence, day) => setOpened({ occurrence, day })}
         />
       )}
@@ -520,15 +538,7 @@ export function CalendarScreen({
 
       {!isServant && !sessionLoading ? <SignInOffer onOpenPage={onOpenPage} /> : null}
 
-      <EventSheet
-        occurrence={openedNow}
-        day={opened?.day ?? null}
-        detail={openedNow ? (layers.details.get(openedNow.id) ?? null) : null}
-        mayEdit={mayEdit}
-        onOpenPage={onOpenPage}
-        onClose={() => setOpened(null)}
-        onChanged={() => setReload((count) => count + 1)}
-      />
+      {fixed ? eventSheet : null}
     </Screen>
   );
 }
